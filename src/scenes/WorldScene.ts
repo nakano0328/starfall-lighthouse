@@ -3,10 +3,11 @@ import Phaser from 'phaser';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TILE_SIZE } from '@/config';
 import { evaluateCondition } from '@core/condition';
 import { Flags } from '@core/flags';
+import { GridMover } from '@core/grid/mover';
 import { cameraScroll } from '@core/map/camera';
 import { PLACEHOLDER_TILESET_NAME, compileMap } from '@core/map/compile';
-import type { MapObject, NpcObject } from '@core/map/objects';
-import { CollisionGrid, parseMapObjects } from '@core/map/objects';
+import type { MapObject, NpcObject, WarpObject } from '@core/map/objects';
+import { CollisionGrid, objectsAt, parseMapObjects } from '@core/map/objects';
 import type { TiledMap } from '@core/map/tiled';
 import type { SaveData } from '@core/save';
 import { getMapSource } from '@data/maps';
@@ -22,20 +23,31 @@ export interface WorldSceneData {
 /** Draw order: ground 0, deco 1, objects/actors 10 (+ y for sorting), above 20, HUD 100. */
 const DEPTH = { ground: 0, deco: 1, actors: 10, above: 20, hud: 100 } as const;
 
+/** Map transition fade (docs/GAME_DESIGN.md §9.2) and post-warp invulnerability. */
+const WARP_FADE_MS = 250;
+const WARP_SAFE_MS = 1000;
+
 /**
  * Field scene. Compiles the authored map for the save location into Tiled JSON,
- * renders its layers, places map objects and the player, and keeps the camera on
- * the player. Movement (#6), dialog (#7) and interactions (#8) build on this.
+ * renders its layers, places map objects and the player, moves the player on the
+ * grid, follows with the camera and handles warps. Dialog (#7) and interactions
+ * (#8) build on this.
  */
 export class WorldScene extends Phaser.Scene {
   private save!: SaveData;
+  private flags!: Flags;
   private input2!: InputBindings;
   private player!: Phaser.GameObjects.Image;
+  private mover!: GridMover;
+  private hud!: Phaser.GameObjects.Text;
   private tiled!: TiledMap;
   private collision!: CollisionGrid;
   private objects: MapObject[] = [];
   private mapPixelWidth = 0;
   private mapPixelHeight = 0;
+  private transitioning = false;
+  /** Enemies may not engage the player before this time (scene time, ms). */
+  private safeUntil = 0;
 
   constructor() {
     super(SceneKey.World);
@@ -43,6 +55,8 @@ export class WorldScene extends Phaser.Scene {
 
   init(data: WorldSceneData): void {
     this.save = data.save;
+    this.flags = Flags.wrap(this.save.flags);
+    this.transitioning = false;
   }
 
   create(): void {
@@ -51,32 +65,44 @@ export class WorldScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.input2.destroy());
 
     this.buildMap(this.save.location.map);
-    this.spawnObjects();
+    const blockers = this.spawnObjects();
+    this.collision = this.collision.withBlocked(blockers);
 
     const { x, y, facing } = this.save.location;
-    this.player = this.add
-      .image(tileCenter(x), tileCenter(y), 'sprite_player', facing)
-      .setDepth(DEPTH.actors + y / 1000);
-
-    this.updateCamera();
-    this.add
-      .text(8, 8, `${this.save.location.map}  (${x}, ${y})`, {
-        fontFamily: 'sans-serif',
-        fontSize: '12px',
-        color: COLORS.textDim,
-      })
+    this.mover = new GridMover({ x, y, facing }, (tx, ty) => this.collision.isBlocked(tx, ty));
+    this.player = this.add.image(0, 0, 'sprite_player', facing);
+    this.hud = this.add
+      .text(8, 8, '', { fontFamily: 'sans-serif', fontSize: '12px', color: COLORS.textDim })
       .setScrollFactor(0)
       .setDepth(DEPTH.hud);
+    this.syncPlayerSprite();
+    this.updateCamera();
 
-    this.cameras.main.fadeIn(300, 0, 0, 0);
+    this.safeUntil = this.time.now + WARP_SAFE_MS;
+    this.cameras.main.fadeIn(WARP_FADE_MS, 0, 0, 0);
     if (window.__starfall) window.__starfall.scene = SceneKey.World;
   }
 
-  override update(): void {
+  override update(_time: number, delta: number): void {
+    if (this.transitioning) return;
     // Temporary until the pause menu exists (#9): X / Esc returns to the title.
     if (this.input2.justPressed('cancel')) {
       this.scene.start(SceneKey.Title);
+      return;
     }
+    const dir = this.input2.heldDirection();
+    const dash = this.input2.isDown('dash');
+    for (const event of this.mover.update(delta, dir, dash)) {
+      if (event.type === 'step_end') this.onEnterTile(event.x, event.y);
+      if (this.transitioning) break;
+    }
+    this.syncPlayerSprite();
+    this.updateCamera();
+  }
+
+  /** True while the player is still protected after a map transition. */
+  get isSafe(): boolean {
+    return this.time.now < this.safeUntil;
   }
 
   /** Compiles the authored map (cached per map id) and creates its tile layers. */
@@ -105,35 +131,81 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /**
-   * Places a sprite for every visible map object (NPCs, chests, signs, save points).
-   * NPCs gated by `hidden_if` / `condition` (docs/GAME_DESIGN.md §9.3) get no sprite while
-   * the save flags hide them; `this.objects` keeps them so visibility can be re-evaluated
-   * when flags change (#7/#8).
+   * Places a sprite for every visible map object and returns the tiles that
+   * block movement (NPCs). Hidden NPCs neither render nor block.
    */
-  private spawnObjects(): void {
-    const flags = new Flags(this.save.flags);
+  private spawnObjects(): { x: number; y: number }[] {
+    const blockers: { x: number; y: number }[] = [];
     for (const o of this.objects) {
       const x = tileCenter(o.tx);
       const y = tileCenter(o.ty);
       const depth = DEPTH.actors + o.ty / 1000;
       switch (o.kind) {
         case 'npc':
-          if (!isNpcVisible(o, flags)) break;
+          if (!this.isNpcVisible(o)) break;
           this.add.image(x, y, 'sprite_npc', o.facing).setDepth(depth);
+          blockers.push({ x: o.tx, y: o.ty });
           break;
         case 'chest':
-          this.add.image(x, y, 'obj_chest', flags.has(o.flag) ? 'open' : 'closed').setDepth(depth);
+          this.add
+            .image(x, y, 'obj_chest', this.flags.has(o.flag) ? 'open' : 'closed')
+            .setDepth(depth);
+          blockers.push({ x: o.tx, y: o.ty });
           break;
         case 'sign':
           this.add.image(x, y, 'obj_sign').setDepth(depth);
+          blockers.push({ x: o.tx, y: o.ty });
           break;
         case 'save_point':
           this.add.image(x, y, 'obj_save_point').setDepth(depth);
+          blockers.push({ x: o.tx, y: o.ty });
           break;
         default:
           break; // warps, triggers and enemies have no static sprite
       }
     }
+    return blockers;
+  }
+
+  private isNpcVisible(npc: NpcObject): boolean {
+    if (npc.hiddenIf !== undefined && evaluateCondition(npc.hiddenIf, this.flags)) return false;
+    if (npc.condition !== undefined && !evaluateCondition(npc.condition, this.flags)) return false;
+    return true;
+  }
+
+  /** Called when a step lands on a tile: records the position and checks warps. */
+  private onEnterTile(x: number, y: number): void {
+    this.save.location = { ...this.save.location, x, y, facing: this.mover.position.facing };
+    const warp = objectsAt(this.objects, x, y).find((o): o is WarpObject => o.kind === 'warp');
+    // Locked doors (required_item) are opened by interacting with them (#8).
+    if (warp && warp.requiredItem === undefined) this.startWarp(warp);
+  }
+
+  private startWarp(warp: WarpObject): void {
+    this.transitioning = true;
+    this.input2.flush();
+    this.cameras.main.fadeOut(WARP_FADE_MS, 0, 0, 0);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.save.location = {
+        map: warp.targetMap,
+        x: warp.targetX,
+        y: warp.targetY,
+        facing: warp.facing,
+      };
+      const data: WorldSceneData = { save: this.save };
+      this.scene.restart(data);
+    });
+  }
+
+  private syncPlayerSprite(): void {
+    const rp = this.mover.renderPosition;
+    const bob = this.mover.isMoving ? -Math.round(2 * Math.sin(this.mover.progress * Math.PI)) : 0;
+    this.player
+      .setPosition(rp.x * TILE_SIZE + TILE_SIZE / 2, rp.y * TILE_SIZE + TILE_SIZE / 2 + bob)
+      .setFrame(this.mover.position.facing)
+      .setDepth(DEPTH.actors + rp.y / 1000);
+    const { x, y } = this.mover.position;
+    this.hud.setText(`${this.save.location.map}  (${x}, ${y})`);
   }
 
   private updateCamera(): void {
@@ -151,11 +223,4 @@ export class WorldScene extends Phaser.Scene {
 
 function tileCenter(tile: number): number {
   return tile * TILE_SIZE + TILE_SIZE / 2;
-}
-
-/** An NPC is drawn unless its `hidden_if` holds or its `condition` fails (§9.3). */
-function isNpcVisible(npc: NpcObject, flags: Flags): boolean {
-  if (npc.hiddenIf !== undefined && evaluateCondition(npc.hiddenIf, flags)) return false;
-  if (npc.condition !== undefined && !evaluateCondition(npc.condition, flags)) return false;
-  return true;
 }
