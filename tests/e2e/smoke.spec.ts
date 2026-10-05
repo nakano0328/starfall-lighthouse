@@ -768,6 +768,8 @@ async function fightWithAttacks(page: Page, maxTurns = 40): Promise<void> {
       undefined,
       { timeout: 5_000 },
     );
+    // Two confirms closer than CONFIRM_DEBOUNCE_MS (120 ms) count as one (§11.4 連打防止).
+    await page.waitForTimeout(200);
     await page.keyboard.press('z'); // first live enemy
     await page.waitForTimeout(200);
   }
