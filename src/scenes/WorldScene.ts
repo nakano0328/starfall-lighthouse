@@ -45,6 +45,7 @@ import { DIALOGS } from '@data/dialogs';
 import { getEncounter } from '@data/encounters';
 import { getEnemy } from '@data/enemies';
 import { EVENTS } from '@data/events';
+import { findEquip } from '@data/equipment';
 import { findItem } from '@data/items';
 import { getMapSource } from '@data/maps';
 import { PARTY_NAMES } from '@data/names';
@@ -767,7 +768,7 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     const added = this.state.inventory.add(chest.itemId, chest.qty);
-    const name = findItem(chest.itemId)?.name ?? chest.itemId;
+    const name = findItem(chest.itemId)?.name ?? findEquip(chest.itemId)?.name ?? chest.itemId;
     if (added <= 0) {
       this.showMessage([pickupMessage(name, 0, chest.qty)]);
       return;

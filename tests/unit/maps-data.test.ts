@@ -8,6 +8,7 @@ import type { LegendEntry, MapSource } from '@core/map/source';
 import { OVERLAY_EMPTY, normalizeLegendEntry } from '@core/map/source';
 import { createNewSave } from '@core/save';
 import { DIALOGS } from '@data/dialogs';
+import { findEquip } from '@data/equipment';
 import { findItem } from '@data/items';
 import { MAP_IDS, MAP_SOURCES, getMapSource } from '@data/maps';
 import type { Facing } from '@data/types';
@@ -166,9 +167,12 @@ describe('authored maps', () => {
           const label = `${id} chest ${o.flag} (${o.itemId})`;
           expect(o.qty, `${label} qty`).toBeGreaterThanOrEqual(1);
           if (o.itemId !== 'gold') {
+            // §9.3: chests hold it_* consumables/keys or eq_* equipment (one piece at a time).
             const def = findItem(o.itemId);
-            expect(def, label).toBeDefined();
-            expect(o.qty, `${label} qty`).toBeLessThanOrEqual(def!.maxQty);
+            const equip = findEquip(o.itemId);
+            expect(def ?? equip, label).toBeDefined();
+            if (def) expect(o.qty, `${label} qty`).toBeLessThanOrEqual(def.maxQty);
+            else expect(o.qty, `${label} equipment qty`).toBe(1);
           }
         }
         if (o.kind === 'warp' && o.requiredItem !== undefined)
