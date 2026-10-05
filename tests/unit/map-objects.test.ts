@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { compileMap } from '@core/map/compile';
 import { CollisionGrid, MapObjectError, objectsAt, parseMapObjects } from '@core/map/objects';
+import type { MapObject } from '@core/map/objects';
 import type { MapSource } from '@core/map/source';
-import type { TiledMap } from '@core/map/tiled';
+import type { TiledMap, TiledProperty, TiledPropertyValue } from '@core/map/tiled';
 
 const src: MapSource = {
   meta: {
@@ -11,7 +12,7 @@ const src: MapSource = {
     displayName: 'テスト',
     kind: 'field',
     bgmKey: 'bgm_field',
-    battleBgKey: 'battle_bg_coast',
+    battleBgKey: 'bg_coast',
     encounterGroups: [],
     tilesets: ['ts_placeholder'],
     entrance: { x: 0, y: 0, facing: 'down' },
@@ -58,6 +59,44 @@ const src: MapSource = {
     { type: 'trigger', x: 3, y: 2, event_id: 'ev_t', once: false, condition: 'main.chapter>=1' },
   ],
 };
+
+/** Copy of `base` whose events layer holds a single object, as a Tiled export would carry it. */
+function withOnlyObject(
+  base: TiledMap,
+  type: string,
+  tile: { x: number; y: number; w?: number; h?: number },
+  props: Record<string, TiledPropertyValue>,
+): TiledMap {
+  const copy = structuredClone(base) as TiledMap;
+  const layer = copy.layers.find((l) => l.type === 'objectgroup');
+  if (layer?.type !== 'objectgroup') throw new Error('no events layer');
+  layer.objects = [
+    {
+      id: 1,
+      name: `${type}_1`,
+      type,
+      x: tile.x * base.tilewidth,
+      y: tile.y * base.tileheight,
+      width: (tile.w ?? 1) * base.tilewidth,
+      height: (tile.h ?? 1) * base.tileheight,
+      rotation: 0,
+      visible: true,
+      properties: Object.entries(props).map(([name, value]): TiledProperty => ({
+        name,
+        type:
+          typeof value === 'string'
+            ? 'string'
+            : typeof value === 'boolean'
+              ? 'bool'
+              : Number.isInteger(value)
+                ? 'int'
+                : 'float',
+        value,
+      })),
+    },
+  ];
+  return copy;
+}
 
 describe('parseMapObjects', () => {
   const map = compileMap(src);
@@ -134,9 +173,163 @@ describe('parseMapObjects', () => {
     expect(() => parseMapObjects(broken)).toThrow(/multiples of the tile size/);
   });
 
+  const npc = { id: 'npc_x', dialog: 'dlg_x', facing: 'down', sprite: 'sprite_npc' };
+  const invalid: [
+    string,
+    string,
+    { x: number; y: number },
+    Record<string, TiledPropertyValue>,
+    RegExp,
+  ][] = [
+    [
+      'sign outside the map',
+      'sign',
+      { x: map.width, y: 0 },
+      { text_id: 'dlg_x' },
+      /outside the map/,
+    ],
+    [
+      'warp whose target_x is a string',
+      'warp',
+      { x: 0, y: 0 },
+      { target_map: 'map_b', target_x: '1', target_y: 1, facing: 'up' },
+      /missing int property target_x/,
+    ],
+    [
+      'enemy with a fractional respawn_sec',
+      'enemy',
+      { x: 0, y: 0 },
+      { group_id: 'grp_a', respawn_sec: 1.5 },
+      /respawn_sec must be an int/,
+    ],
+    [
+      'npc with an unknown facing',
+      'npc',
+      { x: 0, y: 0 },
+      { ...npc, facing: 'north' },
+      /must be a facing/,
+    ],
+    [
+      'chest with an unknown tide',
+      'chest',
+      { x: 0, y: 0 },
+      { item_id: 'it_herb', qty: 1, flag: 'chest.x', tide: 'mid' },
+      /high\/low\/any/,
+    ],
+    [
+      'npc with an unknown move',
+      'npc',
+      { x: 0, y: 0 },
+      { ...npc, move: 'wander' },
+      /static\/random/,
+    ],
+    [
+      'npc with a numeric shop',
+      'npc',
+      { x: 0, y: 0 },
+      { ...npc, shop: 123 },
+      /shop must be a string/,
+    ],
+    [
+      'save_point with a string heal',
+      'save_point',
+      { x: 0, y: 0 },
+      { heal: 'yes' },
+      /heal must be a bool/,
+    ],
+    [
+      'trigger without once',
+      'trigger',
+      { x: 0, y: 0 },
+      { event_id: 'ev_x' },
+      /missing bool property once/,
+    ],
+    [
+      'enemy with an empty group_id list',
+      'enemy',
+      { x: 0, y: 0 },
+      { group_id: ' , ' },
+      /group_id must list at least one group/,
+    ],
+    [
+      'npc with a two-clause hidden_if',
+      'npc',
+      { x: 0, y: 0 },
+      { ...npc, hidden_if: 'a && b' },
+      /property hidden_if: condition "a && b"/,
+    ],
+    [
+      'npc with a one-segment condition',
+      'npc',
+      { x: 0, y: 0 },
+      { ...npc, condition: 'flag' },
+      /property condition: condition "flag"/,
+    ],
+    [
+      'trigger with a one-segment condition',
+      'trigger',
+      { x: 0, y: 0 },
+      { event_id: 'ev_x', once: true, condition: 'flag' },
+      /property condition: condition "flag"/,
+    ],
+  ];
+
+  it.each(invalid)('rejects a %s', (_label, type, tile, props, message) => {
+    const broken = withOnlyObject(map, type, tile, props);
+    expect(() => parseMapObjects(broken)).toThrow(MapObjectError);
+    expect(() => parseMapObjects(broken)).toThrow(message);
+  });
+
+  it('applies save_point defaults when no properties are given', () => {
+    const [savePoint] = parseMapObjects(withOnlyObject(map, 'save_point', { x: 1, y: 2 }, {}));
+    expect(savePoint).toMatchObject({ kind: 'save_point', heal: false });
+    expect(savePoint).not.toHaveProperty('onceFlag');
+  });
+
+  it('treats a Tiled point object (zero size) as one tile', () => {
+    const [sign] = parseMapObjects(
+      withOnlyObject(map, 'sign', { x: 1, y: 1, w: 0, h: 0 }, { text_id: 'dlg_x' }),
+    );
+    expect(sign).toMatchObject({ kind: 'sign', tx: 1, ty: 1, tw: 1, th: 1 });
+  });
+
   it('returns no objects when the events layer is absent', () => {
     const noEvents = { ...map, layers: map.layers.filter((l) => l.type !== 'objectgroup') };
     expect(parseMapObjects(noEvents)).toEqual([]);
+  });
+});
+
+describe('objectsAt', () => {
+  const at = { tx: 1, ty: 1, tw: 1, th: 1 };
+  // Declared in reverse priority so a dropped or source-order sort yields the opposite sequence.
+  const stacked: MapObject[] = [
+    { kind: 'enemy', ...at, groupIds: ['grp_a'], respawnSec: 60, radius: 4, tide: 'any' },
+    { kind: 'trigger', ...at, eventId: 'ev_x', once: true },
+    { kind: 'warp', ...at, targetMap: 'map_b', targetX: 0, targetY: 0, facing: 'up' },
+    { kind: 'save_point', ...at, heal: false },
+    { kind: 'sign', ...at, textId: 'dlg_x' },
+    { kind: 'chest', ...at, itemId: 'it_herb', qty: 1, flag: 'chest.x', tide: 'any' },
+    {
+      kind: 'npc',
+      ...at,
+      id: 'npc_x',
+      dialog: 'dlg_x',
+      facing: 'down',
+      sprite: 'sprite_npc',
+      move: 'static',
+    },
+  ];
+
+  it('orders stacked objects by interaction priority regardless of source order', () => {
+    expect(objectsAt(stacked, 1, 1).map((o) => o.kind)).toEqual([
+      'npc',
+      'chest',
+      'sign',
+      'save_point',
+      'warp',
+      'trigger',
+      'enemy',
+    ]);
   });
 });
 
