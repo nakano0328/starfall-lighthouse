@@ -132,11 +132,73 @@ test('new game: opening event, leave the house, read the village sign', async ({
   }
   expect((await world()).dialog).toBe(false);
 
-  // X returns to the title for now (until the pause menu exists).
+  // X opens the pause menu over the paused field; the item tab lists the lamp oil.
   await page.keyboard.press('x');
-  await page.waitForFunction(() => window.__starfall?.scene === 'Title', undefined, {
-    timeout: 10_000,
+  await page.waitForFunction(
+    () => {
+      const game = window.__starfall?.game as { scene: { isActive: (k: string) => boolean } };
+      return game.scene.isActive('Menu');
+    },
+    undefined,
+    { timeout: 5_000 },
+  );
+  const menuMode = () =>
+    page.evaluate(() => {
+      const game = window.__starfall?.game as {
+        scene: { getScene: (k: string) => { currentMode: string } };
+      };
+      return game.scene.getScene('Menu').currentMode;
+    });
+  expect(await menuMode()).toBe('root');
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(150);
+  await page.keyboard.press('z');
+  await page.waitForTimeout(200);
+  expect(await menuMode()).toBe('items');
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(150);
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(150);
+  const keyItems = await page.evaluate(() => {
+    const game = window.__starfall?.game as {
+      scene: { getScene: (k: string) => { panelMenu?: { items: { label: string }[] } } };
+    };
+    return game.scene.getScene('Menu').panelMenu?.items.map((i) => i.label) ?? [];
   });
+  expect(keyItems.some((label) => label.includes('とうだいの油'))).toBe(true);
+  await page.keyboard.press('x');
+  await page.waitForTimeout(150);
+  expect(await menuMode()).toBe('root');
+
+  // Settings (root index 4): text speed → はやい, persisted on close.
+  const rootIndex = await page.evaluate(() => {
+    const game = window.__starfall?.game as {
+      scene: { getScene: (k: string) => { rootMenu: { selectedIndex: number } } };
+    };
+    return game.scene.getScene('Menu').rootMenu.selectedIndex;
+  });
+  for (let i = rootIndex; i < 4; i += 1) {
+    await page.keyboard.press('ArrowDown');
+    await page.waitForTimeout(120);
+  }
+  await page.keyboard.press('z');
+  await page.waitForTimeout(200);
+  expect(await menuMode()).toBe('settings');
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(150);
+  await page.keyboard.press('x');
+  await page.waitForTimeout(150);
+  await page.keyboard.press('x');
+  await page.waitForFunction(
+    () => {
+      const game = window.__starfall?.game as { scene: { isActive: (k: string) => boolean } };
+      return game.scene.isActive('World') && !game.scene.isActive('Menu');
+    },
+    undefined,
+    { timeout: 5_000 },
+  );
+  const stored = await page.evaluate(() => window.localStorage.getItem('starfall.settings'));
+  expect(stored).toContain('"textSpeed":"fast"');
 
   expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
 });

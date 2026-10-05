@@ -33,6 +33,7 @@ import { DialogBox } from '@ui/DialogBox';
 import { InputBindings } from '@ui/InputBindings';
 
 import { SceneKey } from './keys';
+import type { MenuSceneData } from './MenuScene';
 
 export interface WorldSceneData {
   /** The run being played; location/flags/inventory are read from and written back to it. */
@@ -165,6 +166,7 @@ export class WorldScene extends Phaser.Scene {
 
   override update(_time: number, delta: number): void {
     if (this.transitioning) return;
+    this.save.playTimeSec += delta / 1000;
     if (this.dialogBox.isOpen) {
       this.dialogBox.update(this.input2, delta);
       this.mover.update(delta, null, false);
@@ -177,9 +179,8 @@ export class WorldScene extends Phaser.Scene {
       this.updateCamera();
       return;
     }
-    // Temporary until the pause menu exists (#9): X / Esc returns to the title.
-    if (this.input2.justPressed('cancel')) {
-      this.scene.start(SceneKey.Title);
+    if (this.input2.justPressed('cancel') && !this.mover.isMoving) {
+      this.openMenu();
       return;
     }
     if (this.input2.justPressed('confirm') && !this.mover.isMoving) {
@@ -196,6 +197,22 @@ export class WorldScene extends Phaser.Scene {
     }
     this.syncPlayerSprite();
     this.updateCamera();
+  }
+
+  /** Pauses the field and shows the pause menu; settings are re-read on resume. */
+  private openMenu(): void {
+    this.input2.flush();
+    const data: MenuSceneData = {
+      state: this.state,
+      canSave: getMapSource(this.save.location.map).meta.canSaveAnywhere,
+    };
+    this.events.once(Phaser.Scenes.Events.RESUME, () => {
+      this.settings = parseSettings(readStorage(SETTINGS_KEY));
+      this.dialogBox.setTextSpeed(TEXT_SPEED_MS[this.settings.textSpeed]);
+      this.input2.flush();
+    });
+    this.scene.launch(SceneKey.Menu, data);
+    this.scene.pause();
   }
 
   // ---- probes for e2e / debugging ------------------------------------------
