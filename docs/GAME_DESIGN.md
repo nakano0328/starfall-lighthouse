@@ -1044,7 +1044,7 @@ Z（決定）で向いているタイルのオブジェクトに作用する。�
 
 ## 12. セーブ仕様
 
-### 12.1 現行スキーマ v1（`src/core/save.ts` と一致）
+### 12.1 スキーマ v1（Phase 2 前半。現行は §12.2 の v2）
 
 ```ts
 export const SAVE_SCHEMA_VERSION = 1;
@@ -1069,7 +1069,7 @@ interface SaveData {
 - `createNewSave` は `location.map = 'map_minato_luka_house'`（x7, y7, up）を返す（`tests/unit/save.test.ts` で検証）。ニューゲーム直後に同じタイルの `trigger` が `ev_opening` を発火する（§10.3）。
 - スロット以外に `starfall.save.auto`（ボス前自動バックアップ、§5.11）と `starfall.settings`（設定）を持つ。これらは `SAVE_SLOT_COUNT` の範囲外で `slotKey()` を通さない。
 
-### 12.2 v2 追加項目（Phase 3 でパーティ・所持品が生まれた時点で導入）
+### 12.2 現行スキーマ v2（`src/core/save.ts` と一致）
 
 ```ts
 interface SaveDataV2 extends SaveData {
@@ -1082,6 +1082,7 @@ interface SaveDataV2 extends SaveData {
     mp: number;
     ko: boolean;
     equipment: { weapon: string | null; armor: string | null; accessory: string | null };
+    statuses: StatusKey[]; // フィールドで持ち越す状態異常（毒など）
   }[]; // 加入順。未加入は含めない
   inventory: { itemId: string; qty: number }[]; // it_* と未装備の eq_*
   chapter: number; // main.chapter の複製（スロット一覧表示用）

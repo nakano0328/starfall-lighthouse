@@ -15,7 +15,7 @@ type WorldProbe = {
   playerTile: { x: number; y: number; facing: string };
 };
 
-test('new game: opening event, leave the house, read the village sign', async ({ page }) => {
+test('new game: opening, village sign, menu, save, continue from the title', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (err) => errors.push(err.message));
   page.on('console', (msg) => {
@@ -170,35 +170,78 @@ test('new game: opening event, leave the house, read the village sign', async ({
   await page.waitForTimeout(150);
   expect(await menuMode()).toBe('root');
 
-  // Settings (root index 4): text speed → はやい, persisted on close.
-  const rootIndex = await page.evaluate(() => {
-    const game = window.__starfall?.game as {
-      scene: { getScene: (k: string) => { rootMenu: { selectedIndex: number } } };
-    };
-    return game.scene.getScene('Menu').rootMenu.selectedIndex;
-  });
-  for (let i = rootIndex; i < 4; i += 1) {
-    await page.keyboard.press('ArrowDown');
-    await page.waitForTimeout(120);
-  }
+  // Save to slot 1 (root index 3) from the village: a town allows saving anywhere.
+  const rootIndex = () =>
+    page.evaluate(() => {
+      const game = window.__starfall?.game as {
+        scene: { getScene: (k: string) => { rootMenu: { selectedIndex: number } } };
+      };
+      return game.scene.getScene('Menu').rootMenu.selectedIndex;
+    });
+  const moveRootTo = async (target: number) => {
+    for (let i = await rootIndex(); i < target; i += 1) {
+      await page.keyboard.press('ArrowDown');
+      await page.waitForTimeout(120);
+    }
+  };
+  await moveRootTo(3);
+  await page.keyboard.press('z');
+  await page.waitForTimeout(200);
+  expect(await menuMode()).toBe('save');
+  await page.keyboard.press('z');
+  await page.waitForTimeout(300);
+  const slot1 = await page.evaluate(() => window.localStorage.getItem('starfall.save.0'));
+  expect(slot1).toContain('"schemaVersion":2');
+  expect(slot1).toContain('"it_lamp_oil"');
+  await page.keyboard.press('x');
+  await page.waitForTimeout(150);
+
+  // Settings (root index 4): text speed → はやい, then back to the title.
+  await moveRootTo(4);
   await page.keyboard.press('z');
   await page.waitForTimeout(200);
   expect(await menuMode()).toBe('settings');
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(150);
-  await page.keyboard.press('x');
-  await page.waitForTimeout(150);
-  await page.keyboard.press('x');
-  await page.waitForFunction(
-    () => {
-      const game = window.__starfall?.game as { scene: { isActive: (k: string) => boolean } };
-      return game.scene.isActive('World') && !game.scene.isActive('Menu');
-    },
-    undefined,
-    { timeout: 5_000 },
-  );
+  for (let i = 0; i < 5; i += 1) {
+    await page.keyboard.press('ArrowDown');
+    await page.waitForTimeout(100);
+  }
+  await page.keyboard.press('z');
+  await page.waitForTimeout(200);
+  expect(await menuMode()).toBe('title_confirm');
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(120);
+  await page.keyboard.press('z');
+  await page.waitForFunction(() => window.__starfall?.scene === 'Title', undefined, {
+    timeout: 10_000,
+  });
   const stored = await page.evaluate(() => window.localStorage.getItem('starfall.settings'));
   expect(stored).toContain('"textSpeed":"fast"');
+
+  // つづきから → slot 1 → back on the field at the saved spot with the lamp oil.
+  await page.waitForTimeout(400);
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(150);
+  await page.keyboard.press('z');
+  await page.waitForTimeout(300);
+  const titleMode = await page.evaluate(() => {
+    const game = window.__starfall?.game as {
+      scene: { getScene: (k: string) => { currentMode: string } };
+    };
+    return game.scene.getScene('Title').currentMode;
+  });
+  expect(titleMode).toBe('slots');
+  await page.keyboard.press('z');
+  await page.waitForFunction(() => window.__starfall?.scene === 'World', undefined, {
+    timeout: 10_000,
+  });
+  await page.waitForTimeout(500);
+  const loaded = await world();
+  expect(loaded.location).toMatchObject({ map: 'map_minato_village', x: 21, y: 12 });
+  expect(loaded.lampOil).toBe(1);
+  expect(loaded.flags['minato.intro_done']).toBe(true);
+  expect(loaded.event).toBe(false);
 
   expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
 });

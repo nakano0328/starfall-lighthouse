@@ -4,9 +4,9 @@ import type { PartyMember } from './party/member';
 import type { SaveData } from './save';
 
 /**
- * Everything a run carries between scenes: the save record (location, flags)
- * plus the live objects built on it. Save v2 (#10) persists party, inventory
- * and gold; until then they live only in memory.
+ * Everything a run carries between scenes: the save record (location, flags,
+ * play time) plus the live party, inventory and gold built from it. `toSaveData`
+ * folds the live objects back into a SaveData for writing a slot.
  */
 export interface GameState {
   save: SaveData;
@@ -17,17 +17,34 @@ export interface GameState {
   party: PartyMember[];
 }
 
-export interface GameStateOptions {
-  maxQtyOf: (itemId: string) => number;
-  party: PartyMember[];
-}
-
-export function createGameState(save: SaveData, options: GameStateOptions): GameState {
+export function fromSaveData(save: SaveData, maxQtyOf: (itemId: string) => number): GameState {
   return {
     save,
     flags: Flags.wrap(save.flags),
-    inventory: new Inventory(options.maxQtyOf),
-    gold: 0,
-    party: options.party,
+    inventory: new Inventory(maxQtyOf, save.inventory),
+    gold: save.gold,
+    party: save.party.map((m) => ({
+      ...m,
+      equipment: { ...m.equipment },
+      statuses: [...m.statuses],
+    })),
+  };
+}
+
+/** Snapshot for a slot: location/flags/play time from `save`, the rest from the live objects. */
+export function toSaveData(state: GameState, savedAt: number): SaveData {
+  const chapter = state.flags.get('main.chapter', 0);
+  return {
+    ...state.save,
+    savedAt,
+    flags: state.flags.toJSON(),
+    gold: state.gold,
+    party: state.party.map((m) => ({
+      ...m,
+      equipment: { ...m.equipment },
+      statuses: [...m.statuses],
+    })),
+    inventory: state.inventory.entries(),
+    chapter: typeof chapter === 'number' ? chapter : 0,
   };
 }

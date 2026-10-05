@@ -18,7 +18,7 @@ describe('authored maps', () => {
   });
 
   it('start the new game on a walkable tile of an existing map, on the opening trigger', () => {
-    const save = createNewSave(0);
+    const save = createNewSave(0, []);
     const map = compiled[save.location.map];
     expect(map).toBeDefined();
     expect(CollisionGrid.fromMap(map!).isBlocked(save.location.x, save.location.y)).toBe(false);

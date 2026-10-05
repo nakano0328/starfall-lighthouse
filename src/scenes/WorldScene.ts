@@ -200,11 +200,12 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** Pauses the field and shows the pause menu; settings are re-read on resume. */
-  private openMenu(): void {
+  private openMenu(override: Partial<MenuSceneData> = {}): void {
     this.input2.flush();
     const data: MenuSceneData = {
       state: this.state,
       canSave: getMapSource(this.save.location.map).meta.canSaveAnywhere,
+      ...override,
     };
     this.events.once(Phaser.Scenes.Events.RESUME, () => {
       this.settings = parseSettings(readStorage(SETTINGS_KEY));
@@ -437,9 +438,9 @@ export class WorldScene extends Phaser.Scene {
     else this.showMessage(['かぎがかかっている。']);
   }
 
+  /** 星の祠: opens the save list regardless of the map's canSaveAnywhere (§9.2). */
   private useSavePoint(_point: SavePointObject): void {
-    // The save screen arrives with #10; the shrine is already a landmark on the map.
-    this.showMessage(['星の祠だ。星の光がまたたいている。', '（セーブ画面は準備中です）']);
+    this.openMenu({ canSave: true, startMode: 'save' });
   }
 
   // ---- dialog ---------------------------------------------------------------

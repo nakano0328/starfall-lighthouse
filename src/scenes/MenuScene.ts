@@ -4,7 +4,14 @@ import { COLORS, GAME_HEIGHT, GAME_WIDTH } from '@/config';
 import { expToNext } from '@core/party/exp';
 import type { PartyMember } from '@core/party/member';
 import { memberLevel, memberStats, useItemOnMember } from '@core/party/member';
-import { formatPlayTime, serialize, slotKey, SAVE_SLOT_COUNT, deserialize } from '@core/save';
+import {
+  SAVE_SLOT_COUNT,
+  deserialize,
+  formatPlayTime,
+  serialize,
+  slotKey,
+  slotSummary,
+} from '@core/save';
 import type { SettingKey, Settings } from '@core/settings';
 import {
   SETTINGS_KEY,
@@ -15,9 +22,12 @@ import {
   settingLabel,
 } from '@core/settings';
 import type { GameState } from '@core/state';
+import { toSaveData } from '@core/state';
 import { CHARACTERS } from '@data/characters';
 import { findItem } from '@data/items';
 import { getMapMeta } from '@data/maps';
+import { MIGRATION_CONTEXT, placeName } from '@data/saveContext';
+import { levelFromExp } from '@core/party/exp';
 import type { ItemDef } from '@data/types';
 import { InputBindings } from '@ui/InputBindings';
 import type { ListMenuItem } from '@ui/ListMenu';
@@ -30,6 +40,8 @@ export interface MenuSceneData {
   state: GameState;
   /** Towns/interiors allow saving anywhere; elsewhere only at a save point. */
   canSave: boolean;
+  /** Open straight on a tab (save points open the save list). */
+  startMode?: 'save';
 }
 
 /** Layout: command column on the left, content panel on the right (GAME_DESIGN §11.2). */
@@ -92,9 +104,12 @@ export class MenuScene extends Phaser.Scene {
     super(SceneKey.Menu);
   }
 
+  private startMode: 'save' | undefined;
+
   init(data: MenuSceneData): void {
     this.state = data.state;
     this.canSave = data.canSave;
+    this.startMode = data.startMode;
     this.mode = 'root';
     this.tabIndex = 0;
     this.memberIndex = 0;
@@ -145,7 +160,12 @@ export class MenuScene extends Phaser.Scene {
       })
       .setOrigin(0, 0.5);
 
-    this.showRoot();
+    if (this.startMode === 'save') {
+      this.rootMenu.setSelected(3);
+      this.showSave();
+    } else {
+      this.showRoot();
+    }
   }
 
   override update(_time: number, delta: number): void {
@@ -425,13 +445,17 @@ export class MenuScene extends Phaser.Scene {
   private slotLabels(): string[] {
     const labels: string[] = [];
     for (let slot = 0; slot < SAVE_SLOT_COUNT; slot += 1) {
-      const data = deserialize(readStorage(slotKey(slot)) ?? '');
+      const raw = readStorage(slotKey(slot));
+      const data = raw === null ? null : deserialize(raw, MIGRATION_CONTEXT);
       if (!data) {
         labels.push(`スロット ${slot + 1}   ----`);
         continue;
       }
-      const place = getMapMeta(data.location.map).displayName;
-      labels.push(`スロット ${slot + 1}   ${place}  ${formatPlayTime(data.playTimeSec)}`);
+      const s = slotSummary(data, placeName);
+      const leader = CHARACTERS[s.leaderId].name;
+      labels.push(
+        `スロット ${slot + 1}   ${s.chapter}  ${s.place}  ${leader} Lv${levelFromExp(s.leaderExp)}  ${s.playTime}`,
+      );
     }
     return labels;
   }
@@ -447,9 +471,8 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private writeSave(slot: number): void {
-    const save = this.state.save;
-    save.savedAt = Date.now();
-    const ok = writeStorage(slotKey(slot), serialize(save));
+    const data = toSaveData(this.state, Date.now());
+    const ok = writeStorage(slotKey(slot), serialize(data));
     this.setMessage(ok ? `スロット ${slot + 1} に 記録した。` : '記録に 失敗した。');
     this.showSave();
   }
