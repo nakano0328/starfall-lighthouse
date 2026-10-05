@@ -102,7 +102,7 @@ starfall-lighthouse/
 │  ├─ scenes/                    # Phaser シーン（Boot / Title / World）
 │  └─ ui/                        # 入力バインディング・メニュー部品
 ├─ tests/
-│  ├─ unit/                      # Vitest（flags.test.ts, save.test.ts）
+│  ├─ unit/                      # Vitest（core / data / assets のユニットテスト）
 │  └─ e2e/                       # Playwright（smoke.spec.ts）
 ├─ index.html
 ├─ package.json / tsconfig.json / vite.config.ts / vitest.config.ts

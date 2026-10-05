@@ -9,6 +9,12 @@ import type { Flags } from './flags';
  *   `flag.key==true`      boolean compare
  * Whitespace around the operator is allowed. Throws on malformed input so bad
  * data is caught by tests rather than silently evaluating to false.
+ *
+ * Numeric comparisons (all six operators with a number on the right) read the
+ * flag as `Flags.get(key, 0)` per §2.3, so a flag that was never set counts as
+ * 0: `sq.necklace==0` is true on a fresh save. A flag holding a string or
+ * boolean is not coerced; against a number it is simply unequal. String and
+ * boolean comparisons are strict, so an unset flag gives `==` false, `!=` true.
  */
 const KEY = /^[a-z][a-z0-9_]*(?:\.[a-z0-9_]+)+$/;
 const COMPARE = /^([a-z][a-z0-9_.]*)\s*(>=|<=|==|!=|>|<)\s*(.+)$/;
@@ -34,18 +40,20 @@ export function evaluateCondition(cond: string, flags: Flags): boolean {
     case 'compare': {
       const actual = flags.peek(parsed.key);
       const expected = parsed.value;
+      // §2.3: numeric comparisons read the flag as `get(key, 0)`. This is the
+      // single coercion point, shared by `==`/`!=` and the ordering operators.
+      const lhs = typeof expected === 'number' && actual === undefined ? 0 : actual;
       switch (parsed.op) {
         case '==':
-          return actual === expected;
+          return lhs === expected;
         case '!=':
-          return actual !== expected;
+          return lhs !== expected;
         default: {
-          if (typeof expected !== 'number') return false;
-          const n = typeof actual === 'number' ? actual : 0;
-          if (parsed.op === '>=') return n >= expected;
-          if (parsed.op === '>') return n > expected;
-          if (parsed.op === '<=') return n <= expected;
-          return n < expected;
+          if (typeof expected !== 'number' || typeof lhs !== 'number') return false;
+          if (parsed.op === '>=') return lhs >= expected;
+          if (parsed.op === '>') return lhs > expected;
+          if (parsed.op === '<=') return lhs <= expected;
+          return lhs < expected;
         }
       }
     }
