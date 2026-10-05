@@ -6,6 +6,8 @@ import { OUTDOOR_LEGEND } from './legends';
  * ミナト村 (40x30). Start of the game; Luka's house NW, inn N, shop E of the
  * main road. Exits: north (x19-20) → 灯台への道, east (y14) → 海岸街道.
  * The exit warps are added once those maps exist (Phase 4 content).
+ * The east road narrows to a one-tile gate (fences at x37-38 on y13 and y15) so that
+ * npc_minato_guard at (37,14) blocks it until `minato.talked_to_grandpa` (§3.1).
  */
 export const map_minato_village: MapSource = {
   meta: {
@@ -13,7 +15,7 @@ export const map_minato_village: MapSource = {
     displayName: 'ミナト村',
     kind: 'town',
     bgmKey: 'bgm_village',
-    battleBgKey: 'battle_bg_coast',
+    battleBgKey: 'bg_coast',
     encounterGroups: [],
     tilesets: ['ts_placeholder'],
     entrance: { x: 10, y: 12, facing: 'down' },
@@ -36,9 +38,9 @@ export const map_minato_village: MapSource = {
     'T.........=...T....==...wwwwww=........T',
     'T...,.....=........==...wwDwww=...T....T',
     'T.........=........==.....=...=........T',
-    'T.........=..T.....==.....=...=........T',
+    'T.........=..T.....==.....=...=......FFT',
     'T..:====================================',
-    'T..:==================================.T',
+    'T..:=================================FFT',
     '~~~:..............==...............,...T',
     '~~~:......T.......==....R..............T',
     '~~~:..............==..........T........T',

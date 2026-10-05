@@ -9,7 +9,7 @@ export const map_minato_inn: MapSource = {
     displayName: '宿屋「なぎさ」',
     kind: 'interior',
     bgmKey: 'bgm_village',
-    battleBgKey: 'battle_bg_coast',
+    battleBgKey: 'bg_coast',
     encounterGroups: [],
     tilesets: ['ts_placeholder'],
     entrance: { x: 6, y: 8, facing: 'up' },

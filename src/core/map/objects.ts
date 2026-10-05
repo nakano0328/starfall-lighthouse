@@ -1,3 +1,4 @@
+import { ConditionError, validateCondition } from '@core/condition';
 import type { Facing } from '@data/types';
 
 import type { TiledMap, TiledObject, TiledPropertyValue } from './tiled';
@@ -125,6 +126,19 @@ function parseObject(map: TiledMap, o: TiledObject): MapObject {
     if (typeof v !== 'string') throw new MapObjectError(o, `property ${name} must be a string`);
     return v;
   };
+  /** Optional §9.3 condition, validated here so malformed data fails in tests, not in the field. */
+  const optCond = (name: string): string | undefined => {
+    const v = optStr(name);
+    if (v === undefined) return undefined;
+    try {
+      validateCondition(v);
+    } catch (e) {
+      if (e instanceof ConditionError)
+        throw new MapObjectError(o, `property ${name}: ${e.message}`);
+      throw e;
+    }
+    return v;
+  };
   const int = (name: string): number => {
     const v = propertyValue(p, name);
     if (typeof v !== 'number' || !Number.isInteger(v))
@@ -183,8 +197,8 @@ function parseObject(map: TiledMap, o: TiledObject): MapObject {
         {
           shop: optStr('shop'),
           innPrice: propertyValue(p, 'inn_price') === undefined ? undefined : int('inn_price'),
-          condition: optStr('condition'),
-          hiddenIf: optStr('hidden_if'),
+          condition: optCond('condition'),
+          hiddenIf: optCond('hidden_if'),
         },
       );
     }
@@ -220,27 +234,31 @@ function parseObject(map: TiledMap, o: TiledObject): MapObject {
         { kind: 'save_point', ...placed, heal: optBool('heal', false) },
         { onceFlag: optStr('once_flag') },
       );
-    case 'enemy':
+    case 'enemy': {
+      const groupIds = str('group_id')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (groupIds.length === 0)
+        throw new MapObjectError(o, 'group_id must list at least one group');
       return withOpt<EnemyObject>(
         {
           kind: 'enemy',
           ...placed,
-          groupIds: str('group_id')
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
+          groupIds,
           respawnSec: optInt('respawn_sec', 60),
           radius: optInt('radius', 4),
           tide: tide(),
         },
         { sprite: optStr('sprite'), defeatedFlag: optStr('defeated_flag') },
       );
+    }
     case 'trigger': {
       const once = propertyValue(p, 'once');
       if (typeof once !== 'boolean') throw new MapObjectError(o, 'missing bool property once');
       return withOpt<TriggerObject>(
         { kind: 'trigger', ...placed, eventId: str('event_id'), once },
-        { condition: optStr('condition') },
+        { condition: optCond('condition') },
       );
     }
     default:
