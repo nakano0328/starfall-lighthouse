@@ -11,7 +11,7 @@ const base = (over: Partial<MapSource> = {}): MapSource => ({
     displayName: 'テスト',
     kind: 'field',
     bgmKey: 'bgm_field',
-    battleBgKey: 'battle_bg_coast',
+    battleBgKey: 'bg_coast',
     encounterGroups: [],
     tilesets: ['ts_placeholder'],
     entrance: { x: 0, y: 0, facing: 'down' },
@@ -82,6 +82,80 @@ describe('compileMap', () => {
     expect(findTileLayer(map, 'deco')?.data[3]).toBe(tileGid('flower'));
   });
 
+  it('derives collision from the final tiles of each cell after the overlay', () => {
+    const map = compileMap(
+      base({
+        width: 4,
+        legend: {
+          '.': 'grass',
+          '~': 'water',
+          w: 'wall',
+          '=': 'path',
+          D: 'door',
+          R: { deco: 'rock' },
+          f: { deco: 'flower' },
+        },
+        tiles: ['~~ww', '..~.'],
+        overlay: ['=f D', 'R   '],
+      }),
+    );
+    expect(findTileLayer(map, 'ground')?.data).toEqual([
+      tileGid('path'),
+      tileGid('water'),
+      tileGid('wall'),
+      tileGid('door'),
+      tileGid('grass'),
+      tileGid('grass'),
+      tileGid('water'),
+      tileGid('grass'),
+    ]);
+    expect(findTileLayer(map, 'deco')?.data).toEqual([
+      0,
+      tileGid('flower'),
+      0,
+      0,
+      tileGid('rock'),
+      0,
+      0,
+      0,
+    ]);
+    // Path over water and door over wall open up; flower over water and rock on grass block.
+    expect(findTileLayer(map, 'collision')?.data).toEqual([
+      0,
+      COLLISION_GID,
+      COLLISION_GID,
+      0,
+      COLLISION_GID,
+      0,
+      COLLISION_GID,
+      0,
+    ]);
+  });
+
+  it('keeps a legend `solid` override until a later entry on the cell declares one', () => {
+    const map = compileMap(
+      base({
+        legend: {
+          '.': 'grass',
+          '~': 'water',
+          B: { ground: 'bridge', solid: false },
+          R: { deco: 'rock' },
+          r: { deco: 'rock', solid: true },
+        },
+        tiles: ['~BB', '...'],
+        overlay: [' Rr', '   '],
+      }),
+    );
+    expect(findTileLayer(map, 'collision')?.data).toEqual([
+      COLLISION_GID,
+      0,
+      COLLISION_GID,
+      0,
+      0,
+      0,
+    ]);
+  });
+
   it('adds explicit blocked cells', () => {
     const map = compileMap(base({ tiles: ['...', '...'], blocked: ['X..', '..X'] }));
     expect(findTileLayer(map, 'collision')?.data).toEqual([
@@ -92,6 +166,15 @@ describe('compileMap', () => {
       0,
       COLLISION_GID,
     ]);
+    // `blocked` wins over a legend `solid: false`.
+    const bridged = compileMap(
+      base({
+        legend: { '~': 'water', B: { ground: 'bridge', solid: false } },
+        tiles: ['~B~', '~~~'],
+        blocked: ['.X.', '...'],
+      }),
+    );
+    expect(findTileLayer(bridged, 'collision')?.data[1]).toBe(COLLISION_GID);
   });
 
   it('compiles objects to pixel-positioned Tiled objects with typed properties', () => {
@@ -160,5 +243,27 @@ describe('compileMap', () => {
     expect(() =>
       compileMap(base({ objects: [{ type: 'sign', x: -1, y: 0, text_id: 'dlg_s' }] })),
     ).toThrow(/invalid position/);
+  });
+
+  it('rejects non-integer numeric properties and entrances', () => {
+    const npc = {
+      type: 'npc' as const,
+      x: 0,
+      y: 0,
+      id: 'npc_a',
+      dialog: 'dlg_a',
+      facing: 'down' as const,
+      sprite: 'sprite_npc',
+    };
+    const fractional = base({ objects: [{ ...npc, inn_price: 20.5 }] });
+    expect(() => compileMap(fractional)).toThrow(MapCompileError);
+    expect(() => compileMap(fractional)).toThrow(/npc #1 property inn_price must be an integer/);
+    const { meta } = base();
+    expect(() =>
+      compileMap(base({ meta: { ...meta, entrance: { x: 0.5, y: 0, facing: 'down' } } })),
+    ).toThrow(/invalid entrance \(0\.5, 0\)/);
+    expect(() =>
+      compileMap(base({ meta: { ...meta, entrance: { x: 3, y: 0, facing: 'down' } } })),
+    ).toThrow(/entrance \(3, 0\) is outside the map/);
   });
 });

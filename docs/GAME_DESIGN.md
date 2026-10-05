@@ -108,7 +108,7 @@
 
 ## 3. ワールド・マップ一覧
 
-サイズは 32px タイル単位の目安。上限 64×64。すべて `public/assets/maps/<map_id>.json`。
+サイズは 32px タイル単位の目安。上限 64×64。正本は `src/data/maps/<map_id>.ts`（ASCII 形式、ADR-0002）。`compileMap()` が §9.3 の Tiled 互換 JSON を生成する。
 
 ### 3.1 マップ表
 
@@ -790,13 +790,13 @@ Z（決定）で向いているタイルのオブジェクトに作用する。�
 
 ### 9.3 Tiled 規約
 
-> **作成方法（ADR-0002）**: マップは Tiled ではなく `src/data/maps/<map_id>.ts` の ASCII 形式で記述し、`compileMap()` が本節の規約どおりの Tiled 互換 JSON を生成する。本節は **生成される JSON の仕様** であり、Tiled でエクスポートした JSON も同じ規約で読み込める。
+> **作成方法（ADR-0002）**: マップは Tiled ではなく `src/data/maps/<map_id>.ts` の ASCII 形式で記述し、`compileMap()` が本節の規約どおりの Tiled 互換 JSON を生成する。本節は **生成される JSON の仕様** である。Tiled でエクスポートした JSON も同じ規約に従うため、将来 `public/assets/maps/*.json` を読む経路を足せば同じ `parseMapObjects` / `CollisionGrid` で扱える（現時点のローダーは ASCII ソースのみ）。
 
 **全般**
 
 - 直交（orthogonal）、タイル 32×32、描画順 right-down。マップ最大 64×64。
 - タイルセットは **マップに埋め込み（Embed in map）**。外部 .tsx 参照を使わない。
-- 書式：JSON（Tiled の「Export As → JSON map files (.json)」）。ファイル名は `<map_id>.json`。
+- 書式：JSON。Tiled で描く場合は「Export As → JSON map files (.json)」でエクスポートし、ファイル名 `<map_id>.json` を `public/assets/maps/` に置く（現在は未使用。置く場合も手で編集しない）。
 - マップのカスタムプロパティ：`bgm`（string, BGM キー）、`display_name`（string）、`entrance_x` / `entrance_y`（int、`it_return_feather` の戻り先）、`battle_bg`（string）。
 
 **タイルレイヤー（名前固定、上から描画順）**
@@ -829,7 +829,7 @@ Z（決定）で向いているタイルのオブジェクトに作用する。�
 
 ### 9.4 マップメタデータ
 
-マップ JSON とは別に `src/data/maps.ts` に `MapMeta`（§16）を持ち、BGM・表示名・出現グループ・章の制約をコード側で型チェックする。Tiled 側の `bgm` 等と重複する場合は **`MapMeta` を正** とする。
+`MapMeta`（§16）は各マップの `MapSource.meta` として `src/data/maps/<map_id>.ts` に持ち、`src/data/maps/index.ts` の `MAP_SOURCES` に登録する。BGM・表示名・出現グループ・章の制約はここでコード側に型チェックさせる。生成 JSON（Tiled 側）の `bgm` 等と重複する場合は **`MapMeta` を正** とする。
 
 ---
 
@@ -1367,7 +1367,6 @@ export interface MapMeta {
   id: string;
   displayName: string;
   kind: MapKind;
-  file: string; // 'assets/maps/map_minato_village.json'
   bgmKey: string;
   battleBgKey: string;
   encounterGroups: string[];

@@ -1,9 +1,11 @@
 import Phaser from 'phaser';
 
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TILE_SIZE } from '@/config';
+import { evaluateCondition } from '@core/condition';
+import { Flags } from '@core/flags';
 import { cameraScroll } from '@core/map/camera';
 import { PLACEHOLDER_TILESET_NAME, compileMap } from '@core/map/compile';
-import type { MapObject } from '@core/map/objects';
+import type { MapObject, NpcObject } from '@core/map/objects';
 import { CollisionGrid, parseMapObjects } from '@core/map/objects';
 import type { TiledMap } from '@core/map/tiled';
 import type { SaveData } from '@core/save';
@@ -102,20 +104,25 @@ export class WorldScene extends Phaser.Scene {
     this.mapPixelHeight = map.heightInPixels;
   }
 
-  /** Places a sprite for every visible map object (NPCs, chests, signs, save points). */
+  /**
+   * Places a sprite for every visible map object (NPCs, chests, signs, save points).
+   * NPCs gated by `hidden_if` / `condition` (docs/GAME_DESIGN.md §9.3) get no sprite while
+   * the save flags hide them; `this.objects` keeps them so visibility can be re-evaluated
+   * when flags change (#7/#8).
+   */
   private spawnObjects(): void {
+    const flags = new Flags(this.save.flags);
     for (const o of this.objects) {
       const x = tileCenter(o.tx);
       const y = tileCenter(o.ty);
       const depth = DEPTH.actors + o.ty / 1000;
       switch (o.kind) {
         case 'npc':
+          if (!isNpcVisible(o, flags)) break;
           this.add.image(x, y, 'sprite_npc', o.facing).setDepth(depth);
           break;
         case 'chest':
-          this.add
-            .image(x, y, 'obj_chest', this.save.flags[o.flag] ? 'open' : 'closed')
-            .setDepth(depth);
+          this.add.image(x, y, 'obj_chest', flags.has(o.flag) ? 'open' : 'closed').setDepth(depth);
           break;
         case 'sign':
           this.add.image(x, y, 'obj_sign').setDepth(depth);
@@ -144,4 +151,11 @@ export class WorldScene extends Phaser.Scene {
 
 function tileCenter(tile: number): number {
   return tile * TILE_SIZE + TILE_SIZE / 2;
+}
+
+/** An NPC is drawn unless its `hidden_if` holds or its `condition` fails (§9.3). */
+function isNpcVisible(npc: NpcObject, flags: Flags): boolean {
+  if (npc.hiddenIf !== undefined && evaluateCondition(npc.hiddenIf, flags)) return false;
+  if (npc.condition !== undefined && !evaluateCondition(npc.condition, flags)) return false;
+  return true;
 }
