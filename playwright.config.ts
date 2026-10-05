@@ -1,7 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const isCI = Boolean(process.env.CI);
-const PORT = 4173;
+// E2E_PORT lets several checkouts run e2e at the same time on one machine.
+const PORT = Number(process.env.E2E_PORT ?? 4173);
 
 // In some sandboxes a Chromium binary is pre-installed and downloads are blocked.
 // Set PW_CHROMIUM_PATH to that binary to reuse it; CI leaves it unset and installs
@@ -24,7 +25,7 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: 'npm run build && npm run preview',
+    command: `npm run build && npm run preview -- --port ${PORT}`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !isCI,
     timeout: 180_000,

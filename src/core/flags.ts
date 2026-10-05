@@ -11,8 +11,16 @@ export type FlagMap = Record<string, FlagValue>;
 export class Flags {
   private readonly map: FlagMap;
 
-  constructor(initial: FlagMap = {}) {
-    this.map = { ...initial };
+  constructor(initial: FlagMap = {}, shared = false) {
+    this.map = shared ? initial : { ...initial };
+  }
+
+  /**
+   * Wraps an existing map without copying, so writes land in the caller's object
+   * (used for the live save data; `new Flags(map)` keeps a detached copy).
+   */
+  static wrap(map: FlagMap): Flags {
+    return new Flags(map, true);
   }
 
   /** True when the flag exists and is not `false`, `0` or `''`. */

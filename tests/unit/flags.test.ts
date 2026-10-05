@@ -44,6 +44,16 @@ describe('Flags', () => {
     expect(f.peek('c')).toBeUndefined();
   });
 
+  it('wrap shares the underlying map while the constructor copies it', () => {
+    const map = { a: 1 };
+    const shared = Flags.wrap(map);
+    shared.set('b', true);
+    expect(map).toEqual({ a: 1, b: true });
+    const copy = new Flags(map);
+    copy.set('c', 1);
+    expect(map).not.toHaveProperty('c');
+  });
+
   it('toJSON returns a detached copy', () => {
     const f = new Flags({ a: 1 });
     const snapshot = f.toJSON();
