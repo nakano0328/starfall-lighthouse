@@ -48,6 +48,11 @@ export interface MenuSceneData {
 const LEFT = { x: 16, y: 16, w: 160, h: GAME_HEIGHT - 32 } as const;
 const RIGHT = { x: 184, y: 16, w: GAME_WIDTH - 184 - 16, h: GAME_HEIGHT - 32 } as const;
 const LINE = 26;
+/** Save slot rows: a 16px slot name with two 12px detail lines (§11.1 補足) underneath. */
+const SLOT_LINE = 52;
+const SLOT_DETAIL = { x: 40, dy: 10, fontSize: 12 } as const;
+/** Settings: values are a second text at a fixed column so mixed-width labels line up. */
+const SETTINGS_VALUE_X = 136;
 
 type Mode =
   | 'root'
@@ -91,8 +96,11 @@ export class MenuScene extends Phaser.Scene {
   private rootMenu!: ListMenu;
   private panel!: Phaser.GameObjects.Container;
   private panelText!: Phaser.GameObjects.Text;
+  private panelValueText!: Phaser.GameObjects.Text;
   private panelMenu: ListMenu | undefined;
   private subMenu: ListMenu | undefined;
+  /** Detail lines under each save slot row; destroyed with the slot list. */
+  private slotDetails: Phaser.GameObjects.Text[] = [];
   private message!: Phaser.GameObjects.Text;
   private tabIndex = 0;
   private memberIndex = 0;
@@ -135,7 +143,8 @@ export class MenuScene extends Phaser.Scene {
         { label: 'ステータス' },
         { label: 'アイテム' },
         { label: '装備' },
-        { label: 'セーブ', ...(this.canSave ? {} : { note: '×' }) },
+        // Greyed outside towns/save points (§11.2); the explanation sits in the right panel.
+        { label: 'セーブ', disabled: !this.canSave },
         { label: '設定' },
         { label: 'とじる' },
       ],
@@ -152,6 +161,14 @@ export class MenuScene extends Phaser.Scene {
       wordWrap: { width: RIGHT.w - 32 },
     });
     this.panel.add(this.panelText);
+    this.panelValueText = this.add.text(SETTINGS_VALUE_X, 14, '', {
+      fontFamily: 'sans-serif',
+      fontSize: '14px',
+      color: COLORS.textMain,
+      lineSpacing: 6,
+    });
+    this.panel.add(this.panelValueText);
+    this.slotDetails = [];
     this.message = this.add
       .text(RIGHT.x + 16, RIGHT.y + RIGHT.h - 24, '', {
         fontFamily: 'sans-serif',
@@ -230,6 +247,7 @@ export class MenuScene extends Phaser.Scene {
       `所持金 ${this.state.gold} G   プレイ時間 ${formatPlayTime(this.state.save.playTimeSec)}`,
     );
     lines.push(`現在地 ${meta.displayName}`);
+    if (!this.canSave) lines.push('', '※ ここではセーブできない。星の祠で記録できる。');
     return lines.join('\n');
   }
 
@@ -279,7 +297,6 @@ export class MenuScene extends Phaser.Scene {
       [],
       () => undefined,
       () => this.showStatusList(),
-      true,
     );
   }
 
@@ -346,8 +363,11 @@ export class MenuScene extends Phaser.Scene {
         { label: 'やめる' },
       ],
       (index) => {
-        if (index === 0) this.showItemTarget();
-        else if (index === 1) this.dropItem();
+        if (index === 0) {
+          // Party-wide consumables (§7.1 味方全体) skip the target pick.
+          if (item.scope === 'ally_all') this.useItemOnAll();
+          else this.showItemTarget();
+        } else if (index === 1) this.dropItem();
         else this.showItems();
       },
       () => this.showItems(),
@@ -376,6 +396,27 @@ export class MenuScene extends Phaser.Scene {
       this.setMessage(
         result.reason === 'no_effect' ? 'なにも起こらなかった。' : 'ここでは使えない。',
       );
+    }
+    this.showItems();
+  }
+
+  /** Applies an `ally_all` item to every member; consumed when at least one benefited. */
+  private useItemOnAll(): void {
+    const item = this.selectedItem;
+    if (!item) return this.showItems();
+    const messages: string[] = [];
+    let unusable = false;
+    for (const member of this.state.party) {
+      const result = useItemOnMember(item, CHARACTERS[member.id], member);
+      if (result.ok) messages.push(result.message);
+      else if (result.reason === 'not_usable') unusable = true;
+    }
+    const [single] = messages;
+    if (messages.length > 0) {
+      this.state.inventory.remove(item.id, 1);
+      this.setMessage(messages.length === 1 && single ? single : partyUseMessage(item));
+    } else {
+      this.setMessage(unusable ? 'ここでは使えない。' : 'なにも起こらなかった。');
     }
     this.showItems();
   }
@@ -418,7 +459,6 @@ export class MenuScene extends Phaser.Scene {
       ],
       () => undefined,
       () => this.showEquipList(),
-      true,
     );
   }
 
@@ -431,38 +471,68 @@ export class MenuScene extends Phaser.Scene {
     }
     this.setMode('save');
     this.panelText.setText('どこに 記録する？');
-    this.panelMenu = this.makePanelMenu(
-      this.slotLabels().map((label) => ({ label })),
+    const rows = this.slotRows();
+    const menu = this.makePanelMenu(
+      rows.map((row) => ({ label: row.label })),
       (index) => {
+        // Every save goes through a confirmation (§11.4), empty slots included.
         this.selectedSlot = index;
-        if (readStorage(slotKey(index)) === null) this.writeSave(index);
-        else this.showSaveConfirm();
+        this.showSaveConfirm();
       },
       () => this.showRoot(),
+      SLOT_LINE,
     );
+    this.panelMenu = menu;
+    rows.forEach((row, i) => {
+      if (row.detail === undefined) return;
+      this.slotDetails.push(
+        this.add.text(
+          RIGHT.x + SLOT_DETAIL.x,
+          menu.y + i * SLOT_LINE + SLOT_DETAIL.dy,
+          row.detail,
+          {
+            fontFamily: 'sans-serif',
+            fontSize: `${SLOT_DETAIL.fontSize}px`,
+            color: COLORS.textDim,
+            wordWrap: { width: RIGHT.w - SLOT_DETAIL.x - 16 },
+          },
+        ),
+      );
+    });
   }
 
-  private slotLabels(): string[] {
-    const labels: string[] = [];
+  /**
+   * Slot name for the list plus the §11.2 summary (章名・場所・Lv・プレイ時間・保存日時)
+   * as two detail lines; one 16px line cannot hold all of it inside the panel.
+   */
+  private slotRows(): { label: string; detail?: string }[] {
+    const rows: { label: string; detail?: string }[] = [];
     for (let slot = 0; slot < SAVE_SLOT_COUNT; slot += 1) {
       const raw = readStorage(slotKey(slot));
       const data = raw === null ? null : deserialize(raw, MIGRATION_CONTEXT);
       if (!data) {
-        labels.push(`スロット ${slot + 1}   ----`);
+        rows.push({ label: `スロット ${slot + 1}   ----` });
         continue;
       }
       const s = slotSummary(data, placeName);
       const leader = CHARACTERS[s.leaderId].name;
-      labels.push(
-        `スロット ${slot + 1}   ${s.chapter}  ${s.place}  ${leader} Lv${levelFromExp(s.leaderExp)}  ${s.playTime}`,
-      );
+      rows.push({
+        label: `スロット ${slot + 1}`,
+        detail: [
+          `${s.chapter}  ${s.place}`,
+          `${leader} Lv${levelFromExp(s.leaderExp)}  ${s.playTime}  ${formatSavedAt(s.savedAt)}`,
+        ].join('\n'),
+      });
     }
-    return labels;
+    return rows;
   }
 
   private showSaveConfirm(): void {
     this.setMode('save_confirm');
-    this.panelText.setText(`スロット ${this.selectedSlot + 1} に 上書きしますか？`);
+    const occupied = readStorage(slotKey(this.selectedSlot)) !== null;
+    this.panelText.setText(
+      `スロット ${this.selectedSlot + 1} に ${occupied ? '上書き' : '記録'}しますか？`,
+    );
     this.subMenu = this.makePanelMenu(
       [{ label: 'はい' }, { label: 'いいえ' }],
       (index) => (index === 0 ? this.writeSave(this.selectedSlot) : this.showSave()),
@@ -486,15 +556,22 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private renderSettings(): void {
-    const rows = SETTING_KEYS.map((key, i) => {
+    // Labels and values are separate texts: padding by character count cannot
+    // align 'BGM 音量' (half-width letters) with the all-CJK labels.
+    const labels = SETTING_KEYS.map((key, i) => {
       const cursor = i === this.settingIndex ? '▶' : '　';
-      return `${cursor} ${SETTING_LABELS[key].padEnd(7, '　')} ◀ ${settingLabel(this.settings, key)} ▶`;
+      return `${cursor} ${SETTING_LABELS[key]}`;
     });
+    const values = SETTING_KEYS.map((key) => `◀ ${settingLabel(this.settings, key)} ▶`);
     const back = SETTING_KEYS.length;
-    rows.push(`${this.settingIndex === back ? '▶' : '　'} タイトルへ戻る`);
-    rows.push('');
-    rows.push('← → で変更   X で もどる');
-    this.panelText.setText(rows.join('\n'));
+    labels.push(
+      `${this.settingIndex === back ? '▶' : '　'} タイトルへ戻る`,
+      '',
+      '← → で変更   X で もどる',
+    );
+    values.push('', '', '');
+    this.panelText.setText(labels.join('\n'));
+    this.panelValueText.setText(values.join('\n'));
   }
 
   private updateSettings(): void {
@@ -543,21 +620,25 @@ export class MenuScene extends Phaser.Scene {
     this.subMenu?.destroy();
     this.panelMenu = undefined;
     this.subMenu = undefined;
+    this.slotDetails.forEach((text) => text.destroy());
+    this.slotDetails = [];
+    this.panelValueText.setText('');
     if (mode === 'root') this.panelText.setText('');
     this.rootMenu.setAlpha(mode === 'root' ? 1 : 0.6);
   }
 
+  /** List placed under the header text (measured, so wrapped headers never overlap it). */
   private makePanelMenu(
     items: ListMenuItem[],
     onConfirm: (index: number) => void,
     onCancel: () => void,
-    lower = false,
+    lineHeight = LINE,
   ): ListMenu {
-    const lines = this.panelText.text.split('\n').length;
+    const headerBottom = RIGHT.y + this.panelText.y + this.panelText.height;
     return new ListMenu(this, {
       x: RIGHT.x + 16,
-      y: RIGHT.y + 24 + (lower ? 0 : lines * 20 + 10),
-      lineHeight: LINE,
+      y: headerBottom + LINE,
+      lineHeight,
       fontSize: 16,
       items,
       onConfirm,
@@ -575,6 +656,30 @@ export class MenuScene extends Phaser.Scene {
 
 function equipName(id: string | null): string {
   return id === null ? 'なし' : id;
+}
+
+/** `YYYY/MM/DD HH:mm` in local time for the slot list (§11.2 保存日時). */
+function formatSavedAt(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number): string => String(n).padStart(2, '0');
+  const date = `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`;
+  return `${date} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** One-line summary for an `ally_all` item when several members benefited. */
+function partyUseMessage(item: ItemDef): string {
+  switch (item.effect.type) {
+    case 'heal_hp':
+      return 'みんなの HP が 回復した。';
+    case 'heal_mp':
+      return 'みんなの MP が 回復した。';
+    case 'cure':
+      return 'みんなの 状態異常が 治った。';
+    case 'revive':
+      return 'みんなが 目を覚ました！';
+    default:
+      return `${item.name}を つかった。`;
+  }
 }
 
 function readStorage(key: string): string | null {

@@ -32,6 +32,12 @@ const DIRECTIONS: readonly Facing[] = ['up', 'down', 'left', 'right'];
  * goes down and up within a single frame (fast taps, automated input), which is
  * why the events are tracked here instead.
  *
+ * Keyboard auto-repeat is not a press: Phaser keys are per scene and only skip
+ * repeats while their own `isDown` is set, so a key held across a scene change
+ * (X opening the Menu, Enter from the title) would otherwise fire again in the
+ * new scene. `isDown` still reflects a held key, which is what dash, hold-to-fast-
+ * forward and `heldDirection` read.
+ *
  * Create one per scene and call `destroy()` on shutdown.
  */
 export class InputBindings {
@@ -50,7 +56,12 @@ export class InputBindings {
       if (!keyboard) return [];
       return BINDINGS[action].map((code) => {
         const key = keyboard.addKey(code, false);
-        key.on(Phaser.Input.Keyboard.Events.DOWN, () => this.pending.add(action));
+        key.on(
+          Phaser.Input.Keyboard.Events.DOWN,
+          (_key: Phaser.Input.Keyboard.Key, ev: KeyboardEvent) => {
+            if (!ev.repeat) this.pending.add(action);
+          },
+        );
         return key;
       });
     };

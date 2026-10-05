@@ -64,10 +64,21 @@ export function chapterName(chapter: number): string {
   return CHAPTER_NAMES[chapter] ?? CHAPTER_NAMES[0] ?? '';
 }
 
-/** What migrations need from outside the module (character data lives in src/data). */
+/**
+ * What migration and validation need from outside the module (character and
+ * map data live in src/data, which core must not import).
+ */
 export interface MigrationContext {
   /** Party for a v1 save: ルカ Lv1 with initial equipment, plus ミオ when she had joined. */
   initialParty: (flags: FlagMap) => SavedMember[];
+  /**
+   * Checks a save's location against the map registry. Returns the location to
+   * load: the same one, a repaired one (e.g. the map's entrance when the tile
+   * is off the map), or `null` when the map cannot be loaded by this build, in
+   * which case the whole save is unloadable and `deserialize` returns null.
+   * Optional so a context without map data (unit tests) keeps locations as-is.
+   */
+  resolveLocation?: (location: SaveLocation) => SaveLocation | null;
 }
 
 export function createNewSave(savedAt: number, party: SavedMember[]): SaveData {
@@ -97,8 +108,11 @@ export function serialize(data: SaveData): string {
 
 /**
  * Parse and validate a save string. Returns `null` for anything that is not a
- * usable save (corrupt JSON, wrong shape, newer schema than this build knows).
- * Older schemas are migrated forward with `ctx`.
+ * usable save: corrupt JSON, wrong shape, out-of-range values (negative gold,
+ * zero quantities, unknown statuses...), a newer schema than this build knows,
+ * or a location `ctx.resolveLocation` cannot realise. Older schemas are
+ * migrated forward with `ctx`; the returned location is the resolved one, so
+ * every caller (slot lists, 「つづきから」, loading) sees the same answer.
  */
 export function deserialize(raw: string, ctx: MigrationContext): SaveData | null {
   let parsed: unknown;
@@ -110,11 +124,17 @@ export function deserialize(raw: string, ctx: MigrationContext): SaveData | null
   if (!isRecord(parsed)) return null;
 
   const version = parsed['schemaVersion'];
-  if (typeof version !== 'number' || version > SAVE_SCHEMA_VERSION) return null;
+  if (!isSchemaVersion(version)) return null;
   if (!isV1Core(parsed)) return null;
 
   const migrated = migrate(parsed, version, ctx);
-  return isSaveData(migrated) ? migrated : null;
+  const location = readLocation(migrated['location']);
+  if (location === null) return null;
+  const resolved = ctx.resolveLocation ? ctx.resolveLocation(location) : location;
+  if (resolved === null) return null;
+
+  const candidate = { ...migrated, location: resolved };
+  return isSaveData(candidate) ? candidate : null;
 }
 
 /** Step saves forward one schema version at a time. */
@@ -134,7 +154,7 @@ function migrate(
         gold: 0,
         party: ctx.initialParty(flags),
         inventory: [],
-        chapter: typeof chapter === 'number' ? chapter : 0,
+        chapter: isNonNegativeInt(chapter) ? chapter : 0,
       };
     }
     v += 1;
@@ -147,58 +167,112 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-const FACINGS = new Set(['up', 'down', 'left', 'right']);
-const CHARACTER_IDS = new Set(['ch_luka', 'ch_mio', 'ch_goro']);
+/** Known schema: an integer from 1 up to this build's version (newer builds' saves are rejected). */
+function isSchemaVersion(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= SAVE_SCHEMA_VERSION
+  );
+}
+
+function isNonNegativeInt(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+function isPositiveInt(value: unknown): value is number {
+  return isNonNegativeInt(value) && value >= 1;
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return value === null || typeof value === 'string';
+}
+
+const FACINGS: ReadonlySet<string> = new Set<Facing>(['up', 'down', 'left', 'right']);
+const CHARACTER_IDS: ReadonlySet<string> = new Set<CharacterId>(['ch_luka', 'ch_mio', 'ch_goro']);
+/** Every StatusKey (the Record keeps this in sync with @data/types at compile time). */
+const STATUS_KEYS: Record<StatusKey, true> = {
+  poison: true,
+  paralyze: true,
+  blind: true,
+  def_down: true,
+  atk_up: true,
+};
+const KNOWN_STATUSES: ReadonlySet<string> = new Set(Object.keys(STATUS_KEYS));
+
+function isFacing(value: unknown): value is Facing {
+  return typeof value === 'string' && FACINGS.has(value);
+}
+
+/** The location of a v1+ save as a fresh object, or null when it is malformed. */
+function readLocation(value: unknown): SaveLocation | null {
+  if (!isRecord(value)) return null;
+  const map = value['map'];
+  const x = value['x'];
+  const y = value['y'];
+  const facing = value['facing'];
+  if (typeof map !== 'string' || typeof x !== 'number' || typeof y !== 'number') return null;
+  if (!isFacing(facing)) return null;
+  return { map, x, y, facing };
+}
 
 /** Fields every version since v1 must have. */
 function isV1Core(value: Record<string, unknown>): boolean {
-  const loc = value['location'];
+  const playTime = value['playTimeSec'];
   return (
     typeof value['savedAt'] === 'number' &&
-    typeof value['playTimeSec'] === 'number' &&
-    isRecord(loc) &&
-    typeof loc['map'] === 'string' &&
-    typeof loc['x'] === 'number' &&
-    typeof loc['y'] === 'number' &&
-    typeof loc['facing'] === 'string' &&
-    FACINGS.has(loc['facing']) &&
+    typeof playTime === 'number' &&
+    playTime >= 0 &&
+    readLocation(value['location']) !== null &&
     isRecord(value['flags'])
   );
 }
 
 function isSavedMember(value: unknown): value is SavedMember {
   if (!isRecord(value)) return false;
+  const id = value['id'];
   const eq = value['equipment'];
-  const nullableString = (v: unknown): boolean => v === null || typeof v === 'string';
+  const statuses = value['statuses'];
   return (
-    typeof value['id'] === 'string' &&
-    CHARACTER_IDS.has(value['id']) &&
-    typeof value['exp'] === 'number' &&
-    typeof value['hp'] === 'number' &&
-    typeof value['mp'] === 'number' &&
+    typeof id === 'string' &&
+    CHARACTER_IDS.has(id) &&
+    isNonNegativeInt(value['exp']) &&
+    isNonNegativeInt(value['hp']) &&
+    isNonNegativeInt(value['mp']) &&
     typeof value['ko'] === 'boolean' &&
     isRecord(eq) &&
-    nullableString(eq['weapon']) &&
-    nullableString(eq['armor']) &&
-    nullableString(eq['accessory']) &&
-    Array.isArray(value['statuses']) &&
-    value['statuses'].every((s) => typeof s === 'string')
+    isNullableString(eq['weapon']) &&
+    isNullableString(eq['armor']) &&
+    isNullableString(eq['accessory']) &&
+    Array.isArray(statuses) &&
+    statuses.every((s) => typeof s === 'string' && KNOWN_STATUSES.has(s))
   );
 }
 
+/** `qty` must be a positive integer: `Inventory.add` silently drops anything else. */
+function isInventoryEntry(value: unknown): value is InventoryEntry {
+  return isRecord(value) && typeof value['itemId'] === 'string' && isPositiveInt(value['qty']);
+}
+
+function hasUniqueIds(members: readonly SavedMember[]): boolean {
+  return new Set(members.map((m) => m.id)).size === members.length;
+}
+
 function isSaveData(value: Record<string, unknown>): value is Record<string, unknown> & SaveData {
+  const party = value['party'];
+  const inventory = value['inventory'];
   return (
     value['schemaVersion'] === SAVE_SCHEMA_VERSION &&
     isV1Core(value) &&
-    typeof value['gold'] === 'number' &&
-    Array.isArray(value['party']) &&
-    value['party'].length > 0 &&
-    value['party'].every(isSavedMember) &&
-    Array.isArray(value['inventory']) &&
-    value['inventory'].every(
-      (e) => isRecord(e) && typeof e['itemId'] === 'string' && typeof e['qty'] === 'number',
-    ) &&
-    typeof value['chapter'] === 'number'
+    isNonNegativeInt(value['gold']) &&
+    Array.isArray(party) &&
+    party.length > 0 &&
+    party.every(isSavedMember) &&
+    hasUniqueIds(party) &&
+    Array.isArray(inventory) &&
+    inventory.every(isInventoryEntry) &&
+    isNonNegativeInt(value['chapter'])
   );
 }
 

@@ -138,4 +138,58 @@ describe('DialogRunner', () => {
     expect(r.active).toBe(false);
     expect(r.advance()).toEqual({ kind: 'end' });
   });
+
+  it('shows inline pages with no speaker and no effects', () => {
+    const h = host();
+    const r = new DialogRunner(nodes, h);
+    expect(r.startInline(['一行目。', '{luka} の二行目。'])).toEqual({
+      kind: 'page',
+      nodeId: '__inline',
+      text: '一行目。',
+      pageIndex: 0,
+      pageCount: 2,
+    });
+    expect(r.active).toBe(true);
+    expect(r.advance()).toEqual({
+      kind: 'page',
+      nodeId: '__inline',
+      text: 'ルカ の二行目。',
+      pageIndex: 1,
+      pageCount: 2,
+    });
+    expect(r.advance()).toEqual({ kind: 'end' });
+    expect(r.active).toBe(false);
+    expect(h.applied).toEqual([]);
+  });
+
+  it('shows one empty inline page when given no pages', () => {
+    const r = new DialogRunner(nodes, host());
+    expect(r.startInline([])).toEqual({
+      kind: 'page',
+      nodeId: '__inline',
+      text: '',
+      pageIndex: 0,
+      pageCount: 1,
+    });
+    expect(r.advance()).toEqual({ kind: 'end' });
+  });
+
+  it('offers inline choices on the last page and waits for one', () => {
+    const h = host();
+    const r = new DialogRunner(nodes, h);
+    const page = r.startInline([''], ['はい', 'いいえ']);
+    expect(page).toEqual({
+      kind: 'page',
+      nodeId: '__inline',
+      text: '',
+      pageIndex: 0,
+      pageCount: 1,
+      choices: ['はい', 'いいえ'],
+    });
+    expect(r.advance()).toEqual(page);
+    expect(r.active).toBe(true);
+    expect(r.choose(1)).toEqual({ kind: 'end' });
+    expect(r.active).toBe(false);
+    expect(h.applied).toEqual([]);
+  });
 });

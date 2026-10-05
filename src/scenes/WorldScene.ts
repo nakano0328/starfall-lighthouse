@@ -20,9 +20,12 @@ import type {
 } from '@core/map/objects';
 import { CollisionGrid, objectsAt, parseMapObjects } from '@core/map/objects';
 import type { TiledMap } from '@core/map/tiled';
+import { expForLevel } from '@core/party/exp';
+import { createMember, memberStats } from '@core/party/member';
 import type { Settings } from '@core/settings';
 import { SETTINGS_KEY, TEXT_SPEED_MS, parseSettings } from '@core/settings';
 import type { GameState } from '@core/state';
+import { CHARACTERS } from '@data/characters';
 import { DIALOGS } from '@data/dialogs';
 import { EVENTS } from '@data/events';
 import { findItem } from '@data/items';
@@ -94,6 +97,14 @@ export class WorldScene extends Phaser.Scene {
   private transitioning = false;
   /** Enemies may not engage the player before this time (scene time, ms). */
   private safeUntil = 0;
+  /** Id of the map built by buildMap (the save location's map). */
+  private mapId = '';
+  /** Resolves the script `warp` that restarted the scene, once the new map has faded in. */
+  private warpDone: (() => void) | null = null;
+  /** X pressed mid-step: the menu opens once the player stands on a tile (§11.4). */
+  private menuRequested = false;
+  /** True while a scripted player step tweens the sprite itself (see syncPlayerSprite). */
+  private scriptedPlayerStep = false;
 
   constructor() {
     super(SceneKey.World);
@@ -115,6 +126,8 @@ export class WorldScene extends Phaser.Scene {
     this.talkingTo = null;
     this.dialogDone = null;
     this.choiceDone = null;
+    this.menuRequested = false;
+    this.scriptedPlayerStep = false;
     this.buildMap(this.save.location.map);
     this.spawnObjects();
     this.rebuildCollision();
@@ -124,7 +137,8 @@ export class WorldScene extends Phaser.Scene {
       applyEffect: (cmd) => {
         if (cmd.cmd === 'give_item') this.state.inventory.add(cmd.item, cmd.qty);
         else if (cmd.cmd === 'take_item') this.state.inventory.remove(cmd.item, cmd.qty);
-        // play_se / heal_party arrive with audio (Phase 6) and the party (Phase 3).
+        else if (cmd.cmd === 'heal_party') this.healParty();
+        // play_se arrives with audio (Phase 6).
       },
       format: (text) =>
         formatDialogText(text, {
@@ -138,7 +152,11 @@ export class WorldScene extends Phaser.Scene {
       onChoose: (index) => this.onDialogChoice(index),
     });
     this.dialogBox.setDepth(DEPTH.hud);
-    this.interpreter = new EventInterpreter(this.eventHost(), EVENTS);
+    // A script whose `warp` restarted the scene keeps running (§10.2): its host
+    // reads this.dialogBox / this.time / this.tweens at call time, so it works
+    // against the rebuilt scene. Any other start gets a fresh interpreter.
+    const resumingScript = this.warpDone !== null && this.interpreter.running;
+    if (!resumingScript) this.interpreter = new EventInterpreter(this.eventHost(), EVENTS);
 
     const { x, y, facing } = this.save.location;
     this.mover = new GridMover({ x, y, facing }, (tx, ty) => this.collision.isBlocked(tx, ty));
@@ -157,29 +175,39 @@ export class WorldScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(DEPTH.fade);
     this.safeUntil = this.time.now + WARP_SAFE_MS;
-    void this.fade('in', WARP_FADE_MS, 'black');
+    // The fade-in is part of the transition (§9.2): a script `warp` resolves after it.
+    void this.fade('in', WARP_FADE_MS, 'black').then(() => {
+      const done = this.warpDone;
+      this.warpDone = null;
+      done?.();
+    });
     if (window.__starfall) window.__starfall.scene = SceneKey.World;
 
-    // A trigger under the start tile (e.g. the opening) fires right away.
-    this.checkTrigger(x, y);
+    // A trigger under the start tile (e.g. the opening) fires right away, unless
+    // the script that warped here is still running.
+    if (!this.interpreter.running) this.checkTrigger(x, y);
   }
 
   override update(_time: number, delta: number): void {
     if (this.transitioning) return;
     this.save.playTimeSec += delta / 1000;
     if (this.dialogBox.isOpen) {
+      this.menuRequested = false;
       this.dialogBox.update(this.input2, delta);
       this.mover.update(delta, null, false);
       this.syncPlayerSprite();
       return;
     }
     if (this.interpreter.running) {
+      this.menuRequested = false;
       this.input2.flush();
       this.syncPlayerSprite();
       this.updateCamera();
       return;
     }
-    if (this.input2.justPressed('cancel') && !this.mover.isMoving) {
+    // X mid-step is kept: no further step starts and the menu opens on the tile.
+    if (this.input2.justPressed('cancel')) this.menuRequested = true;
+    if (this.menuRequested && !this.mover.isMoving) {
       this.openMenu();
       return;
     }
@@ -187,7 +215,7 @@ export class WorldScene extends Phaser.Scene {
       this.interact();
       if (this.dialogBox.isOpen || this.interpreter.running) return;
     }
-    const dir = this.input2.heldDirection();
+    const dir = this.menuRequested ? null : this.input2.heldDirection();
     const dash = this.input2.isDown('dash');
     for (const event of this.mover.update(delta, dir, dash)) {
       if (event.type === 'turn')
@@ -197,10 +225,20 @@ export class WorldScene extends Phaser.Scene {
     }
     this.syncPlayerSprite();
     this.updateCamera();
+    if (
+      this.menuRequested &&
+      !this.transitioning &&
+      !this.interpreter.running &&
+      !this.dialogBox.isOpen &&
+      !this.mover.isMoving
+    ) {
+      this.openMenu();
+    }
   }
 
   /** Pauses the field and shows the pause menu; settings are re-read on resume. */
   private openMenu(override: Partial<MenuSceneData> = {}): void {
+    this.menuRequested = false;
     this.input2.flush();
     const data: MenuSceneData = {
       state: this.state,
@@ -256,6 +294,7 @@ export class WorldScene extends Phaser.Scene {
 
   /** Compiles the authored map (cached per map id) and creates its tile layers. */
   private buildMap(mapId: string): void {
+    this.mapId = mapId;
     const source = getMapSource(mapId);
     const cacheKey = `map:${mapId}`;
     if (!this.cache.tilemap.exists(cacheKey)) {
@@ -350,7 +389,22 @@ export class WorldScene extends Phaser.Scene {
   /** A door needs its key until its door flag is set (§9.2). */
   private isLocked(warp: WarpObject): boolean {
     if (warp.requiredItem === undefined) return false;
-    return warp.doorFlag === undefined || !this.flags.has(warp.doorFlag);
+    return !this.flags.has(this.doorFlagOf(warp));
+  }
+
+  /**
+   * The flag that keeps a key door open: the authored `door_flag`, else the §9.2
+   * default `door.<map>_<n>` (map id without `map_`, n = 1-based ordinal of the
+   * key door among this map's objects, e.g. `door.mine_b1_01`). Author `door_flag`
+   * when a script or condition needs to read the flag.
+   */
+  private doorFlagOf(warp: WarpObject): string {
+    if (warp.doorFlag !== undefined) return warp.doorFlag;
+    const doors = this.objects.filter(
+      (o): o is WarpObject => o.kind === 'warp' && o.requiredItem !== undefined,
+    );
+    const n = Math.max(0, doors.indexOf(warp)) + 1;
+    return `door.${this.mapId.replace(/^map_/, '')}_${String(n).padStart(2, '0')}`;
   }
 
   private npcAt(x: number, y: number): NpcRuntime | undefined {
@@ -397,6 +451,9 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private talkTo(npc: NpcRuntime, playerFacing: Facing): void {
+    // npc.obj.shop / npc.obj.innPrice (§9.2) are parsed but not acted on yet: the
+    // inn lands with the Phase 3 party, the shop with the Phase 4 equipment data.
+    // Until then those NPCs' dialogs end on a 準備中 line.
     npc.image.setFrame(opposite(playerFacing));
     this.talkingTo = npc;
     this.startDialog(npc.obj.dialog);
@@ -429,7 +486,7 @@ export class WorldScene extends Phaser.Scene {
     const itemId = warp.requiredItem;
     if (itemId === undefined) return;
     if (this.state.inventory.has(itemId)) {
-      if (warp.doorFlag !== undefined) this.flags.set(warp.doorFlag, true);
+      this.flags.set(this.doorFlagOf(warp), true);
       this.rebuildCollision();
       this.showMessage(['かぎを使った。']);
       return;
@@ -438,9 +495,22 @@ export class WorldScene extends Phaser.Scene {
     else this.showMessage(['かぎがかかっている。']);
   }
 
-  /** 星の祠: opens the save list regardless of the map's canSaveAnywhere (§9.2). */
-  private useSavePoint(_point: SavePointObject): void {
-    this.openMenu({ canSave: true, startMode: 'save' });
+  /**
+   * 星の祠: opens the save list regardless of the map's canSaveAnywhere (§9.2).
+   * A `heal:true` point (灯台 5F の泉, §9.3) restores the party first; with a
+   * `once_flag` it does so only once.
+   */
+  private useSavePoint(point: SavePointObject): void {
+    const saveMenu: Partial<MenuSceneData> = { canSave: true, startMode: 'save' };
+    const spent = point.onceFlag !== undefined && this.flags.has(point.onceFlag);
+    if (!point.heal || spent) {
+      this.openMenu(saveMenu);
+      return;
+    }
+    this.healParty();
+    if (point.onceFlag !== undefined) this.flags.set(point.onceFlag, true);
+    this.dialogDone = () => this.openMenu(saveMenu);
+    this.showMessage(['みんなの HP と MP が 全快した。']);
   }
 
   // ---- dialog ---------------------------------------------------------------
@@ -506,6 +576,13 @@ export class WorldScene extends Phaser.Scene {
       return false;
     }
     if (trigger.once) this.flags.set(onceKey, true);
+    // Entered with the direction still held: the mover has already begun the next
+    // step. Cancel it so the event finds the player on the trigger tile and the
+    // save location (§9.1) matches the sprite.
+    if (this.mover.isMoving) {
+      this.mover.teleport({ x, y, facing: this.mover.position.facing });
+      this.syncPlayerSprite();
+    }
     void this.runEvent(trigger.eventId);
     return true;
   }
@@ -523,13 +600,20 @@ export class WorldScene extends Phaser.Scene {
     void this.warpTo(warp.targetMap, warp.targetX, warp.targetY, warp.facing);
   }
 
+  /** Fades out and restarts the scene on the target; resolves after the new map's fade-in. */
   private warpTo(map: string, x: number, y: number, facing: Facing): Promise<void> {
     this.transitioning = true;
+    this.menuRequested = false;
     this.input2.flush();
-    return this.fade('out', WARP_FADE_MS, 'black').then(() => {
-      this.save.location = { map, x, y, facing };
-      const data: WorldSceneData = { state: this.state };
-      this.scene.restart(data);
+    return new Promise<void>((resolve) => {
+      void this.fade('out', WARP_FADE_MS, 'black').then(() => {
+        this.save.location = { map, x, y, facing };
+        // The restart is only queued; the script that issued the warp must not go
+        // on against this scene's objects, so the next create() resolves it (§10.2).
+        this.warpDone = resolve;
+        const data: WorldSceneData = { state: this.state };
+        this.scene.restart(data);
+      });
     });
   }
 
@@ -600,8 +684,8 @@ export class WorldScene extends Phaser.Scene {
         }),
       playBgm: () => undefined, // audio lands in Phase 6
       playSe: () => undefined,
-      healParty: () => undefined, // party state lands in Phase 3
-      addMember: (_id: CharacterId) => undefined,
+      healParty: () => this.healParty(),
+      addMember: (id) => this.addMember(id),
       showChapter: (title) => this.showChapter(title),
       spawnNpc: (id) => {
         const npc = this.npcs.get(id);
@@ -616,6 +700,31 @@ export class WorldScene extends Phaser.Scene {
       battle: () => Promise.resolve('win'), // battles land in Phase 3
       endGame: () => undefined, // ending lands in Phase 5
     };
+  }
+
+  // ---- party (§10.2 heal_party / add_member) ---------------------------------
+
+  /** HP/MP to full, KO lifted, ailments cleared, for every member (§10.2 heal_party). */
+  private healParty(): void {
+    for (const m of this.state.party) {
+      const max = memberStats(CHARACTERS[m.id], m);
+      m.hp = max.hp;
+      m.mp = max.mp;
+      m.ko = false;
+      m.statuses = [];
+    }
+  }
+
+  /**
+   * Joins a character with the leader's cumulative EXP, floored at the EXP of the
+   * character's minimum join level (§4.1: ゴロー ≥ Lv7), with initial equipment.
+   * A character already in the party is left alone.
+   */
+  private addMember(id: CharacterId): void {
+    if (this.state.party.some((m) => m.id === id)) return;
+    const def = CHARACTERS[id];
+    const leaderExp = this.state.party[0]?.exp ?? 0;
+    this.state.party.push(createMember(def, Math.max(leaderExp, expForLevel(def.joinMinLevel))));
   }
 
   private fade(dir: 'in' | 'out', ms: number, color: 'black' | 'white'): Promise<void> {
@@ -636,7 +745,11 @@ export class WorldScene extends Phaser.Scene {
     });
   }
 
-  /** Walks an actor along a path one tile at a time; scripted moves ignore collision. */
+  /**
+   * Walks an actor along a path one tile at a time; scripted moves ignore collision.
+   * A `wait:false` move still running when a `warp` restarts the scene ends with
+   * the old map (its tween dies there) instead of carrying on in the new one.
+   */
   private async scriptedMove(actor: string, path: Facing[]): Promise<void> {
     for (const dir of path) {
       const { dx, dy } = FACING_DELTA[dir];
@@ -644,7 +757,11 @@ export class WorldScene extends Phaser.Scene {
         const from = this.mover.position;
         const to = { x: from.x + dx, y: from.y + dy, facing: dir };
         this.mover.face(dir);
-        await this.tweenTo(this.player, to.x, to.y);
+        // The tween owns the sprite for this step; syncPlayerSprite leaves it alone.
+        this.scriptedPlayerStep = true;
+        const arrived = await this.tweenTo(this.player, to.x, to.y);
+        this.scriptedPlayerStep = false;
+        if (!arrived) return;
         this.mover.teleport(to);
         this.save.location = { ...this.save.location, ...to };
         this.syncPlayerSprite();
@@ -655,7 +772,7 @@ export class WorldScene extends Phaser.Scene {
         npc.image.setFrame(dir);
         const nx = npc.tx + dx;
         const ny = npc.ty + dy;
-        await this.tweenTo(npc.image, nx, ny);
+        if (!(await this.tweenTo(npc.image, nx, ny))) return;
         npc.tx = nx;
         npc.ty = ny;
         npc.image.setDepth(DEPTH.actors + ny / 1000);
@@ -663,14 +780,20 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  private tweenTo(target: Phaser.GameObjects.Image, tx: number, ty: number): Promise<void> {
-    return new Promise<void>((resolve) => {
+  /** Tweens an image to a tile centre. Resolves false if the scene shut down first. */
+  private tweenTo(target: Phaser.GameObjects.Image, tx: number, ty: number): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      const cut = (): void => resolve(false);
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, cut);
       this.tweens.add({
         targets: target,
         x: tileCenter(tx),
         y: tileCenter(ty),
         duration: SCRIPT_STEP_MS,
-        onComplete: () => resolve(),
+        onComplete: () => {
+          this.events.off(Phaser.Scenes.Events.SHUTDOWN, cut);
+          resolve(true);
+        },
       });
     });
   }
@@ -711,12 +834,23 @@ export class WorldScene extends Phaser.Scene {
   // ---- rendering --------------------------------------------------------------
 
   private syncPlayerSprite(): void {
-    const rp = this.mover.renderPosition;
-    const bob = this.mover.isMoving ? -Math.round(2 * Math.sin(this.mover.progress * Math.PI)) : 0;
-    this.player
-      .setPosition(rp.x * TILE_SIZE + TILE_SIZE / 2, rp.y * TILE_SIZE + TILE_SIZE / 2 + bob)
-      .setFrame(this.mover.position.facing)
-      .setDepth(DEPTH.actors + rp.y / 1000);
+    let rowY: number;
+    if (this.scriptedPlayerStep) {
+      // A scripted step is tweening the sprite (scriptedMove); the mover still
+      // holds the start tile, so writing its position here would freeze the sprite.
+      rowY = (this.player.y - TILE_SIZE / 2) / TILE_SIZE;
+    } else {
+      const rp = this.mover.renderPosition;
+      const bob = this.mover.isMoving
+        ? -Math.round(2 * Math.sin(this.mover.progress * Math.PI))
+        : 0;
+      this.player.setPosition(
+        rp.x * TILE_SIZE + TILE_SIZE / 2,
+        rp.y * TILE_SIZE + TILE_SIZE / 2 + bob,
+      );
+      rowY = rp.y;
+    }
+    this.player.setFrame(this.mover.position.facing).setDepth(DEPTH.actors + rowY / 1000);
     const { x, y } = this.mover.position;
     this.hud.setText(`${this.save.location.map}  (${x}, ${y})  ${this.state.gold}G`);
   }

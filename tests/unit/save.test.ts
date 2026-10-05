@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { Flags } from '@core/flags';
 import { Inventory } from '@core/inventory';
-import type { MigrationContext, SavedMember } from '@core/save';
+import type { Facing, MigrationContext, SaveLocation, SavedMember } from '@core/save';
 import {
   SAVE_SCHEMA_VERSION,
   SAVE_SLOT_COUNT,
@@ -16,6 +16,7 @@ import {
   slotSummary,
 } from '@core/save';
 import { fromSaveData, toSaveData } from '@core/state';
+import type { StatusKey } from '@data/types';
 
 const luka: SavedMember = {
   id: 'ch_luka',
@@ -33,6 +34,10 @@ const mio: SavedMember = {
   mp: 14,
   equipment: { weapon: 'eq_wp_mio_1', armor: 'eq_ar_cloth_mio', accessory: null },
 };
+/**
+ * Stub context so this file stays independent of src/data. The real
+ * MIGRATION_CONTEXT (src/data/saveContext.ts) is covered by save-context.test.ts.
+ */
 const ctx: MigrationContext = {
   initialParty: (flags) => (flags['minato.mio_joined'] ? [luka, mio] : [luka]),
 };
@@ -180,5 +185,171 @@ describe('formatPlayTime', () => {
     expect(formatPlayTime(59.9)).toBe('0:00:59');
     expect(formatPlayTime(3723)).toBe('1:02:03');
     expect(formatPlayTime(-5)).toBe('0:00:00');
+  });
+});
+
+describe('deserialize validation', () => {
+  const base = () => {
+    const s = createNewSave(1, [luka]);
+    s.inventory = [{ itemId: 'it_herb', qty: 1 }];
+    return s;
+  };
+  const parse = (data: unknown, c: MigrationContext = ctx) => deserialize(JSON.stringify(data), c);
+
+  /** Fake registry mirroring what src/data/saveContext.ts provides from MAP_SOURCES. */
+  const MAPS: Record<string, { width: number; height: number; entrance: SaveLocation }> = {
+    map_minato_luka_house: {
+      width: 12,
+      height: 10,
+      entrance: { map: 'map_minato_luka_house', x: 5, y: 8, facing: 'up' },
+    },
+    map_minato_village: {
+      width: 40,
+      height: 30,
+      entrance: { map: 'map_minato_village', x: 10, y: 12, facing: 'down' },
+    },
+  };
+  const registryCtx: MigrationContext = {
+    ...ctx,
+    resolveLocation: (loc) => {
+      const m = MAPS[loc.map];
+      if (!m) return null;
+      const inside =
+        Number.isInteger(loc.x) &&
+        Number.isInteger(loc.y) &&
+        loc.x >= 0 &&
+        loc.x < m.width &&
+        loc.y >= 0 &&
+        loc.y < m.height;
+      return inside ? loc : m.entrance;
+    },
+  };
+
+  it('rejects a save whose map the context cannot resolve', () => {
+    const s = base();
+    s.location = { map: 'map_minato_village_old', x: 10, y: 12, facing: 'down' };
+    expect(parse(s, registryCtx)).toBeNull();
+    // Without a registry the core keeps the location as-is (the data layer decides).
+    expect(parse(s)).toEqual(s);
+  });
+
+  it('stores the location the context resolves (off-map tile → entrance)', () => {
+    const s = base();
+    s.location = { map: 'map_minato_village', x: 999, y: 999, facing: 'down' };
+    expect(parse(s, registryCtx)?.location).toEqual(MAPS['map_minato_village']?.entrance);
+    s.location = { map: 'map_minato_village', x: -1, y: 5, facing: 'left' };
+    expect(parse(s, registryCtx)?.location).toEqual(MAPS['map_minato_village']?.entrance);
+    s.location = { map: 'map_minato_luka_house', x: 3.5, y: 4, facing: 'right' };
+    expect(parse(s, registryCtx)?.location).toEqual(MAPS['map_minato_luka_house']?.entrance);
+    s.location = { map: 'map_minato_luka_house', x: 11, y: 9, facing: 'right' };
+    expect(parse(s, registryCtx)?.location).toEqual(s.location);
+  });
+
+  it('passes the context a copy of the location and re-validates what it returns', () => {
+    const s = base();
+    const seen: SaveLocation[] = [];
+    const spy: MigrationContext = {
+      ...ctx,
+      resolveLocation: (loc) => {
+        seen.push(loc);
+        return loc;
+      },
+    };
+    expect(parse(s, spy)).toEqual(s);
+    expect(seen).toEqual([s.location]);
+    const broken: MigrationContext = {
+      ...ctx,
+      resolveLocation: () => ({
+        map: 'map_minato_village',
+        x: 1,
+        y: 1,
+        facing: 'sideways' as Facing,
+      }),
+    };
+    expect(parse(s, broken)).toBeNull();
+  });
+
+  it('rejects negative or fractional exp/hp/mp/gold/chapter and negative play time', () => {
+    const s = base();
+    expect(parse({ ...s, party: [{ ...luka, exp: -1 }] })).toBeNull();
+    expect(parse({ ...s, party: [{ ...luka, exp: 1.5 }] })).toBeNull();
+    expect(parse({ ...s, party: [{ ...luka, hp: -5 }] })).toBeNull();
+    expect(parse({ ...s, party: [{ ...luka, mp: -0.5 }] })).toBeNull();
+    expect(parse({ ...s, gold: -10 })).toBeNull();
+    expect(parse({ ...s, gold: 2.5 })).toBeNull();
+    expect(parse({ ...s, chapter: -1 })).toBeNull();
+    expect(parse({ ...s, chapter: 0.5 })).toBeNull();
+    expect(parse({ ...s, playTimeSec: -1 })).toBeNull();
+    // Play time may be fractional; zero hp (KO) is a legal value.
+    expect(parse({ ...s, playTimeSec: 12.75 })?.playTimeSec).toBe(12.75);
+    expect(parse({ ...s, party: [{ ...luka, hp: 0, ko: true }] })?.party[0]?.hp).toBe(0);
+  });
+
+  it('rejects inventory quantities that are not positive integers', () => {
+    const s = base();
+    expect(parse({ ...s, inventory: [{ itemId: 'it_herb', qty: 0 }] })).toBeNull();
+    expect(parse({ ...s, inventory: [{ itemId: 'it_herb', qty: -1 }] })).toBeNull();
+    expect(parse({ ...s, inventory: [{ itemId: 'it_herb', qty: 1.5 }] })).toBeNull();
+    expect(parse({ ...s, inventory: [{ itemId: 'it_herb', qty: '3' }] })).toBeNull();
+    expect(parse({ ...s, inventory: [{ itemId: 'it_herb', qty: 1 }] })?.inventory).toEqual([
+      { itemId: 'it_herb', qty: 1 },
+    ]);
+  });
+
+  it('rejects unknown statuses and accepts every known one', () => {
+    const s = base();
+    expect(parse({ ...s, party: [{ ...luka, statuses: ['sleep'] }] })).toBeNull();
+    expect(parse({ ...s, party: [{ ...luka, statuses: ['poison', 7] }] })).toBeNull();
+    const all: StatusKey[] = ['poison', 'paralyze', 'blind', 'def_down', 'atk_up'];
+    expect(parse({ ...s, party: [{ ...luka, statuses: all }] })?.party[0]?.statuses).toEqual(all);
+  });
+
+  it('rejects duplicate party members', () => {
+    const s = base();
+    expect(parse({ ...s, party: [luka, { ...luka, exp: 50 }] })).toBeNull();
+    expect(parse({ ...s, party: [luka, mio] })?.party).toEqual([luka, mio]);
+  });
+
+  it('rejects schema versions below 1 or non-integer instead of migrating them as v1', () => {
+    const v1 = {
+      schemaVersion: 1,
+      savedAt: 5,
+      playTimeSec: 10,
+      location: { map: 'map_minato_village', x: 10, y: 12, facing: 'down' },
+      flags: {},
+    };
+    expect(parse({ ...v1, schemaVersion: 0 })).toBeNull();
+    expect(parse({ ...v1, schemaVersion: -7 })).toBeNull();
+    expect(parse({ ...v1, schemaVersion: 1.5 })).toBeNull();
+    expect(parse(v1)?.schemaVersion).toBe(SAVE_SCHEMA_VERSION);
+  });
+
+  it('migrates a v1 save with a corrupt chapter flag to chapter 0', () => {
+    const v1 = {
+      schemaVersion: 1,
+      savedAt: 5,
+      playTimeSec: 10,
+      location: { map: 'map_minato_village', x: 10, y: 12, facing: 'down' },
+      flags: { 'main.chapter': -3 },
+    };
+    expect(parse(v1)?.chapter).toBe(0);
+  });
+
+  it('findSlotsWithSaves agrees with deserialize about unloadable and repaired slots', () => {
+    const unknownMap = base();
+    unknownMap.location = { map: 'map_minato_village_old', x: 1, y: 1, facing: 'down' };
+    const offMap = base();
+    offMap.location = { map: 'map_minato_village', x: 999, y: 999, facing: 'down' };
+    const badQty = base();
+    badQty.inventory = [{ itemId: 'it_herb', qty: 0 }];
+    const store = new Map<string, string>([
+      ['starfall.save.0', serialize(unknownMap)],
+      ['starfall.save.1', serialize(offMap)],
+      ['starfall.save.2', serialize(badQty)],
+    ]);
+    const read = (k: string) => store.get(k) ?? null;
+    expect(findSlotsWithSaves(read, registryCtx)).toEqual([1]);
+    // Without a registry only the value checks apply.
+    expect(findSlotsWithSaves(read, ctx)).toEqual([0, 1]);
   });
 });

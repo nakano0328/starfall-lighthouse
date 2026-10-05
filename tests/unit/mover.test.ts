@@ -93,6 +93,23 @@ describe('GridMover', () => {
     expect(m.progress).toBe(1);
   });
 
+  it('teleport cancels the step chained at a tile boundary (a trigger stops the walk)', () => {
+    const m = new GridMover({ x: 7, y: 6, facing: 'down' }, open);
+    m.update(0, 'down', false);
+    // Direction still held when the step ends: the next step has already begun.
+    const events = m.update(160, 'down', false);
+    expect(types(events)).toEqual(['step_end', 'step_start']);
+    expect(m.isMoving).toBe(true);
+    expect(m.position).toEqual({ x: 7, y: 8, facing: 'down' });
+    // The scene lands on the trigger tile (7,7) and cancels the chained step.
+    m.teleport({ x: 7, y: 7, facing: m.position.facing });
+    expect(m.isMoving).toBe(false);
+    expect(m.position).toEqual({ x: 7, y: 7, facing: 'down' });
+    expect(m.renderPosition).toEqual({ x: 7, y: 7 });
+    expect(types(m.update(16, null, false))).toEqual([]);
+    expect(m.position).toEqual({ x: 7, y: 7, facing: 'down' });
+  });
+
   it('uses a replaced blocked check (e.g. NPCs moved)', () => {
     const m = new GridMover({ x: 0, y: 0, facing: 'right' }, wallAt(1, 0));
     expect(types(m.update(16, 'right', false))).toEqual(['bump']);

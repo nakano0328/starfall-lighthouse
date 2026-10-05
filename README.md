@@ -19,7 +19,7 @@
 
 | 操作           | キーボード        | 備考                                      |
 | -------------- | ----------------- | ----------------------------------------- |
-| 移動・カーソル | 矢印 / WASD       | 4 方向グリッド移動（Phase 2 で実装）      |
+| 移動・カーソル | 矢印 / WASD       | 4 方向グリッド移動。Shift でダッシュ      |
 | 決定・調べる   | Z / Enter / Space | タイトル画面ではクリック／タップでも可    |
 | 戻る・メニュー | X / Esc           | フィールドではメニューの開閉              |
 | ゲームパッド   | —                 | 標準マッピングで対応予定（Phase 5）       |
@@ -97,10 +97,10 @@ starfall-lighthouse/
 │  ├─ config.ts                  # 解像度・タイルサイズ・パレット
 │  ├─ vite-env.d.ts
 │  ├─ assets/                    # 画像マニフェストとプレースホルダー生成
-│  ├─ core/                      # 純 TypeScript ロジック（flags, save, condition, map/）
-│  ├─ data/                      # 型定義・タイル定義・マップ（maps/*.ts）
-│  ├─ scenes/                    # Phaser シーン（Boot / Title / World）
-│  └─ ui/                        # 入力バインディング・メニュー部品
+│  ├─ core/                      # 純 TypeScript ロジック（flags, save, settings, state, inventory, condition, map/, grid/, menu/, dialog/, events/, party/, text/）
+│  ├─ data/                      # 型定義・タイル定義・アイテム・キャラ・マップ（maps/*.ts）・会話/イベント JSON（dialogs/, events/）
+│  ├─ scenes/                    # Phaser シーン（Boot / Title / World / Menu）
+│  └─ ui/                        # 入力バインディング・ウィンドウ/ダイアログ/メニュー部品
 ├─ tests/
 │  ├─ unit/                      # Vitest（core / data / assets のユニットテスト）
 │  └─ e2e/                       # Playwright（smoke.spec.ts）
@@ -116,8 +116,8 @@ Phase 2 以降で `scripts/`（バランス表エクスポート）などが追�
 
 | マイルストーン | 内容                               | 状態       |
 | -------------- | ---------------------------------- | ---------- |
-| M1 `v0.1`      | 基盤完成・Pages 公開               | **進行中** |
-| M2 `v0.2`      | 歩ける・話せる・セーブできる       | 未着手     |
+| M1 `v0.1`      | 基盤完成・Pages 公開               | 完了       |
+| M2 `v0.2`      | 歩ける・話せる・セーブできる       | **進行中** |
 | M3 `v0.3`      | 戦える                             | 未着手     |
 | M4 `v0.5`      | 通しプレイ可能（ホワイトボックス） | 未着手     |
 | M5 `v0.8`      | 本番アート・音入り                 | 未着手     |
