@@ -7,6 +7,7 @@ import { CollisionGrid, parseMapObjects } from '@core/map/objects';
 import type { LegendEntry, MapSource } from '@core/map/source';
 import { OVERLAY_EMPTY, normalizeLegendEntry } from '@core/map/source';
 import { createNewSave } from '@core/save';
+import { DIALOGS } from '@data/dialogs';
 import { findItem } from '@data/items';
 import { MAP_IDS, MAP_SOURCES, getMapSource } from '@data/maps';
 import type { Facing } from '@data/types';
@@ -350,7 +351,9 @@ describe('authored maps', () => {
     expect(withGuard.has(cellKey({ x: 36, y: 14 }))).toBe(true);
     for (const c of northExit)
       expect(withGuard.has(cellKey(c)), `north exit ${cellKey(c)}`).toBe(true);
+    // Everything else stays reachable; the only sealed object is the east-exit warp itself.
     for (const o of parseMapObjects(map)) {
+      if (o.kind === 'warp' && inRect(o, eastExit)) continue;
       if (o.kind === 'chest' || o.kind === 'sign' || o.kind === 'warp')
         expect(withGuard.has(cellKey({ x: o.tx, y: o.ty })), `${o.kind} at ${o.tx},${o.ty}`).toBe(
           true,
@@ -364,5 +367,93 @@ describe('authored maps', () => {
     );
     expect(withoutGuard.has(cellKey(eastExit))).toBe(true);
     for (const c of northExit) expect(withoutGuard.has(cellKey(c))).toBe(true);
+  });
+  // docs/GAME_DESIGN.md §3.1: 海岸街道 — first field map, tutorial sign, one save point.
+  describe('海岸街道 (map_coast_road)', () => {
+    const COAST = 'map_coast_road';
+    const VILLAGE = 'map_minato_village';
+    const COAST_GROUPS = new Set(['grp_coast_a', 'grp_coast_b']);
+    const src = getMapSource(COAST);
+    const grid = CollisionGrid.fromMap(compiled[COAST]!);
+    const villageGrid = CollisionGrid.fromMap(compiled[VILLAGE]!);
+
+    it('is a 40x25 field map with the coast encounter groups and no free saving', () => {
+      expect(src.width).toBe(40);
+      expect(src.height).toBe(25);
+      expect(src.meta).toMatchObject({
+        kind: 'field',
+        bgmKey: 'bgm_field',
+        battleBgKey: 'bg_coast',
+        encounterGroups: ['grp_coast_a', 'grp_coast_b'],
+        canSaveAnywhere: false,
+      });
+    });
+
+    it('links its west edge to the village east gate, both landings walkable', () => {
+      const { entrance } = src.meta;
+      const west = warpsOf(COAST).filter((w) => w.tx === 0);
+      expect(west).toHaveLength(1);
+      expect(west[0]).toMatchObject({
+        targetMap: VILLAGE,
+        targetX: 38,
+        targetY: 14,
+        facing: 'left',
+      });
+      expect(touchesRect(west[0]!, entrance)).toBe(true);
+      expect(villageGrid.isBlocked(38, 14)).toBe(false);
+
+      const east = warpsOf(VILLAGE).filter((w) => w.targetMap === COAST);
+      expect(east).toHaveLength(1);
+      expect(east[0]).toMatchObject({
+        tx: 39,
+        ty: 14,
+        targetX: entrance.x,
+        targetY: entrance.y,
+        facing: 'right',
+      });
+      expect(grid.isBlocked(entrance.x, entrance.y)).toBe(false);
+      // The forest does not exist yet, so nothing warps east (§3.1: map_whisper_forest is pending).
+      expect(warpsOf(COAST).some((w) => w.tx === src.width - 1)).toBe(false);
+    });
+
+    it('places enemy symbols on walkable tiles, away from the entrance, in the coast groups', () => {
+      const enemies = objectsOf(COAST).filter((o) => o.kind === 'enemy');
+      expect(enemies).toHaveLength(4);
+      const { entrance } = src.meta;
+      for (const e of enemies) {
+        const label = `enemy at (${e.tx}, ${e.ty})`;
+        expect(grid.isBlocked(e.tx, e.ty), label).toBe(false);
+        expect(
+          Math.abs(e.tx - entrance.x) + Math.abs(e.ty - entrance.y),
+          label,
+        ).toBeGreaterThanOrEqual(6);
+        expect(e.groupIds.length, label).toBeGreaterThan(0);
+        for (const g of e.groupIds) expect(COAST_GROUPS.has(g), `${label} group ${g}`).toBe(true);
+        // §5.12: the symbol wanders within `radius`, so most of that square must be open ground.
+        let open = 0;
+        let total = 0;
+        for (let dy = -e.radius; dy <= e.radius; dy++) {
+          for (let dx = -e.radius; dx <= e.radius; dx++) {
+            total += 1;
+            if (!grid.isBlocked(e.tx + dx, e.ty + dy)) open += 1;
+          }
+        }
+        expect(open / total, `${label} wander area`).toBeGreaterThan(0.5);
+      }
+      expect(enemies.filter((e) => e.groupIds.includes('grp_coast_b'))).toHaveLength(1);
+    });
+
+    it('has a tutorial sign, an east-end sign and a save point with existing dialogs', () => {
+      const signs = objectsOf(COAST).filter((o) => o.kind === 'sign');
+      expect(signs.map((s) => s.textId).sort()).toEqual([
+        'dlg_sign_coast_east',
+        'dlg_sign_coast_tutorial',
+      ]);
+      for (const s of signs) expect(DIALOGS[s.textId], s.textId).toBeDefined();
+      expect(objectsOf(COAST).filter((o) => o.kind === 'save_point')).toHaveLength(1);
+      expect(objectsOf(COAST).filter((o) => o.kind === 'chest')).toMatchObject([
+        { itemId: 'it_herb', qty: 2, flag: 'chest.coast_01' },
+      ]);
+    });
   });
 });

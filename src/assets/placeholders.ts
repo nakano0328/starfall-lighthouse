@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { COLORS, TILE_SIZE } from '@/config';
+import { COLORS, GAME_HEIGHT, GAME_WIDTH, TILE_SIZE } from '@/config';
 import { PLACEHOLDER_TILES, TILE_COLUMNS, TILE_ROWS } from '@data/tiles';
 
 import type { ImageAsset } from './manifest';
@@ -33,7 +33,65 @@ export function generatePlaceholder(scene: Phaser.Scene, asset: ImageAsset): voi
       return makeStar(scene, asset.key);
     case 'lighthouse':
       return makeLighthouse(scene, asset.key);
+    case 'battle_bg':
+      return makeBattleBg(scene, asset.key);
+    case 'enemy':
+      return makeEnemy(scene, asset.key, asset.tint ?? 0x8a8aa0, asset.size ?? 96);
   }
+}
+
+/** Top/bottom colours per battle background key; unknown keys get the coast palette. */
+const BATTLE_BG_COLORS: Record<string, [number, number]> = {
+  bg_coast: [0x6fb4e0, 0xd9c58a],
+  bg_forest: [0x1f4a2a, 0x3f7d3a],
+  bg_mine: [0x1a1418, 0x5a4a3a],
+  bg_ruins: [0x1f4f6a, 0x3a7a8a],
+  bg_lighthouse: [0x101840, 0x2a3a7a],
+  bg_lighthouse_top: [0x05061a, 0x2a1a4a],
+};
+
+/** Horizontal colour bands from the top colour to the bottom one (works on Canvas too). */
+function makeBattleBg(scene: Phaser.Scene, key: string): void {
+  const [top, bottom] = BATTLE_BG_COLORS[key] ?? BATTLE_BG_COLORS['bg_coast'] ?? [0, 0];
+  const g = graphics(scene);
+  const bands = 18;
+  const bandH = Math.ceil(GAME_HEIGHT / bands);
+  const a = Phaser.Display.Color.IntegerToColor(top);
+  const b = Phaser.Display.Color.IntegerToColor(bottom);
+  for (let i = 0; i < bands; i += 1) {
+    const t = i / (bands - 1);
+    const c = Phaser.Display.Color.Interpolate.ColorWithColor(a, b, 1, t);
+    g.fillStyle(Phaser.Display.Color.GetColor(c.r, c.g, c.b), 1);
+    g.fillRect(0, i * bandH, GAME_WIDTH, bandH);
+  }
+  if (key === 'bg_lighthouse_top') {
+    g.fillStyle(0xffe9a3, 1);
+    for (let i = 0; i < 40; i += 1) {
+      g.fillRect((i * 97) % GAME_WIDTH, (i * 61) % (GAME_HEIGHT / 2), 2, 2);
+    }
+  }
+  g.generateTexture(key, GAME_WIDTH, GAME_HEIGHT);
+  g.destroy();
+}
+
+/** A round creature silhouette with eyes, tinted by element; bosses are just bigger. */
+function makeEnemy(scene: Phaser.Scene, key: string, tint: number, size: number): void {
+  const g = graphics(scene);
+  const cx = size / 2;
+  g.fillStyle(0x000000, 0.25);
+  g.fillEllipse(cx, size - size * 0.08, size * 0.7, size * 0.12);
+  g.fillStyle(shade(tint, -0.35), 1);
+  g.fillEllipse(cx, size * 0.55, size * 0.74, size * 0.7);
+  g.fillStyle(tint, 1);
+  g.fillEllipse(cx, size * 0.53, size * 0.64, size * 0.6);
+  g.fillStyle(0xf4f1ea, 1);
+  g.fillEllipse(cx - size * 0.14, size * 0.45, size * 0.14, size * 0.16);
+  g.fillEllipse(cx + size * 0.14, size * 0.45, size * 0.14, size * 0.16);
+  g.fillStyle(0x1b1b2a, 1);
+  g.fillCircle(cx - size * 0.13, size * 0.47, size * 0.04);
+  g.fillCircle(cx + size * 0.15, size * 0.47, size * 0.04);
+  g.generateTexture(key, size, size);
+  g.destroy();
 }
 
 function graphics(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
