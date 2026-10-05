@@ -2,15 +2,24 @@ import Phaser from 'phaser';
 
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TILE_SIZE } from '@/config';
 import { evaluateCondition } from '@core/condition';
+import type { DialogStep } from '@core/dialog/runner';
+import { DialogRunner } from '@core/dialog/runner';
+import { formatDialogText } from '@core/dialog/text';
 import { Flags } from '@core/flags';
-import { GridMover } from '@core/grid/mover';
+import { FACING_DELTA, GridMover } from '@core/grid/mover';
 import { cameraScroll } from '@core/map/camera';
 import { PLACEHOLDER_TILESET_NAME, compileMap } from '@core/map/compile';
 import type { MapObject, NpcObject, WarpObject } from '@core/map/objects';
 import { CollisionGrid, objectsAt, parseMapObjects } from '@core/map/objects';
 import type { TiledMap } from '@core/map/tiled';
 import type { SaveData } from '@core/save';
+import type { Settings } from '@core/settings';
+import { SETTINGS_KEY, TEXT_SPEED_MS, parseSettings } from '@core/settings';
+import { DIALOGS } from '@data/dialogs';
 import { getMapSource } from '@data/maps';
+import { PARTY_NAMES } from '@data/names';
+import type { Facing } from '@data/types';
+import { DialogBox } from '@ui/DialogBox';
 import { InputBindings } from '@ui/InputBindings';
 
 import { SceneKey } from './keys';
@@ -41,8 +50,14 @@ export class WorldScene extends Phaser.Scene {
   private mover!: GridMover;
   private hud!: Phaser.GameObjects.Text;
   private tiled!: TiledMap;
+  private baseCollision!: CollisionGrid;
   private collision!: CollisionGrid;
   private objects: MapObject[] = [];
+  private readonly npcs = new Map<string, { obj: NpcObject; image: Phaser.GameObjects.Image }>();
+  private talkingTo: { obj: NpcObject; image: Phaser.GameObjects.Image } | null = null;
+  private settings!: Settings;
+  private runner!: DialogRunner;
+  private dialogBox!: DialogBox;
   private mapPixelWidth = 0;
   private mapPixelHeight = 0;
   private transitioning = false;
@@ -64,9 +79,25 @@ export class WorldScene extends Phaser.Scene {
     this.input2 = new InputBindings(this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.input2.destroy());
 
+    this.settings = parseSettings(readStorage(SETTINGS_KEY));
+    this.npcs.clear();
+    this.talkingTo = null;
     this.buildMap(this.save.location.map);
-    const blockers = this.spawnObjects();
-    this.collision = this.collision.withBlocked(blockers);
+    this.spawnObjects();
+    this.refreshNpcs();
+
+    this.runner = new DialogRunner(DIALOGS, {
+      flags: this.flags,
+      // give_item / take_item / play_se / heal_party arrive with the inventory work (#8).
+      applyEffect: () => undefined,
+      format: (text) =>
+        formatDialogText(text, { names: PARTY_NAMES, gold: 0, itemName: () => undefined }),
+    });
+    this.dialogBox = new DialogBox(this, TEXT_SPEED_MS[this.settings.textSpeed], {
+      onAdvance: () => this.applyDialogStep(this.runner.advance()),
+      onChoose: (index) => this.applyDialogStep(this.runner.choose(index)),
+    });
+    this.dialogBox.setDepth(DEPTH.hud);
 
     const { x, y, facing } = this.save.location;
     this.mover = new GridMover({ x, y, facing }, (tx, ty) => this.collision.isBlocked(tx, ty));
@@ -90,14 +121,80 @@ export class WorldScene extends Phaser.Scene {
       this.scene.start(SceneKey.Title);
       return;
     }
+    if (this.dialogBox.isOpen) {
+      this.dialogBox.update(this.input2, delta);
+      this.mover.update(delta, null, false);
+      this.syncPlayerSprite();
+      return;
+    }
+    if (this.input2.justPressed('confirm') && !this.mover.isMoving) {
+      this.interact();
+      if (this.dialogBox.isOpen) return;
+    }
     const dir = this.input2.heldDirection();
     const dash = this.input2.isDown('dash');
     for (const event of this.mover.update(delta, dir, dash)) {
+      if (event.type === 'turn')
+        this.save.location = { ...this.save.location, facing: event.facing };
       if (event.type === 'step_end') this.onEnterTile(event.x, event.y);
       if (this.transitioning) break;
     }
     this.syncPlayerSprite();
     this.updateCamera();
+  }
+
+  /** True while a conversation window is open (e2e/debug). */
+  get isDialogOpen(): boolean {
+    return this.dialogBox.isOpen;
+  }
+
+  /** True while the player is between tiles (e2e/debug). */
+  get isMoving(): boolean {
+    return this.mover.isMoving;
+  }
+
+  /** Logical player tile: the destination while a step is in progress (e2e/debug). */
+  get playerTile(): { x: number; y: number; facing: Facing } {
+    return this.mover.position;
+  }
+
+  /** Z on the field: acts on the object in front of the player (§9.2 priority). */
+  private interact(): void {
+    const { x, y, facing } = this.mover.position;
+    const { dx, dy } = FACING_DELTA[facing];
+    for (const target of objectsAt(this.objects, x + dx, y + dy)) {
+      if (target.kind === 'npc') {
+        const entry = this.npcs.get(target.id);
+        if (!entry || !entry.image.visible) continue;
+        entry.image.setFrame(opposite(facing));
+        this.talkingTo = entry;
+        this.startDialog(target.dialog);
+        return;
+      }
+      if (target.kind === 'sign') {
+        this.startDialog(target.textId);
+        return;
+      }
+    }
+  }
+
+  private startDialog(id: string): void {
+    this.input2.flush();
+    this.applyDialogStep(this.runner.start(id));
+  }
+
+  private applyDialogStep(step: DialogStep): void {
+    if (step.kind === 'page') {
+      this.dialogBox.show(step);
+      return;
+    }
+    this.dialogBox.close();
+    if (this.talkingTo) {
+      this.talkingTo.image.setFrame(this.talkingTo.obj.facing);
+      this.talkingTo = null;
+    }
+    // Effects may have changed flags that hide/show NPCs.
+    this.refreshNpcs();
   }
 
   /** True while the player is still protected after a map transition. */
@@ -117,7 +214,8 @@ export class WorldScene extends Phaser.Scene {
     }
     const entry = this.cache.tilemap.get(cacheKey) as { data: TiledMap };
     this.tiled = entry.data;
-    this.collision = CollisionGrid.fromMap(this.tiled);
+    this.baseCollision = CollisionGrid.fromMap(this.tiled);
+    this.collision = this.baseCollision;
     this.objects = parseMapObjects(this.tiled);
 
     const map = this.make.tilemap({ key: cacheKey });
@@ -130,41 +228,53 @@ export class WorldScene extends Phaser.Scene {
     this.mapPixelHeight = map.heightInPixels;
   }
 
-  /**
-   * Places a sprite for every visible map object and returns the tiles that
-   * block movement (NPCs). Hidden NPCs neither render nor block.
-   */
-  private spawnObjects(): { x: number; y: number }[] {
-    const blockers: { x: number; y: number }[] = [];
+  /** Places a sprite for every map object that has one. */
+  private spawnObjects(): void {
     for (const o of this.objects) {
       const x = tileCenter(o.tx);
       const y = tileCenter(o.ty);
       const depth = DEPTH.actors + o.ty / 1000;
       switch (o.kind) {
         case 'npc':
-          if (!this.isNpcVisible(o)) break;
-          this.add.image(x, y, 'sprite_npc', o.facing).setDepth(depth);
-          blockers.push({ x: o.tx, y: o.ty });
+          this.npcs.set(o.id, {
+            obj: o,
+            image: this.add.image(x, y, 'sprite_npc', o.facing).setDepth(depth),
+          });
           break;
         case 'chest':
           this.add
             .image(x, y, 'obj_chest', this.flags.has(o.flag) ? 'open' : 'closed')
             .setDepth(depth);
-          blockers.push({ x: o.tx, y: o.ty });
           break;
         case 'sign':
           this.add.image(x, y, 'obj_sign').setDepth(depth);
-          blockers.push({ x: o.tx, y: o.ty });
           break;
         case 'save_point':
           this.add.image(x, y, 'obj_save_point').setDepth(depth);
-          blockers.push({ x: o.tx, y: o.ty });
           break;
         default:
           break; // warps, triggers and enemies have no static sprite
       }
     }
-    return blockers;
+  }
+
+  /**
+   * Applies hidden_if/condition to NPC sprites and rebuilds the collision grid:
+   * visible NPCs, chests, signs and save points block movement; hidden NPCs do not.
+   */
+  private refreshNpcs(): void {
+    const blockers: { x: number; y: number }[] = [];
+    for (const o of this.objects) {
+      if (o.kind === 'npc') {
+        const entry = this.npcs.get(o.id);
+        const visible = this.isNpcVisible(o);
+        entry?.image.setVisible(visible);
+        if (visible) blockers.push({ x: o.tx, y: o.ty });
+      } else if (o.kind === 'chest' || o.kind === 'sign' || o.kind === 'save_point') {
+        blockers.push({ x: o.tx, y: o.ty });
+      }
+    }
+    this.collision = this.baseCollision.withBlocked(blockers);
   }
 
   private isNpcVisible(npc: NpcObject): boolean {
@@ -223,4 +333,25 @@ export class WorldScene extends Phaser.Scene {
 
 function tileCenter(tile: number): number {
   return tile * TILE_SIZE + TILE_SIZE / 2;
+}
+
+function opposite(facing: Facing): Facing {
+  switch (facing) {
+    case 'up':
+      return 'down';
+    case 'down':
+      return 'up';
+    case 'left':
+      return 'right';
+    case 'right':
+      return 'left';
+  }
+}
+
+function readStorage(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
