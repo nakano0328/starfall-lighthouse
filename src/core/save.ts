@@ -28,7 +28,7 @@ export function createNewSave(savedAt: number): SaveData {
     schemaVersion: SAVE_SCHEMA_VERSION,
     savedAt,
     playTimeSec: 0,
-    location: { map: 'minato_village', x: 10, y: 12, facing: 'down' },
+    location: { map: 'map_minato_village', x: 10, y: 12, facing: 'down' },
     flags: {},
   };
 }

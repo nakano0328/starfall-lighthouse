@@ -12,6 +12,8 @@ export default defineConfig({
     alias: {
       '@core': fileURLToPath(new URL('./src/core', import.meta.url)),
       '@data': fileURLToPath(new URL('./src/data', import.meta.url)),
+      '@scenes': fileURLToPath(new URL('./src/scenes', import.meta.url)),
+      '@ui': fileURLToPath(new URL('./src/ui', import.meta.url)),
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },

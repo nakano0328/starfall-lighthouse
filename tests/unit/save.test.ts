@@ -15,7 +15,7 @@ describe('save', () => {
     expect(s.schemaVersion).toBe(SAVE_SCHEMA_VERSION);
     expect(s.savedAt).toBe(1_000);
     expect(s.playTimeSec).toBe(0);
-    expect(s.location.map).toBe('minato_village');
+    expect(s.location.map).toBe('map_minato_village');
     expect(s.flags).toEqual({});
   });
 
