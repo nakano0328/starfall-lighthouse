@@ -31,7 +31,7 @@ export class Window extends Phaser.GameObjects.Container {
   private redraw(): void {
     const g = this.frame;
     g.clear();
-    g.fillStyle(COLORS.deepSea, 0.88);
+    g.fillStyle(COLORS.deepSea, 0.85);
     g.fillRoundedRect(0, 0, this.frameWidth, this.frameHeight, 6);
     g.lineStyle(2, 0xc9a66b, 1);
     g.strokeRoundedRect(1, 1, this.frameWidth - 2, this.frameHeight - 2, 6);

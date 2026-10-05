@@ -3,7 +3,7 @@
     "pages": [
       "海辺の小さな島、ミナト島。",
       "島の灯台は夜ごと星の光を集め、\n空から落ちた迷い星を空へ帰していた。",
-      "――その夜までは。"
+      "——その夜までは。"
     ]
   },
   "dlg_grandpa_entry": {
@@ -22,8 +22,7 @@
     ],
     "effects": [
       { "cmd": "give_item", "item": "it_lamp_oil", "qty": 1 },
-      { "cmd": "set_flag", "key": "minato.intro_done", "value": true },
-      { "cmd": "set_flag", "key": "minato.talked_to_grandpa", "value": true }
+      { "cmd": "set_flag", "key": "minato.intro_done", "value": true }
     ],
     "next": "dlg_grandpa_02"
   },

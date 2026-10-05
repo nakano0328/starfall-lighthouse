@@ -1,24 +1,29 @@
 import Phaser from 'phaser';
 
 import { COLORS, GAME_HEIGHT, GAME_TITLE, GAME_TITLE_EN, GAME_VERSION, GAME_WIDTH } from '@/config';
-import { createNewSave, findSlotsWithSaves } from '@core/save';
-import { createMember } from '@core/party/member';
-import { createGameState } from '@core/state';
+import type { SaveData } from '@core/save';
+import { SAVE_SLOT_COUNT, deserialize, findSlotsWithSaves, slotKey, slotSummary } from '@core/save';
+import { levelFromExp } from '@core/party/exp';
 import { CHARACTERS } from '@data/characters';
-import { findItem } from '@data/items';
+import { MIGRATION_CONTEXT, loadGameState, newGameState, placeName } from '@data/saveContext';
 import { InputBindings } from '@ui/InputBindings';
+import type { ListMenuItem } from '@ui/ListMenu';
 import { ListMenu } from '@ui/ListMenu';
+import { Window } from '@ui/Window';
 
 import { SceneKey } from './keys';
 import type { WorldSceneData } from './WorldScene';
 
 /**
- * Title screen: はじめから / つづきから / 設定 (GAME_DESIGN §11.5).
- * つづきから is greyed out until a save exists; 設定 arrives with the menu work (#9).
+ * Title screen: はじめから / つづきから / 設定 (GAME_DESIGN §11.5). つづきから opens the
+ * slot list; 設定 lives in the pause menu for now.
  */
 export class TitleScene extends Phaser.Scene {
   private input2!: InputBindings;
   private menu!: ListMenu;
+  private slotMenu: ListMenu | undefined;
+  private slotWindow: Window | undefined;
+  private mode: 'main' | 'slots' = 'main';
   private starting = false;
 
   constructor() {
@@ -27,6 +32,9 @@ export class TitleScene extends Phaser.Scene {
 
   create(): void {
     this.starting = false;
+    this.mode = 'main';
+    this.slotMenu = undefined;
+    this.slotWindow = undefined;
     this.cameras.main.setBackgroundColor(COLORS.night);
     this.spawnStars(60);
 
@@ -59,7 +67,7 @@ export class TitleScene extends Phaser.Scene {
       })
       .setOrigin(1, 1);
 
-    const hasSave = findSlotsWithSaves(readStorage).length > 0;
+    const hasSave = findSlotsWithSaves(readStorage, MIGRATION_CONTEXT).length > 0;
     this.input2 = new InputBindings(this);
     this.menu = new ListMenu(this, {
       x: GAME_WIDTH / 2 - 80,
@@ -67,7 +75,7 @@ export class TitleScene extends Phaser.Scene {
       items: [
         { label: 'はじめから' },
         { label: 'つづきから', disabled: !hasSave, ...(hasSave ? {} : { note: '（セーブなし）' }) },
-        { label: '設定', disabled: true, note: '（準備中）' },
+        { label: '設定', disabled: true, note: '（メニューから変更できます）' },
       ],
       onConfirm: (index) => this.onConfirm(index),
     });
@@ -81,22 +89,70 @@ export class TitleScene extends Phaser.Scene {
   }
 
   override update(): void {
-    if (!this.starting) this.menu.update(this.input2);
+    if (this.starting) return;
+    if (this.mode === 'main') this.menu.update(this.input2);
+    else this.slotMenu?.update(this.input2);
+  }
+
+  /** e2e/debug: which list is active. */
+  get currentMode(): 'main' | 'slots' {
+    return this.mode;
   }
 
   private onConfirm(index: number): void {
-    if (index === 0) this.startNewGame();
+    if (index === 0) this.startGame(newGameState(Date.now()));
+    else if (index === 1) this.showSlots();
   }
 
-  private startNewGame(): void {
+  private showSlots(): void {
+    this.mode = 'slots';
+    const items: ListMenuItem[] = [];
+    const saves: (SaveData | null)[] = [];
+    for (let slot = 0; slot < SAVE_SLOT_COUNT; slot += 1) {
+      const raw = readStorage(slotKey(slot));
+      const data = raw === null ? null : deserialize(raw, MIGRATION_CONTEXT);
+      saves.push(data);
+      if (!data) {
+        items.push({ label: `スロット ${slot + 1}   ----`, disabled: true });
+        continue;
+      }
+      const s = slotSummary(data, placeName);
+      const leader = CHARACTERS[s.leaderId].name;
+      items.push({
+        label: `スロット ${slot + 1}   ${s.chapter}  ${s.place}  ${leader} Lv${levelFromExp(s.leaderExp)}  ${s.playTime}`,
+      });
+    }
+    items.push({ label: 'もどる' });
+    this.slotWindow = new Window(this, 40, 176, GAME_WIDTH - 80, 150);
+    this.menu.setVisible(false);
+    this.slotMenu = new ListMenu(this, {
+      x: 56,
+      y: 200,
+      lineHeight: 28,
+      fontSize: 15,
+      items,
+      onConfirm: (index) => {
+        const data = saves[index];
+        if (index < SAVE_SLOT_COUNT && data) this.startGame(loadGameState(data));
+        else this.hideSlots();
+      },
+      onCancel: () => this.hideSlots(),
+    });
+  }
+
+  private hideSlots(): void {
+    this.mode = 'main';
+    this.slotMenu?.destroy();
+    this.slotWindow?.destroy();
+    this.slotMenu = undefined;
+    this.slotWindow = undefined;
+    this.menu.setVisible(true);
+    this.input2.flush();
+  }
+
+  private startGame(state: WorldSceneData['state']): void {
     this.starting = true;
-    const save = createNewSave(Date.now());
-    const data: WorldSceneData = {
-      state: createGameState(save, {
-        maxQtyOf: (itemId) => findItem(itemId)?.maxQty ?? 99,
-        party: [createMember(CHARACTERS.ch_luka)],
-      }),
-    };
+    const data: WorldSceneData = { state };
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.start(SceneKey.World, data);

@@ -108,7 +108,7 @@ describe('authored maps', () => {
   });
 
   it('start the new game on a walkable tile of an existing map, on the opening trigger', () => {
-    const save = createNewSave(0);
+    const save = createNewSave(0, []);
     const map = compiled[save.location.map];
     expect(map).toBeDefined();
     expect(CollisionGrid.fromMap(map!).isBlocked(save.location.x, save.location.y)).toBe(false);
@@ -156,11 +156,21 @@ describe('authored maps', () => {
     }
   });
 
-  it('reference existing items in chests and door locks', () => {
+  // The parser only checks that a chest's `qty` is an integer. WorldScene.openChest hands it to
+  // Inventory.add, which adds nothing for qty <= 0 and then leaves the chest flag unset (the chest
+  // can never be opened), and adds it straight to the gold total; so the data is checked here.
+  it('reference existing items in chests and door locks, with a qty the player can take', () => {
     for (const id of MAP_IDS) {
       for (const o of parseMapObjects(compiled[id]!)) {
-        if (o.kind === 'chest' && o.itemId !== 'gold')
-          expect(findItem(o.itemId), `${id} chest ${o.itemId}`).toBeDefined();
+        if (o.kind === 'chest') {
+          const label = `${id} chest ${o.flag} (${o.itemId})`;
+          expect(o.qty, `${label} qty`).toBeGreaterThanOrEqual(1);
+          if (o.itemId !== 'gold') {
+            const def = findItem(o.itemId);
+            expect(def, label).toBeDefined();
+            expect(o.qty, `${label} qty`).toBeLessThanOrEqual(def!.maxQty);
+          }
+        }
         if (o.kind === 'warp' && o.requiredItem !== undefined)
           expect(findItem(o.requiredItem), `${id} door ${o.requiredItem}`).toBeDefined();
       }
