@@ -99,14 +99,14 @@ Claude Code（このセッション）が実装を担当し、画像生成が必
 - **描画とロジックの分離**: `src/core/`（純TS、Phaser非依存）に戦闘・成長・インベントリ・セーブ形式を置き、Vitestでテスト。`src/scenes/` はPhaserで描くだけ
 - **データ駆動**: 敵・スキル・アイテム・会話・クエストフラグはJSON/TSデータ。バランス調整はデータ編集のみで可能
 - **アセット差し替え前提**: 全画像を `assets/manifest.ts` で一元管理。プレースホルダー（コードで描く矩形・円）→ AI画像へ差し替えてもコード変更ゼロ
-- **フラグ管理**: 進行は `flags: Record<string, boolean|number>` の一枚で管理し、セーブデータに含める
+- **フラグ管理**: 進行は `flags: Record<string, boolean|number|string>` の一枚で管理し、セーブデータに含める
 
 ### 2.3 リポジトリ構成（案）
 
 ```
 starfall-lighthouse/
 ├─ .github/
-│  ├─ workflows/ci.yml            # lint / typecheck / test / build
+│  ├─ workflows/ci.yml            # lint / format / typecheck / test / build / e2e
 │  ├─ workflows/deploy.yml        # main → GitHub Pages
 │  └─ ISSUE_TEMPLATE/             # bug / feature / balance
 ├─ CLAUDE.md                      # Claude Code向け開発ルール
@@ -137,7 +137,7 @@ starfall-lighthouse/
 │  ├─ unit/                       # Vitest
 │  └─ e2e/                        # Playwright スモーク
 ├─ scripts/                       # バランス表エクスポート等
-├─ package.json / tsconfig.json / vite.config.ts / .eslintrc / .prettierrc
+├─ package.json / tsconfig.json / vite.config.ts / eslint.config.js / .prettierrc
 └─ LICENSE (MIT)
 ```
 
