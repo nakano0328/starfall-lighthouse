@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('title screen boots and is ready for input', async ({ page }) => {
+test('title screen boots and a new game reaches the field', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (err) => errors.push(err.message));
   page.on('console', (msg) => {
@@ -26,8 +26,18 @@ test('title screen boots and is ready for input', async ({ page }) => {
   expect(state?.scene).toBe('Title');
   expect(state?.version).toMatch(/^\d+\.\d+\.\d+/);
 
+  // はじめから is the first menu item: confirm starts a new game on the field.
   await page.keyboard.press('Enter');
-  await page.waitForTimeout(300);
+  await page.waitForFunction(() => window.__starfall?.scene === 'World', undefined, {
+    timeout: 10_000,
+  });
+
+  // X returns to the title for now (until the pause menu exists).
+  await page.waitForTimeout(400);
+  await page.keyboard.press('x');
+  await page.waitForFunction(() => window.__starfall?.scene === 'Title', undefined, {
+    timeout: 10_000,
+  });
 
   expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
 });

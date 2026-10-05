@@ -98,3 +98,16 @@ function isSaveData(value: Record<string, unknown>): value is Record<string, unk
     isRecord(value['flags'])
   );
 }
+
+/**
+ * Finds which slots hold a loadable save. `read` abstracts localStorage so this
+ * stays pure (and testable); it returns the raw string for a key or null.
+ */
+export function findSlotsWithSaves(read: (key: string) => string | null): number[] {
+  const slots: number[] = [];
+  for (let slot = 0; slot < SAVE_SLOT_COUNT; slot += 1) {
+    const raw = read(slotKey(slot));
+    if (raw !== null && deserialize(raw) !== null) slots.push(slot);
+  }
+  return slots;
+}

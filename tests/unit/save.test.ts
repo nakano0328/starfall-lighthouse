@@ -5,6 +5,7 @@ import {
   SAVE_SLOT_COUNT,
   createNewSave,
   deserialize,
+  findSlotsWithSaves,
   serialize,
   slotKey,
 } from '@core/save';
@@ -53,5 +54,16 @@ describe('save', () => {
     expect(() => slotKey(-1)).toThrow(RangeError);
     expect(() => slotKey(SAVE_SLOT_COUNT)).toThrow(RangeError);
     expect(() => slotKey(1.5)).toThrow(RangeError);
+  });
+});
+
+describe('findSlotsWithSaves', () => {
+  it('returns only slots holding a valid save', () => {
+    const store = new Map<string, string>([
+      ['starfall.save.0', serialize(createNewSave(1))],
+      ['starfall.save.1', 'garbage'],
+    ]);
+    expect(findSlotsWithSaves((k) => store.get(k) ?? null)).toEqual([0]);
+    expect(findSlotsWithSaves(() => null)).toEqual([]);
   });
 });
