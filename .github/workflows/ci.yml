@@ -1,0 +1,84 @@
+# PR と main への push で lint / format / typecheck / unit test / build / e2e を実行する。
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests (with coverage)
+        run: npm run test:coverage
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: npm run e2e
+        env:
+          CI: true
+
+      # GitHub Pages はサブパス (/starfall-lighthouse/) で配信されるため、deploy.yml と同じ
+      # BASE_PATH でビルドしたものにも e2e を回し、絶対パス参照による 404 を公開前に検出する。
+      # Playwright の webServer が BASE_PATH 付きで再ビルドし、vite preview は "/" を base へ
+      # 302 リダイレクトするので、テスト側の変更は不要。
+      - name: E2E tests (GitHub Pages base path)
+        run: npm run e2e
+        env:
+          CI: true
+          BASE_PATH: /starfall-lighthouse/
+
+      - name: Upload Playwright report (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: warn
+          retention-days: 7

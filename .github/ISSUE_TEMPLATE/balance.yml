@@ -1,0 +1,40 @@
+name: バランス報告
+description: 難しすぎる・簡単すぎる・詰みポイントなど、ゲームバランスに関する報告
+title: '[Balance] '
+labels: ['balance']
+body:
+  - type: input
+    id: location
+    attributes:
+      label: 場所
+      placeholder: 例）廃坑 2層、岩のゴーレム戦
+    validations:
+      required: true
+  - type: input
+    id: party_level
+    attributes:
+      label: パーティのレベル
+      placeholder: 例）ルカ Lv9 / ミオ Lv9 / ゴロー Lv8
+    validations:
+      required: true
+  - type: input
+    id: enemy
+    attributes:
+      label: 敵・ボス
+      placeholder: 例）岩のゴーレム
+    validations:
+      required: false
+  - type: textarea
+    id: problem
+    attributes:
+      label: 何が理不尽か
+      description: 具体的な数値（ダメージ量、必要ターン数、所持金など）があると助かります
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: 提案
+      description: 調整案があれば（HP を下げる、回復アイテムを追加する等）
+    validations:
+      required: false

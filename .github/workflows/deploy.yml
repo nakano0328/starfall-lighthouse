@@ -1,0 +1,80 @@
+# main への push で Vite ビルドを GitHub Pages に公開する。
+# docs/ や Markdown など dist/ に影響しないファイルだけの変更ではデプロイしない
+# （手動で再デプロイしたいときは Actions タブから workflow_dispatch で実行する）。
+#
+# 【初回のみ必要な設定】
+# リポジトリの Settings → Pages → "Build and deployment" の Source を
+# "GitHub Actions" に変更しておくこと。これを行わないと deploy ジョブが失敗する。
+# 公開 URL: https://nakano0328.github.io/starfall-lighthouse/
+#
+# このワークフローは CI（ci.yml）の結果を待たずに走る。壊れたコミットの公開を防ぐため、
+# Settings → Branches で main にブランチ保護を設定し、CI ワークフローの `check` ジョブを
+# required status check に指定して、PR 経由でのみ main を更新すること（docs/PLAN.md Phase 1 の設定項目）。
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/dependabot.yml'
+      - 'LICENSE'
+  workflow_dispatch:
+
+# GITHUB_TOKEN は最小権限にする。pages / id-token の write は deploy ジョブだけに付与する。
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: read # actions/configure-pages が Pages サイト情報を取得するため
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          BASE_PATH: /starfall-lighthouse/
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write # Pages デプロイを作成するため
+      id-token: write # OIDC トークンでデプロイ元を検証するため
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

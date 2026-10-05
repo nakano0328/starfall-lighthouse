@@ -1,0 +1,62 @@
+name: バグ報告
+description: 進行不能、表示崩れ、エラーなど、想定と異なる挙動の報告
+title: '[Bug] '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        バグ報告ありがとうございます。再現できる情報が多いほど修正が早くなります。
+  - type: textarea
+    id: summary
+    attributes:
+      label: 概要
+      description: 何が起きたかを一文で
+      placeholder: 例）森の祠のボス戦後にフィールドへ戻ると操作できなくなる
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      description: 最初から順番に書いてください
+      placeholder: |
+        1. タイトルで「はじめから」を選ぶ
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待する挙動
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 実際の挙動
+      description: エラーメッセージがあればそのまま貼ってください
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: 発生場所（マップ・シーン）
+      placeholder: 例）ささやきの森 / BattleScene
+    validations:
+      required: false
+  - type: input
+    id: environment
+    attributes:
+      label: ブラウザ・OS
+      placeholder: 例）Chrome 130 / Windows 11、Safari / iOS 18
+    validations:
+      required: true
+  - type: textarea
+    id: attachments
+    attributes:
+      label: セーブデータやスクリーンショット
+      description: 画像はドラッグ&ドロップで添付できます。セーブデータは localStorage の値を貼り付けてください（個人情報は含まれません）。
+    validations:
+      required: false
