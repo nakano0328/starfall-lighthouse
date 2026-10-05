@@ -7,6 +7,7 @@ import type { Flags } from '../flags';
 export const DIALOG_EFFECT_COMMANDS = new Set<EventCommand['cmd']>([
   'set_flag',
   'give_item',
+  'give_gold',
   'take_item',
   'play_se',
   'heal_party',

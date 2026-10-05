@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { compileMap } from '@core/map/compile';
-import { CollisionGrid, MapObjectError, objectsAt, parseMapObjects } from '@core/map/objects';
+import { Flags } from '@core/flags';
+import {
+  CollisionGrid,
+  MapObjectError,
+  markerTextFor,
+  objectsAt,
+  parseMapObjects,
+} from '@core/map/objects';
 import type { MapObject } from '@core/map/objects';
 import type { MapSource } from '@core/map/source';
 import type { TiledMap, TiledProperty, TiledPropertyValue } from '@core/map/tiled';
@@ -351,5 +358,67 @@ describe('CollisionGrid', () => {
     ]);
     expect(withNpc.isBlocked(0, 0)).toBe(true);
     expect(grid.isBlocked(0, 0)).toBe(false);
+  });
+});
+
+describe('quest markers and spawn conditions', () => {
+  const withExtras: MapSource = {
+    ...src,
+    objects: [
+      {
+        type: 'npc',
+        x: 0,
+        y: 0,
+        id: 'npc_q',
+        dialog: 'dlg_q',
+        facing: 'down',
+        sprite: 'sprite_npc',
+        move: 'random',
+        markers: [
+          { if: 'sq.necklace==2', text: '' },
+          { if: 'chest.forest_05', text: '？' },
+          { if: 'sq.necklace==1', text: '！' },
+        ],
+      },
+      {
+        type: 'enemy',
+        x: 3,
+        y: 2,
+        group_id: 'grp_coast_a',
+        condition: 'main.core_shattered',
+      },
+    ],
+  };
+
+  it('round-trips markers through the Tiled JSON and picks the first that holds', () => {
+    const objects = parseMapObjects(compileMap(withExtras));
+    const npc = objects.find((o) => o.kind === 'npc');
+    expect(npc?.kind === 'npc' && npc.move).toBe('random');
+    const markers = npc?.kind === 'npc' ? npc.markers : undefined;
+    expect(markers).toHaveLength(3);
+    expect(markerTextFor(markers, new Flags({}))).toBe('');
+    expect(markerTextFor(markers, new Flags({ 'sq.necklace': 1 }))).toBe('！');
+    expect(markerTextFor(markers, new Flags({ 'sq.necklace': 1, 'chest.forest_05': true }))).toBe(
+      '？',
+    );
+    expect(markerTextFor(markers, new Flags({ 'sq.necklace': 2, 'chest.forest_05': true }))).toBe(
+      '',
+    );
+    expect(markerTextFor(undefined, new Flags({}))).toBe('');
+  });
+
+  it('keeps the enemy spawn condition', () => {
+    const objects = parseMapObjects(compileMap(withExtras));
+    const enemy = objects.find((o) => o.kind === 'enemy');
+    expect(enemy?.kind === 'enemy' && enemy.condition).toBe('main.core_shattered');
+  });
+
+  it('rejects malformed markers', () => {
+    const tiled = compileMap(withExtras);
+    const layer = tiled.layers.find((l) => l.type === 'objectgroup');
+    const npc = layer && 'objects' in layer ? layer.objects?.[0] : undefined;
+    const prop = npc?.properties?.find((pp) => pp.name === 'markers');
+    if (prop) prop.value = '[{"nope":1}]';
+    expect(() => parseMapObjects(tiled)).toThrow(MapObjectError);
   });
 });

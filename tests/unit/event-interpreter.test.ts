@@ -54,6 +54,9 @@ function makeHost(battleResult: 'win' | 'lose' = 'win'): TestHost {
     playSe: (key) => {
       log.push(`se ${key}`);
     },
+    giveGold: (amount) => {
+      log.push(`gold ${amount}`);
+    },
     healParty: () => {
       log.push('heal');
     },
@@ -292,5 +295,17 @@ describe('EventInterpreter', () => {
       'やくそうを 手に入れた！（持ちきれない分は あきらめた）',
     );
     expect(pickupMessage('やくそう', 0, 1)).toBe('やくそうは これ以上 持てない。');
+  });
+});
+
+describe('give_gold', () => {
+  it('credits the wallet and announces the amount', async () => {
+    const host = makeHost();
+    const interpreter = new EventInterpreter(host, {
+      ev_gold: [{ cmd: 'give_gold', amount: 300 }],
+    });
+    await interpreter.run('ev_gold');
+    expect(host.log).toContain('gold 300');
+    expect(host.log.some((l) => l.includes('300G'))).toBe(true);
   });
 });

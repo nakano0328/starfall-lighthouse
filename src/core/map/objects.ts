@@ -1,4 +1,5 @@
-import { ConditionError, validateCondition } from '@core/condition';
+import { ConditionError, evaluateCondition, validateCondition } from '@core/condition';
+import type { Flags } from '@core/flags';
 import type { Facing } from '@data/types';
 
 import type { TiledMap, TiledObject, TiledPropertyValue } from './tiled';
@@ -16,6 +17,11 @@ interface Placed {
   th: number;
 }
 
+export interface NpcMarker {
+  if?: string;
+  text: string;
+}
+
 export interface NpcObject extends Placed {
   kind: 'npc';
   id: string;
@@ -27,6 +33,7 @@ export interface NpcObject extends Placed {
   innPrice?: number;
   condition?: string;
   hiddenIf?: string;
+  markers?: NpcMarker[];
 }
 
 export interface WarpObject extends Placed {
@@ -67,6 +74,7 @@ export interface EnemyObject extends Placed {
   radius: number;
   tide: Tide;
   defeatedFlag?: string;
+  condition?: string;
 }
 
 export interface TriggerObject extends Placed {
@@ -170,6 +178,28 @@ function parseObject(map: TiledMap, o: TiledObject): MapObject {
       throw new MapObjectError(o, `property tide must be high/low/any`);
     return v as Tide;
   };
+  const markers = (): NpcMarker[] | undefined => {
+    const raw = optStr('markers');
+    if (raw === undefined) return undefined;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new MapObjectError(o, 'property markers must be JSON');
+    }
+    if (!Array.isArray(parsed)) throw new MapObjectError(o, 'property markers must be a list');
+    return parsed.map((m): NpcMarker => {
+      if (typeof m !== 'object' || m === null || typeof (m as { text?: unknown }).text !== 'string')
+        throw new MapObjectError(o, 'each marker needs a text');
+      const entry = m as { if?: unknown; text: string };
+      if (entry.if !== undefined) {
+        if (typeof entry.if !== 'string') throw new MapObjectError(o, 'marker if must be a string');
+        validateCondition(entry.if);
+        return { if: entry.if, text: entry.text };
+      }
+      return { text: entry.text };
+    });
+  };
   const withOpt = <T extends object>(
     base: T,
     extras: Record<string, TiledPropertyValue | undefined>,
@@ -184,7 +214,7 @@ function parseObject(map: TiledMap, o: TiledObject): MapObject {
       const move = optStr('move') ?? 'static';
       if (move !== 'static' && move !== 'random')
         throw new MapObjectError(o, 'move must be static/random');
-      return withOpt<NpcObject>(
+      const npc = withOpt<NpcObject>(
         {
           kind: 'npc',
           ...placed,
@@ -201,6 +231,9 @@ function parseObject(map: TiledMap, o: TiledObject): MapObject {
           hiddenIf: optCond('hidden_if'),
         },
       );
+      const npcMarkers = markers();
+      if (npcMarkers) npc.markers = npcMarkers;
+      return npc;
     }
     case 'warp':
       return withOpt<WarpObject>(
@@ -250,7 +283,11 @@ function parseObject(map: TiledMap, o: TiledObject): MapObject {
           radius: optInt('radius', 4),
           tide: tide(),
         },
-        { sprite: optStr('sprite'), defeatedFlag: optStr('defeated_flag') },
+        {
+          sprite: optStr('sprite'),
+          defeatedFlag: optStr('defeated_flag'),
+          condition: optCond('condition'),
+        },
       );
     }
     case 'trigger': {
@@ -305,6 +342,15 @@ export class CollisionGrid {
 }
 
 /** Finds the object(s) covering a tile, in the spec's interaction priority order. */
+/** Text of the first marker whose condition holds ('' when none applies). */
+export function markerTextFor(markers: readonly NpcMarker[] | undefined, flags: Flags): string {
+  if (!markers) return '';
+  for (const m of markers) {
+    if (m.if === undefined || evaluateCondition(m.if, flags)) return m.text;
+  }
+  return '';
+}
+
 export function objectsAt(objects: readonly MapObject[], x: number, y: number): MapObject[] {
   const PRIORITY: Record<MapObject['kind'], number> = {
     npc: 0,
