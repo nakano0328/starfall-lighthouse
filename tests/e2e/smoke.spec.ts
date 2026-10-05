@@ -854,3 +854,158 @@ test('losing a battle leads to the game over screen and back to the title', asyn
   });
   expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
 });
+
+type ShopProbe = { currentMode: string; quantity: number };
+type EconomyProbe = {
+  gameState: {
+    gold: number;
+    inventory: { count: (id: string) => number; add: (id: string, qty: number) => number };
+    party: { hp: number; equipment: { weapon: string | null } }[];
+  };
+  interpreter: { runCommands: (commands: object[]) => Promise<unknown> };
+};
+
+const shopMode = (page: Page) =>
+  page.evaluate(() => {
+    const game = window.__starfall?.game as Game;
+    return game.scene.isActive('Shop')
+      ? game.scene.getScene<ShopProbe>('Shop').currentMode
+      : 'inactive';
+  });
+
+const waitForShopMode = (page: Page, mode: string) =>
+  page.waitForFunction(
+    (target) => {
+      const game = window.__starfall?.game as Game;
+      const current = game.scene.isActive('Shop')
+        ? game.scene.getScene<ShopProbe>('Shop').currentMode
+        : 'inactive';
+      return current === target;
+    },
+    mode,
+    { timeout: 5_000 },
+  );
+
+const waitForMenuMode = (page: Page, mode: string) =>
+  page.waitForFunction(
+    (target) => {
+      const game = window.__starfall?.game as Game;
+      return (
+        game.scene.isActive('Menu') && game.scene.getScene<MenuProbe>('Menu').currentMode === target
+      );
+    },
+    mode,
+    { timeout: 5_000 },
+  );
+
+const economy = (page: Page) =>
+  page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<EconomyProbe>('World');
+    return {
+      gold: w.gameState.gold,
+      herbs: w.gameState.inventory.count('it_herb'),
+      oldSword: w.gameState.inventory.count('eq_wp_luka_1'),
+      hp: w.gameState.party[0]?.hp ?? -1,
+      weapon: w.gameState.party[0]?.equipment.weapon ?? null,
+    };
+  });
+
+test('shop, inn and equipment: buy a herb, sleep, then change the weapon', async ({ page }) => {
+  const errors = await startNewGame(page);
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<EconomyProbe>('World');
+    w.gameState.gold = 100;
+    void w.interpreter.runCommands([
+      { cmd: 'warp', map: 'map_minato_shop', x: 5, y: 2, facing: 'up' },
+    ]);
+  });
+  await waitForFieldMap(page, 'map_minato_shop');
+  await waitForField(page, 'isEventRunning', false);
+  await page.waitForTimeout(400);
+
+  // Talk to the shopkeeper: the greeting ends on the counter.
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog');
+  await waitForShopMode(page, 'root');
+  await page.keyboard.press('z'); // 買う
+  await waitForShopMode(page, 'buy');
+  await page.keyboard.press('z'); // やくそう
+  await waitForShopMode(page, 'qty');
+  await page.keyboard.press('z'); // 1 piece
+  await waitForShopMode(page, 'confirm');
+  await page.keyboard.press('ArrowDown'); // はい
+  await page.waitForTimeout(150);
+  await page.keyboard.press('z');
+  await waitForShopMode(page, 'buy');
+  const bought = await economy(page);
+  expect(bought.gold).toBe(80);
+  expect(bought.herbs).toBe(1);
+  await page.keyboard.press('x');
+  await waitForShopMode(page, 'root');
+  await page.keyboard.press('x');
+  await page.waitForFunction(
+    () => {
+      const game = window.__starfall?.game as Game;
+      return game.scene.isActive('World') && !game.scene.isActive('Shop');
+    },
+    undefined,
+    { timeout: 5_000 },
+  );
+  expect(await shopMode(page)).toBe('inactive');
+
+  // The inn: pay 20G, wake up healed, land on the save screen.
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<EconomyProbe>('World');
+    const luka = w.gameState.party[0];
+    if (luka) luka.hp = 5;
+    void w.interpreter.runCommands([
+      { cmd: 'warp', map: 'map_minato_inn', x: 9, y: 2, facing: 'up' },
+    ]);
+  });
+  await waitForFieldMap(page, 'map_minato_inn');
+  await waitForField(page, 'isEventRunning', false);
+  await page.waitForTimeout(400);
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog'); // greeting, then はい on the offer
+  await waitForField(page, 'isDialogOpen', true); // ぐっすり 眠った
+  await pressThrough(page, 'dialog');
+  await waitForMenuMode(page, 'save');
+  const slept = await economy(page);
+  expect(slept.gold).toBe(60);
+  expect(slept.hp).toBe(42);
+
+  // Equipment: a tier-2 sword in the bag replaces the starting one.
+  await page.keyboard.press('x');
+  await waitForMenuMode(page, 'root');
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<EconomyProbe>('World');
+    w.gameState.inventory.add('eq_wp_luka_2', 1);
+  });
+  const rootIndex = await page.evaluate(() => {
+    const game = window.__starfall?.game as Game;
+    return game.scene.getScene<{ rootMenu: { selectedIndex: number } }>('Menu').rootMenu
+      .selectedIndex;
+  });
+  for (let i = rootIndex; i > 2; i -= 1) {
+    await page.keyboard.press('ArrowUp');
+    await page.waitForTimeout(120);
+  }
+  for (let i = rootIndex; i < 2; i += 1) {
+    await page.keyboard.press('ArrowDown');
+    await page.waitForTimeout(120);
+  }
+  await page.keyboard.press('z');
+  await waitForMenuMode(page, 'equip');
+  await page.keyboard.press('z'); // ルカ
+  await waitForMenuMode(page, 'equip_slots');
+  await page.keyboard.press('z'); // 武器
+  await waitForMenuMode(page, 'equip_pick');
+  await page.keyboard.press('z'); // the tier-2 sword
+  await waitForMenuMode(page, 'equip_slots');
+  const equipped = await economy(page);
+  expect(equipped.weapon).toBe('eq_wp_luka_2');
+  expect(equipped.oldSword).toBe(1);
+  expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
+});

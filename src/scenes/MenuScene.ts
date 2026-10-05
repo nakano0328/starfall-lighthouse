@@ -1,9 +1,19 @@
 import Phaser from 'phaser';
 
 import { COLORS, GAME_HEIGHT, GAME_WIDTH } from '@/config';
+import { equippedStats } from '@core/battle/battlers';
+import {
+  EQUIP_SLOTS,
+  EQUIP_SLOT_NAMES,
+  changeEquipment,
+  clampToStats,
+  equipCandidates,
+  formatDelta,
+  statDelta,
+} from '@core/party/equip';
 import { expToNext } from '@core/party/exp';
 import type { PartyMember } from '@core/party/member';
-import { memberLevel, memberStats, useItemOnMember } from '@core/party/member';
+import { memberLevel, useItemOnMember } from '@core/party/member';
 import {
   SAVE_SLOT_COUNT,
   deserialize,
@@ -24,11 +34,12 @@ import {
 import type { GameState } from '@core/state';
 import { toSaveData } from '@core/state';
 import { CHARACTERS } from '@data/characters';
+import { findEquip } from '@data/equipment';
 import { findItem } from '@data/items';
 import { getMapMeta } from '@data/maps';
 import { MIGRATION_CONTEXT, placeName } from '@data/saveContext';
 import { levelFromExp } from '@core/party/exp';
-import type { ItemDef } from '@data/types';
+import type { EquipSlot, ItemDef, Stats } from '@data/types';
 import { InputBindings } from '@ui/InputBindings';
 import type { ListMenuItem } from '@ui/ListMenu';
 import { ListMenu } from '@ui/ListMenu';
@@ -63,6 +74,7 @@ type Mode =
   | 'item_target'
   | 'equip'
   | 'equip_slots'
+  | 'equip_pick'
   | 'save'
   | 'save_confirm'
   | 'settings'
@@ -84,8 +96,7 @@ const SETTING_LABELS: Record<SettingKey, string> = {
 
 /**
  * Pause menu overlay (ステータス／アイテム／装備／セーブ／設定／とじる). Runs on top of
- * the paused WorldScene; closing resumes it. Equipment lists arrive with the
- * equipment data (Phase 3); loading saves arrives with #10.
+ * the paused WorldScene; closing resumes it.
  */
 export class MenuScene extends Phaser.Scene {
   private state!: GameState;
@@ -237,7 +248,7 @@ export class MenuScene extends Phaser.Scene {
   private partySummary(): string {
     const lines = this.state.party.map((m) => {
       const def = CHARACTERS[m.id];
-      const max = memberStats(def, m);
+      const max = equippedStats(def, m, findEquip);
       const ko = m.ko ? '（戦闘不能）' : '';
       return `${def.name}  Lv ${memberLevel(m)}${ko}\n  HP ${m.hp} / ${max.hp}   MP ${m.mp} / ${max.mp}`;
     });
@@ -278,7 +289,7 @@ export class MenuScene extends Phaser.Scene {
     if (!m) return this.showRoot();
     const def = CHARACTERS[m.id];
     const level = memberLevel(m);
-    const s = memberStats(def, m);
+    const s = equippedStats(def, m, findEquip);
     const skills = def.skills.filter((sk) => sk.level <= level).map((sk) => sk.skillId);
     this.panelText.setText(
       [
@@ -429,11 +440,11 @@ export class MenuScene extends Phaser.Scene {
     this.showItems();
   }
 
-  // ---- equipment (frame only) -------------------------------------------------
+  // ---- equipment (§11.2 装備) ----------------------------------------------------
 
   private showEquipList(): void {
     this.setMode('equip');
-    this.panelText.setText('だれの 装備を見る？');
+    this.panelText.setText('だれの 装備を変える？');
     this.panelMenu = this.makePanelMenu(
       this.state.party.map((m) => ({ label: CHARACTERS[m.id].name })),
       (index) => {
@@ -448,18 +459,63 @@ export class MenuScene extends Phaser.Scene {
     this.setMode('equip_slots');
     const m = this.state.party[this.memberIndex];
     if (!m) return this.showRoot();
+    const def = CHARACTERS[m.id];
+    const s = equippedStats(def, m, findEquip);
     this.panelText.setText(
-      `${CHARACTERS[m.id].name} の装備\n（装備の変更は 装備品データの追加後に対応）`,
+      `${def.name} の装備\n攻撃 ${s.atk}   防御 ${s.def}   素早さ ${s.spd}   運 ${s.luk}   HP ${s.hp}   MP ${s.mp}`,
     );
     this.subMenu = this.makePanelMenu(
-      [
-        { label: `武器        ${equipName(m.equipment.weapon)}`, disabled: true },
-        { label: `防具        ${equipName(m.equipment.armor)}`, disabled: true },
-        { label: `アクセサリ  ${equipName(m.equipment.accessory)}`, disabled: true },
-      ],
-      () => undefined,
+      EQUIP_SLOTS.map((slot) => ({
+        label: `${EQUIP_SLOT_NAMES[slot].padEnd(5, '　')} ${equipName(m.equipment[slot])}`,
+      })),
+      (index) => {
+        this.selectedSlot = index;
+        this.showEquipPick();
+      },
       () => this.showEquipList(),
     );
+    this.subMenu.setSelected(this.selectedSlot);
+  }
+
+  /** Candidates from the bag with ▲▼ stat differences, plus はずす (§11.2). */
+  private showEquipPick(): void {
+    const m = this.state.party[this.memberIndex];
+    const slot = EQUIP_SLOTS[this.selectedSlot];
+    if (!m || slot === undefined) return this.showEquipSlots();
+    this.setMode('equip_pick');
+    const def = CHARACTERS[m.id];
+    const candidates = equipCandidates(def, slot, this.state.inventory, findEquip);
+    const choices: (string | null)[] = [...candidates.map((c) => c.id), null];
+    this.panelText.setText(
+      `${def.name} の ${EQUIP_SLOT_NAMES[slot]}  いま: ${equipName(m.equipment[slot])}${
+        candidates.length === 0 ? '\n（持ち物に 装備できるものがない）' : ''
+      }`,
+    );
+    this.subMenu = this.makePanelMenu(
+      choices.map((id) => {
+        const delta = statDelta(def, m, slot, id, findEquip);
+        return {
+          label: `${id === null ? 'はずす' : equipName(id)}  ${deltaSummary(delta)}`,
+          disabled: id === null && m.equipment[slot] === null,
+        };
+      }),
+      (index) => {
+        const id = choices[index];
+        if (id === undefined) return;
+        this.applyEquipment(m, slot, id);
+      },
+      () => this.showEquipSlots(),
+    );
+  }
+
+  private applyEquipment(m: PartyMember, slot: EquipSlot, id: string | null): void {
+    const def = CHARACTERS[m.id];
+    if (!changeEquipment(m, slot, id, this.state.inventory)) return;
+    clampToStats(m, equippedStats(def, m, findEquip));
+    this.setMessage(
+      id === null ? `${EQUIP_SLOT_NAMES[slot]}を はずした。` : `${equipName(id)}を 装備した。`,
+    );
+    this.showEquipSlots();
   }
 
   // ---- save -----------------------------------------------------------------
@@ -655,7 +711,24 @@ export class MenuScene extends Phaser.Scene {
 }
 
 function equipName(id: string | null): string {
-  return id === null ? 'なし' : id;
+  if (id === null) return 'なし';
+  return findEquip(id)?.name ?? id;
+}
+
+/** "攻撃▲3 防御▼1" for the candidate list; only changed stats are shown. */
+function deltaSummary(delta: Stats): string {
+  const labels: [keyof Stats, string][] = [
+    ['atk', '攻'],
+    ['def', '防'],
+    ['spd', '速'],
+    ['luk', '運'],
+    ['hp', 'HP'],
+    ['mp', 'MP'],
+  ];
+  return labels
+    .filter(([key]) => delta[key] !== 0)
+    .map(([key, label]) => `${label}${formatDelta(delta[key])}`)
+    .join(' ');
 }
 
 /** `YYYY/MM/DD HH:mm` in local time for the slot list (§11.2 保存日時). */

@@ -251,7 +251,15 @@ export interface QuestDef {
   unlockCondition: Condition;
 }
 
+export interface ShopStockEntry {
+  /** it_* or eq_* id. */
+  id: string;
+  /** §9.3 condition grammar; the entry is listed only when it holds. */
+  condition?: Condition;
+}
+
 export interface ShopDef {
   id: string;
-  stock: { id: string; condition?: Condition }[];
+  name: string;
+  stock: ShopStockEntry[];
 }
