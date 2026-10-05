@@ -1,0 +1,352 @@
+import { describe, expect, it } from 'vitest';
+
+import { validateCondition } from '@core/condition';
+import { compileMap } from '@core/map/compile';
+import type { MapObject, WarpObject } from '@core/map/objects';
+import { CollisionGrid, parseMapObjects } from '@core/map/objects';
+import type { LegendEntry, MapSource } from '@core/map/source';
+import { OVERLAY_EMPTY, normalizeLegendEntry } from '@core/map/source';
+import { createNewSave } from '@core/save';
+import { MAP_IDS, MAP_SOURCES, getMapSource } from '@data/maps';
+import type { Facing } from '@data/types';
+
+const compiled = Object.fromEntries(MAP_IDS.map((id) => [id, compileMap(getMapSource(id))]));
+const objects = Object.fromEntries(MAP_IDS.map((id) => [id, parseMapObjects(compiled[id]!)]));
+
+interface Cell {
+  x: number;
+  y: number;
+}
+
+/** Tile rectangle of a parsed map object. */
+type Rect = Pick<MapObject, 'tx' | 'ty' | 'tw' | 'th'>;
+
+/** Objects with a sprite the player cannot walk through; WorldScene adds them to the grid. */
+type Blocker = Extract<MapObject, { kind: 'npc' | 'chest' | 'sign' | 'save_point' }>;
+
+const FACING_DELTA: Record<Facing, Cell> = {
+  up: { x: 0, y: -1 },
+  down: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+  right: { x: 1, y: 0 },
+};
+
+const cellKey = (c: Cell): string => `${c.x},${c.y}`;
+const cellOf = (o: Rect): Cell => ({ x: o.tx, y: o.ty });
+const neighbours = (c: Cell): Cell[] => [
+  { x: c.x + 1, y: c.y },
+  { x: c.x - 1, y: c.y },
+  { x: c.x, y: c.y + 1 },
+  { x: c.x, y: c.y - 1 },
+];
+const inRect = (r: Rect, c: Cell): boolean =>
+  c.x >= r.tx && c.x < r.tx + r.tw && c.y >= r.ty && c.y < r.ty + r.th;
+const rectCells = (r: Rect): Cell[] => {
+  const cells: Cell[] = [];
+  for (let dy = 0; dy < r.th; dy++)
+    for (let dx = 0; dx < r.tw; dx++) cells.push({ x: r.tx + dx, y: r.ty + dy });
+  return cells;
+};
+/** Inside `r` or 4-adjacent to one of its cells. */
+const touchesRect = (r: Rect, c: Cell): boolean =>
+  inRect(r, c) || neighbours(c).some((n) => inRect(r, n));
+/** Cells outside `r` that are 4-adjacent to it. */
+const rectNeighbours = (r: Rect): Cell[] =>
+  rectCells(r)
+    .flatMap(neighbours)
+    .filter((c) => !inRect(r, c));
+
+const objectsOf = (id: string): MapObject[] => objects[id] ?? [];
+const warpsOf = (id: string): WarpObject[] =>
+  objectsOf(id).filter((o): o is WarpObject => o.kind === 'warp');
+const isBlocker = (o: MapObject): o is Blocker =>
+  o.kind === 'npc' || o.kind === 'chest' || o.kind === 'sign' || o.kind === 'save_point';
+const blockersOf = (id: string): Blocker[] => objectsOf(id).filter(isBlocker);
+/** NPCs gated by hidden_if / condition are absent for part of the game. */
+const isGated = (o: Blocker): boolean =>
+  o.kind === 'npc' && (o.hiddenIf !== undefined || o.condition !== undefined);
+/** The walkability WorldScene uses at runtime: the collision layer plus the given objects. */
+const gridWith = (id: string, blockers: readonly Blocker[]): CollisionGrid =>
+  CollisionGrid.fromMap(compiled[id]!).withBlocked(blockers.map(cellOf));
+
+/** Name of the ground tile the ASCII source places at (x, y), overlay included. */
+function groundTile(src: MapSource, x: number, y: number): string | undefined {
+  const charAt = (rows: readonly string[] | undefined): string | undefined => {
+    const row = rows?.[y];
+    return row === undefined ? undefined : [...row][x];
+  };
+  const entry = (ch: string | undefined): LegendEntry | undefined => {
+    if (ch === undefined || ch === OVERLAY_EMPTY) return undefined;
+    const e = src.legend[ch];
+    return e === undefined ? undefined : normalizeLegendEntry(e);
+  };
+  return entry(charAt(src.overlay))?.ground ?? entry(charAt(src.tiles))?.ground;
+}
+
+/** Tiles reachable from `start` by 4-neighbour steps over unblocked cells, as "x,y" keys. */
+function reachableFrom(grid: CollisionGrid, start: Cell): Set<string> {
+  const seen = new Set<string>();
+  const queue: Cell[] = [start];
+  for (let i = 0; i < queue.length; i++) {
+    const cur = queue[i];
+    if (!cur || grid.isBlocked(cur.x, cur.y) || seen.has(cellKey(cur))) continue;
+    seen.add(cellKey(cur));
+    queue.push(...neighbours(cur));
+  }
+  return seen;
+}
+
+describe('authored maps', () => {
+  it('compile and use their own id as the registry key', () => {
+    for (const id of MAP_IDS) {
+      expect(MAP_SOURCES[id]?.meta.id).toBe(id);
+      expect(id).toMatch(/^map_[a-z0-9_]+$/);
+    }
+    expect(MAP_IDS.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('start the new game on a walkable tile of an existing map', () => {
+    const save = createNewSave(0);
+    const map = compiled[save.location.map];
+    expect(map).toBeDefined();
+    expect(CollisionGrid.fromMap(map!).isBlocked(save.location.x, save.location.y)).toBe(false);
+  });
+
+  it('place entrances, NPCs, chests, signs and save points on walkable tiles', () => {
+    for (const id of MAP_IDS) {
+      const map = compiled[id]!;
+      const grid = CollisionGrid.fromMap(map);
+      const meta = getMapSource(id).meta;
+      expect(grid.isBlocked(meta.entrance.x, meta.entrance.y), `${id} entrance`).toBe(false);
+      for (const o of parseMapObjects(map)) {
+        if (
+          o.kind === 'npc' ||
+          o.kind === 'chest' ||
+          o.kind === 'sign' ||
+          o.kind === 'save_point'
+        ) {
+          expect(grid.isBlocked(o.tx, o.ty), `${id} ${o.kind} at (${o.tx}, ${o.ty})`).toBe(false);
+        }
+      }
+    }
+  });
+
+  it('warp to existing maps and land on walkable tiles', () => {
+    for (const id of MAP_IDS) {
+      for (const o of parseMapObjects(compiled[id]!)) {
+        if (o.kind !== 'warp') continue;
+        const target = compiled[o.targetMap];
+        expect(target, `${id} warp → ${o.targetMap}`).toBeDefined();
+        expect(
+          CollisionGrid.fromMap(target!).isBlocked(o.targetX, o.targetY),
+          `${id} warp → ${o.targetMap} (${o.targetX}, ${o.targetY})`,
+        ).toBe(false);
+        // The warp tile itself must be reachable.
+        expect(
+          CollisionGrid.fromMap(compiled[id]!).isBlocked(o.tx, o.ty),
+          `${id} warp tile (${o.tx}, ${o.ty})`,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it('put a warp on every door tile, and every warp on a door tile or the map edge', () => {
+    for (const id of MAP_IDS) {
+      const src = getMapSource(id);
+      const warps = warpsOf(id);
+      const isDoor = (c: Cell): boolean => groundTile(src, c.x, c.y) === 'door';
+      const isEdge = (c: Cell): boolean =>
+        c.x === 0 || c.y === 0 || c.x === src.width - 1 || c.y === src.height - 1;
+      for (let y = 0; y < src.height; y++) {
+        for (let x = 0; x < src.width; x++) {
+          if (!isDoor({ x, y })) continue;
+          expect(
+            warps.some((w) => inRect(w, { x, y })),
+            `${id} door tile (${x}, ${y}) has no warp`,
+          ).toBe(true);
+        }
+      }
+      // Exits may also be plain tiles on the map edge (§3.1: the 北 / 東 exits of ミナト村).
+      for (const w of warps) {
+        expect(
+          rectCells(w).some((c) => isDoor(c) || isEdge(c)),
+          `${id} warp at (${w.tx}, ${w.ty}) is neither on a door tile nor on the map edge`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('warp back and forth between neighbouring tiles, landing with the return warp behind', () => {
+    for (const id of MAP_IDS) {
+      for (const w of warpsOf(id)) {
+        const landing: Cell = { x: w.targetX, y: w.targetY };
+        const label = `${id} warp (${w.tx}, ${w.ty}) → ${w.targetMap} (${landing.x}, ${landing.y})`;
+        // The way back: a warp next to (or under) the landing tile that leads back next to this one.
+        const returns = warpsOf(w.targetMap).filter(
+          (r) =>
+            r.targetMap === id &&
+            touchesRect(r, landing) &&
+            touchesRect(w, { x: r.targetX, y: r.targetY }),
+        );
+        expect(returns.length, `${label}: no return warp`).toBeGreaterThan(0);
+        // Arrive facing away from the return warp, so stepping forward does not warp straight back.
+        const d = FACING_DELTA[w.facing];
+        const behind: Cell = { x: landing.x - d.x, y: landing.y - d.y };
+        const ahead: Cell = { x: landing.x + d.x, y: landing.y + d.y };
+        expect(
+          returns.some((r) => inRect(r, behind) || (inRect(r, landing) && !inRect(r, ahead))),
+          `${label}: facing ${w.facing} does not point away from the return warp`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('keep entrances and warp landings clear of NPCs, chests, signs and save points', () => {
+    for (const id of MAP_IDS) {
+      const { entrance } = getMapSource(id).meta;
+      expect(
+        gridWith(id, blockersOf(id)).isBlocked(entrance.x, entrance.y),
+        `${id} entrance (${entrance.x}, ${entrance.y}) is blocked at runtime`,
+      ).toBe(false);
+      for (const w of warpsOf(id)) {
+        expect(compiled[w.targetMap], `${id} warp → ${w.targetMap}`).toBeDefined();
+        expect(
+          gridWith(w.targetMap, blockersOf(w.targetMap)).isBlocked(w.targetX, w.targetY),
+          `${id} warp → ${w.targetMap} (${w.targetX}, ${w.targetY}) is blocked at runtime`,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it('reach every warp and every interactable object from the entrance', () => {
+    for (const id of MAP_IDS) {
+      const { entrance } = getMapSource(id).meta;
+      // Gated NPCs are meant to seal a path for a while (§3.1 guard), so they are left out here;
+      // warp tiles are walkable (asserted above) and are crossed like any other tile.
+      const grid = gridWith(
+        id,
+        blockersOf(id).filter((o) => !isGated(o)),
+      );
+      const reachable = reachableFrom(grid, entrance);
+      const reached = (c: Cell): boolean => reachable.has(cellKey(c));
+      for (const o of objectsOf(id)) {
+        if (o.kind === 'warp') {
+          // A locked door is used from the tile in front of it; an open one is walked onto.
+          const ok =
+            o.requiredItem === undefined
+              ? rectCells(o).every(reached)
+              : rectNeighbours(o).some(reached);
+          expect(ok, `${id} warp at (${o.tx}, ${o.ty}) is unreachable from the entrance`).toBe(
+            true,
+          );
+        } else if (isBlocker(o)) {
+          expect(
+            neighbours(cellOf(o)).some(reached),
+            `${id} ${o.kind} at (${o.tx}, ${o.ty}) cannot be approached from the entrance`,
+          ).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('give every NPC, chest, sign and save point its own tile, off the warps', () => {
+    for (const id of MAP_IDS) {
+      const taken = new Map<string, string>();
+      for (const o of blockersOf(id)) {
+        const label = `${id} ${o.kind} at (${o.tx}, ${o.ty})`;
+        const other = taken.get(cellKey(cellOf(o)));
+        expect(other, `${label} shares its tile with ${other}`).toBeUndefined();
+        taken.set(cellKey(cellOf(o)), o.kind === 'npc' ? o.id : o.kind);
+        expect(
+          warpsOf(id).some((w) => inRect(w, cellOf(o))),
+          `${label} sits on a warp`,
+        ).toBe(false);
+      }
+    }
+  });
+
+  it('use the id conventions for dialogs, flags and npcs', () => {
+    const ids = new Set<string>();
+    const chestFlags = new Set<string>();
+    for (const id of MAP_IDS) {
+      for (const o of parseMapObjects(compiled[id]!)) {
+        if (o.kind === 'npc') {
+          expect(o.id).toMatch(/^npc_[a-z0-9_]+$/);
+          expect(o.dialog).toMatch(/^dlg_[a-z0-9_]+$/);
+          expect(ids.has(o.id), `duplicate npc id ${o.id}`).toBe(false);
+          ids.add(o.id);
+        }
+        if (o.kind === 'chest') {
+          expect(o.flag).toMatch(/^chest\.[a-z0-9_]+$/);
+          expect(chestFlags.has(o.flag), `duplicate chest flag ${o.flag}`).toBe(false);
+          chestFlags.add(o.flag);
+        }
+        if (o.kind === 'sign') expect(o.textId).toMatch(/^dlg_[a-z0-9_]+$/);
+        if (o.kind === 'trigger') expect(o.eventId).toMatch(/^ev_[a-z0-9_]+$/);
+      }
+    }
+  });
+
+  // WorldScene evaluates these at runtime and evaluateCondition throws on malformed input,
+  // so a bad `condition` / `hidden_if` must fail here rather than in WorldScene.create().
+  it('use well-formed condition strings on NPCs and triggers (§9.3 grammar)', () => {
+    let checked = 0;
+    for (const id of MAP_IDS) {
+      for (const o of objectsOf(id)) {
+        const conditions: (string | undefined)[] =
+          o.kind === 'npc' ? [o.condition, o.hiddenIf] : o.kind === 'trigger' ? [o.condition] : [];
+        for (const cond of conditions) {
+          if (cond === undefined) continue;
+          checked += 1;
+          expect(
+            () => validateCondition(cond),
+            `${id} ${o.kind} at (${o.tx}, ${o.ty}): "${cond}"`,
+          ).not.toThrow();
+        }
+      }
+    }
+    // The village guard's hidden_if is authored in this commit, so the sweep must see it.
+    expect(checked).toBeGreaterThan(0);
+  });
+
+  // docs/GAME_DESIGN.md §3.1: 東出口は `minato.talked_to_grandpa` まで村人が塞ぐ.
+  it('let the guard block the east exit of ミナト村 until the flag is set', () => {
+    const src = getMapSource('map_minato_village');
+    const map = compiled[src.meta.id]!;
+    const base = CollisionGrid.fromMap(map);
+    const npcs = parseMapObjects(map).filter((o) => o.kind === 'npc');
+    const npcTiles = (except?: string): Cell[] =>
+      npcs.filter((o) => o.id !== except).map((o) => ({ x: o.tx, y: o.ty }));
+    const eastExit: Cell = { x: 39, y: 14 };
+    const northExit: Cell[] = [
+      { x: 19, y: 0 },
+      { x: 20, y: 0 },
+    ];
+
+    expect(npcs.find((o) => o.id === 'npc_minato_guard')).toMatchObject({
+      hiddenIf: 'minato.talked_to_grandpa',
+    });
+
+    // Guard present: the whole east road past the guard is sealed, the rest of the village is not.
+    const withGuard = reachableFrom(base.withBlocked(npcTiles()), src.meta.entrance);
+    expect(withGuard.has(cellKey(eastExit))).toBe(false);
+    expect(withGuard.has(cellKey({ x: 38, y: 14 }))).toBe(false);
+    expect(withGuard.has(cellKey({ x: 36, y: 14 }))).toBe(true);
+    for (const c of northExit)
+      expect(withGuard.has(cellKey(c)), `north exit ${cellKey(c)}`).toBe(true);
+    for (const o of parseMapObjects(map)) {
+      if (o.kind === 'chest' || o.kind === 'sign' || o.kind === 'warp')
+        expect(withGuard.has(cellKey({ x: o.tx, y: o.ty })), `${o.kind} at ${o.tx},${o.ty}`).toBe(
+          true,
+        );
+    }
+
+    // Guard hidden: the east exit opens, the north exit stays open.
+    const withoutGuard = reachableFrom(
+      base.withBlocked(npcTiles('npc_minato_guard')),
+      src.meta.entrance,
+    );
+    expect(withoutGuard.has(cellKey(eastExit))).toBe(true);
+    for (const c of northExit) expect(withoutGuard.has(cellKey(c))).toBe(true);
+  });
+});

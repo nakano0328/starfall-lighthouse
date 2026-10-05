@@ -28,7 +28,7 @@
 - import はパスエイリアス（`@core/*`, `@data/*`, `@scenes/*`, `@ui/*`, `@/*`）を使う。相対パスでの `../../` 越えは避ける
 - TypeScript は strict。`any` 禁止、`noUncheckedIndexedAccess` / `exactOptionalPropertyTypes` が有効なので配列・Record のアクセスは undefined を処理する。型 import は `import type`
 - 画像はすべて `src/assets/manifest.ts`（Phase 2/6 で作成）経由で参照する。本番素材が無い間は `BootScene` がプレースホルダー描画をコードで生成する
-- `public/assets/maps/*.json` は Tiled のエクスポート。**手で編集しない**（Prettier も除外済み）。レイヤー規約は `docs/GAME_DESIGN.md` §9.3
+- マップの正本は `src/data/maps/<map_id>.ts`（ASCII グリッド＋legend＋objects、`docs/ADR/0002-map-authoring.md`）。`compileMap()` が Tiled 互換 JSON を生成して Phaser に渡す。新しいマップは `src/data/maps/index.ts` に登録し、`tests/unit/maps-data.test.ts` で検証される。`public/assets/maps/*.json`（Tiled 由来）を置く場合も **手で編集しない**。レイヤー規約は `docs/GAME_DESIGN.md` §9.3
 - 素材の流れ: 生成した原画は `art/raw/`（gitignore 対象）→ 後処理した本番素材を `public/assets/` → `docs/CREDITS.md` に行を追加。クレジット無しの素材追加は不可
 - セーブ形式を変えるときは `SAVE_SCHEMA_VERSION` を上げ、`src/core/save.ts` の `migrate()` に移行ステップを追加し、旧→新のテストを書く
 - 設定値（解像度 640×360、`TILE_SIZE` 32、パレット）は `src/config.ts` から import する

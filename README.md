@@ -96,10 +96,13 @@ starfall-lighthouse/
 │  ├─ main.ts                    # Phaser 起動
 │  ├─ config.ts                  # 解像度・タイルサイズ・パレット
 │  ├─ vite-env.d.ts
-│  ├─ core/                      # 純 TypeScript ロジック（flags.ts, save.ts）
-│  └─ scenes/                    # Phaser シーン（keys.ts, BootScene.ts, TitleScene.ts）
+│  ├─ assets/                    # 画像マニフェストとプレースホルダー生成
+│  ├─ core/                      # 純 TypeScript ロジック（flags, save, condition, map/）
+│  ├─ data/                      # 型定義・タイル定義・マップ（maps/*.ts）
+│  ├─ scenes/                    # Phaser シーン（Boot / Title / World）
+│  └─ ui/                        # 入力バインディング・メニュー部品
 ├─ tests/
-│  ├─ unit/                      # Vitest（flags.test.ts, save.test.ts）
+│  ├─ unit/                      # Vitest（core / data / assets のユニットテスト）
 │  └─ e2e/                       # Playwright（smoke.spec.ts）
 ├─ index.html
 ├─ package.json / tsconfig.json / vite.config.ts / vitest.config.ts
@@ -107,7 +110,7 @@ starfall-lighthouse/
 ├─ CLAUDE.md / CONTRIBUTING.md / LICENSE
 ```
 
-Phase 2 以降で `src/data/`（ゲームデータ）、`src/ui/`（ウィンドウ・カーソル）、`src/assets/manifest.ts`（画像マニフェスト）、`scripts/`（バランス表エクスポート）が追加されます。パスエイリアス（`@core/*`, `@data/*`, `@scenes/*`, `@ui/*`, `@/*`）は先に `tsconfig.json` / `vite.config.ts` で定義済みです。
+Phase 2 以降で `scripts/`（バランス表エクスポート）などが追加されます。パスエイリアス（`@core/*`, `@data/*`, `@scenes/*`, `@ui/*`, `@/*`）は先に `tsconfig.json` / `vite.config.ts` で定義済みです。
 
 ## ロードマップ
 
