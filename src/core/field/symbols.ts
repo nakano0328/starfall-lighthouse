@@ -28,6 +28,8 @@ export const CHASE_RANGE = 5;
 export const GIVE_UP_RANGE = 8;
 /** After a failed battle/escape the symbol freezes (§5.9). */
 export const STUN_MS = 3000;
+/** Player invulnerability after escaping a battle (§5.9). */
+export const ESCAPE_SAFE_MS = 3000;
 
 export interface SymbolSpec {
   /** Stable id within the map (e.g. `enemy_<index>`); the scene keys sprites and respawn timers by it. */
