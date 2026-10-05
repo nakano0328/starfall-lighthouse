@@ -1,6 +1,6 @@
 {
   "name": "starfall-lighthouse",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "ほしふる灯台 (Starfall Lighthouse) — ブラウザで遊べる2DターンバトルJRPG",
   "type": "module",
