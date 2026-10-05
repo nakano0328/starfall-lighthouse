@@ -1,3 +1,6 @@
+# 依存パッケージと GitHub Actions の更新 PR を週次で作成する。
+# npm のメジャー更新（Phaser 4、TypeScript 7、@types/node の Node 版違いなど）は
+# docs/ADR/ で判断してから手動で行うため、Dependabot では無視する。
 version: 2
 updates:
   - package-ecosystem: npm
@@ -9,6 +12,9 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     schedule:
