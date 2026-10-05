@@ -5,8 +5,9 @@ import { OUTDOOR_LEGEND } from './legends';
 /**
  * ミナト村 (40x30). Start of the game; Luka's house NW, inn N, shop E of the
  * main road. Exits: north (x19-20) → 灯台への道, east (y14) → 海岸街道.
- * The east warp at (39,14) leads to map_coast_road; the north warp is added once
- * 灯台への道 exists (Phase 4 content).
+ * The east warp at (39,14) leads to map_coast_road; the north warp on (19-20, 0) leads
+ * to map_lighthouse_path, with the `ev_mio_join` trigger on the row below it (§10.3):
+ * npc_mio waits at (24,1), walks left x3 to (21,1) and the player on x19-20 faces right.
  * The east road narrows to a one-tile gate (fences at x37-38 on y13 and y15) so that
  * npc_minato_guard at (37,14) blocks it until `minato.talked_to_grandpa` (§3.1).
  */
@@ -96,6 +97,27 @@ export const map_minato_village: MapSource = {
       target_y: 12,
       facing: 'right',
     },
+    // North exit → 灯台への道 (its south edge warps back to (19,1)).
+    {
+      type: 'warp',
+      x: 19,
+      y: 0,
+      w: 2,
+      target_map: 'map_lighthouse_path',
+      target_x: 15,
+      target_y: 18,
+      facing: 'up',
+    },
+    // ミオ joins on the way north (§10.3 ev_mio_join); once per game, after the intro.
+    {
+      type: 'trigger',
+      x: 19,
+      y: 1,
+      w: 2,
+      event_id: 'ev_mio_join',
+      once: true,
+      condition: 'minato.intro_done',
+    },
     // Villagers
     {
       type: 'npc',
@@ -106,6 +128,17 @@ export const map_minato_village: MapSource = {
       facing: 'left',
       sprite: 'sprite_npc',
       hidden_if: 'minato.talked_to_grandpa',
+    },
+    // Mio starts 4 tiles right of the trigger so her left x3 walk ends next to the player.
+    {
+      type: 'npc',
+      x: 24,
+      y: 1,
+      id: 'npc_mio',
+      dialog: 'dlg_mio_idle',
+      facing: 'left',
+      sprite: 'sprite_npc',
+      hidden_if: 'minato.mio_joined',
     },
     {
       type: 'npc',
