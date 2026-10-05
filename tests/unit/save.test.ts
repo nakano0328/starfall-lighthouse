@@ -6,6 +6,7 @@ import {
   createNewSave,
   deserialize,
   findSlotsWithSaves,
+  formatPlayTime,
   serialize,
   slotKey,
 } from '@core/save';
@@ -65,5 +66,14 @@ describe('findSlotsWithSaves', () => {
     ]);
     expect(findSlotsWithSaves((k) => store.get(k) ?? null)).toEqual([0]);
     expect(findSlotsWithSaves(() => null)).toEqual([]);
+  });
+});
+
+describe('formatPlayTime', () => {
+  it('formats h:mm:ss', () => {
+    expect(formatPlayTime(0)).toBe('0:00:00');
+    expect(formatPlayTime(59.9)).toBe('0:00:59');
+    expect(formatPlayTime(3723)).toBe('1:02:03');
+    expect(formatPlayTime(-5)).toBe('0:00:00');
   });
 });

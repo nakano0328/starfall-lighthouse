@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { COLORS, GAME_HEIGHT, GAME_VERSION, GAME_WIDTH } from '@/config';
 import { BootScene } from '@scenes/BootScene';
 import { TitleScene } from '@scenes/TitleScene';
+import { MenuScene } from '@scenes/MenuScene';
 import { WorldScene } from '@scenes/WorldScene';
 
 window.__starfall = { ready: false, scene: '', version: GAME_VERSION };
@@ -19,7 +20,7 @@ const config: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [BootScene, TitleScene, WorldScene],
+  scene: [BootScene, TitleScene, WorldScene, MenuScene],
 };
 
 export const game = new Phaser.Game(config);

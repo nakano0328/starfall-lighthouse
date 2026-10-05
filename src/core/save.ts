@@ -111,3 +111,12 @@ export function findSlotsWithSaves(read: (key: string) => string | null): number
   }
   return slots;
 }
+
+/** "1:02:03" style play time for slot lists and the status screen. */
+export function formatPlayTime(totalSec: number): string {
+  const sec = Math.max(0, Math.floor(totalSec));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s2 = sec % 60;
+  return `${h}:${String(m).padStart(2, '0')}:${String(s2).padStart(2, '0')}`;
+}
