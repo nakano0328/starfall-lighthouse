@@ -2,7 +2,7 @@ import type { MapSource } from '@core/map/source';
 
 import { INTERIOR_LEGEND } from './legends';
 
-/** ルカの家 (12x10). Grandpa lives here; the opening event plays in this room. */
+/** ルカの家 (12x10). Grandpa lives here; a new game starts at (7,7) and the opening plays here. */
 export const map_minato_luka_house: MapSource = {
   meta: {
     id: 'map_minato_luka_house',
@@ -42,12 +42,14 @@ export const map_minato_luka_house: MapSource = {
     },
     {
       type: 'npc',
-      x: 6,
+      x: 7,
       y: 3,
       id: 'npc_grandpa',
       dialog: 'dlg_grandpa_entry',
       facing: 'down',
       sprite: 'sprite_npc',
     },
+    // New games start on this tile; the opening plays once (docs/GAME_DESIGN.md §10.3).
+    { type: 'trigger', x: 7, y: 7, event_id: 'ev_opening', once: true },
   ],
 };

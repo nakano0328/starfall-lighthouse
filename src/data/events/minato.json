@@ -1,0 +1,24 @@
+{
+  "ev_opening": [
+    { "cmd": "play_bgm", "key": "none", "fade_ms": 0 },
+    { "cmd": "fade", "dir": "out", "ms": 0 },
+    { "cmd": "say", "dialog": "dlg_narration_opening" },
+    { "cmd": "play_bgm", "key": "bgm_village", "fade_ms": 1000 },
+    { "cmd": "fade", "dir": "in", "ms": 1200 },
+    { "cmd": "wait", "ms": 400 },
+    { "cmd": "move", "actor": "npc_grandpa", "path": ["down", "down"], "wait": true },
+    { "cmd": "face", "actor": "player", "dir": "up" },
+    { "cmd": "say", "dialog": "dlg_grandpa_01" },
+    { "cmd": "play_se", "key": "se_item" },
+    { "cmd": "set_flag", "key": "minato.intro_done", "value": true },
+    { "cmd": "set_flag", "key": "main.chapter", "value": 0 },
+    { "cmd": "face", "actor": "npc_grandpa", "dir": "left" },
+    {
+      "cmd": "move",
+      "actor": "npc_grandpa",
+      "path": ["left", "left", "left", "up"],
+      "wait": false
+    },
+    { "cmd": "show_chapter", "title": "序章　灯台の夜" }
+  ]
+}
