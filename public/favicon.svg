@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges">
+  <rect width="64" height="64" rx="12" fill="#0b1026"/>
+  <!-- star -->
+  <path d="M32 6 L35 15 L44 18 L35 21 L32 30 L29 21 L20 18 L29 15 Z" fill="#ffe9a3"/>
+  <!-- lighthouse tower -->
+  <rect x="26" y="30" width="12" height="6" fill="#f4f1ea"/>
+  <rect x="26" y="36" width="12" height="6" fill="#c8453c"/>
+  <rect x="26" y="42" width="12" height="6" fill="#f4f1ea"/>
+  <rect x="26" y="48" width="12" height="6" fill="#c8453c"/>
+  <rect x="22" y="54" width="20" height="4" fill="#12264a"/>
+</svg>
