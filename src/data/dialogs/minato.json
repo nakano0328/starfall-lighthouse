@@ -1,0 +1,76 @@
+{
+  "dlg_grandpa_entry": {
+    "pages": [],
+    "branches": [
+      { "if": "minato.intro_done", "next": "dlg_grandpa_02" },
+      { "next": "dlg_grandpa_01" }
+    ]
+  },
+  "dlg_grandpa_01": {
+    "speaker": "じいちゃん",
+    "portrait": "portrait_grandpa_neutral",
+    "pages": [
+      "ルカ、灯台の油が切れかけとる。",
+      "これを届けてきてくれんか。\n灯台はこの村の北じゃ。"
+    ],
+    "effects": [
+      { "cmd": "give_item", "item": "it_lamp_oil", "qty": 1 },
+      { "cmd": "set_flag", "key": "minato.intro_done", "value": true },
+      { "cmd": "set_flag", "key": "minato.talked_to_grandpa", "value": true }
+    ],
+    "next": "dlg_grandpa_02"
+  },
+  "dlg_grandpa_02": {
+    "speaker": "じいちゃん",
+    "portrait": "portrait_grandpa_smile",
+    "pages": ["気をつけてな。"],
+    "choices": [
+      { "text": "はい", "next": "dlg_grandpa_03" },
+      {
+        "text": "……ちょっと怖い",
+        "next": "dlg_grandpa_03b",
+        "effects": [{ "cmd": "set_flag", "key": "minato.luka_scared", "value": true }]
+      }
+    ]
+  },
+  "dlg_grandpa_03": {
+    "speaker": "じいちゃん",
+    "portrait": "portrait_grandpa_smile",
+    "pages": ["よし、その意気じゃ。"]
+  },
+  "dlg_grandpa_03b": {
+    "speaker": "じいちゃん",
+    "portrait": "portrait_grandpa_smile",
+    "pages": ["はは、灯台守の見習いが何を言う。", "ミオも一緒に行ってくれるそうじゃ。"]
+  },
+  "dlg_minato_guard": {
+    "speaker": "村人",
+    "pages": ["この先は海岸街道だ。", "出かける前に、じいさんに\n顔を見せてやんな。"]
+  },
+  "dlg_minato_boy": {
+    "speaker": "男の子",
+    "pages": ["ゆうべ、星がいっぱい落ちてきたんだ！\nすごかったなあ。"]
+  },
+  "dlg_minato_fisher": {
+    "speaker": "漁師",
+    "pages": [
+      "今日は海がやけに静かだな……。",
+      "灯台の灯りも消えちまってるし、\n夜の漁はしばらく無理だ。"
+    ]
+  },
+  "dlg_minato_granny": {
+    "speaker": "おばあさん",
+    "pages": ["迷い星はね、灯台の光で\n空へ帰るんだよ。", "昔から、そう決まっとる。"]
+  },
+  "dlg_minato_innkeeper": {
+    "speaker": "女将",
+    "pages": ["いらっしゃい、宿屋「なぎさ」だよ。", "一晩 20G。\n……今はまだ準備中なんだけどね。"]
+  },
+  "dlg_minato_shopkeeper": {
+    "speaker": "店主",
+    "pages": ["道具屋へようこそ。", "……と言いたいところだけど、\n品物はまだ準備中なんだ。"]
+  },
+  "dlg_sign_minato": {
+    "pages": ["ミナト村\n北：ほしふる灯台　東：海岸街道"]
+  }
+}
