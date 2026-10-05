@@ -5,11 +5,10 @@ import { OUTDOOR_LEGEND } from './legends';
 /**
  * 海岸街道 (40x25). First field map, east of ミナト村 (§3.1): a sandy road runs
  * west → east along y11-14 between a grassy strip under the cliffs (north) and the
- * sea (south). The west edge (x0, y12-13) warps back to the village's east gate.
- * The east exit to ささやきの森 is sealed with rocks and a sign until that map
- * exists (Phase 4 content); the tutorial sign near the entrance explains symbol
- * encounters (§5.12). Enemy symbols are kept 6+ tiles from the entrance so the
- * player is not ambushed on arrival.
+ * sea (south). The west edge (x0, y12-13) warps back to the village's east gate and
+ * the east edge (x39, y12-13) leads on to ささやきの森; the tutorial sign near the
+ * entrance explains symbol encounters (§5.12). Enemy symbols are kept 6+ tiles from
+ * the entrance so the player is not ambushed on arrival.
  */
 export const map_coast_road: MapSource = {
   meta: {
@@ -39,8 +38,8 @@ export const map_coast_road: MapSource = {
     'T.........T...........,.........R......T',
     'T..,..............................,....T',
     'T.::::::::::::::::::::::::::::::::::::.T',
-    '=======================================R',
-    '=======================================R',
+    '========================================',
+    '========================================',
     'T.::::::::::::::::::::::::::::::::::::.T',
     'T..........,..............,............T',
     'T.....T.........R...........,......T...T',
@@ -65,9 +64,19 @@ export const map_coast_road: MapSource = {
       target_y: 14,
       facing: 'left',
     },
+    // East exit → ささやきの森 (its west edge x0 holds the return warp).
+    {
+      type: 'warp',
+      x: 39,
+      y: 12,
+      h: 2,
+      target_map: 'map_whisper_forest',
+      target_x: 1,
+      target_y: 20,
+      facing: 'right',
+    },
     // Signs
     { type: 'sign', x: 3, y: 11, text_id: 'dlg_sign_coast_tutorial' },
-    { type: 'sign', x: 38, y: 12, text_id: 'dlg_sign_coast_east' },
     // Save point (星の祠) halfway along the road
     { type: 'save_point', x: 20, y: 11 },
     // Chest in the tree nook north of the road

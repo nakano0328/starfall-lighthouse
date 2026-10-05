@@ -1,6 +1,7 @@
 import type { DialogNode } from '@data/types';
 
 import coast from './coast.json';
+import forest from './forest.json';
 import minato from './minato.json';
 
 /** Node shape as written in the JSON files: the id is the object key. */
@@ -8,6 +9,7 @@ export type DialogNodeJson = Omit<DialogNode, 'id'>;
 
 const FILES: Readonly<Record<string, Readonly<Record<string, DialogNodeJson>>>> = {
   coast: coast as Record<string, DialogNodeJson>,
+  forest: forest as Record<string, DialogNodeJson>,
   minato: minato as Record<string, DialogNodeJson>,
 };
 

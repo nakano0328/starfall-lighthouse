@@ -81,15 +81,15 @@ export const map_forest_shrine: MapSource = {
     'wwwwwwwwwwwwwwwDwwwwwwwwwwwwww',
   ],
   objects: [
-    // South door → ささやきの森 north clearing. The forest's shrine door warp sits at
-    // (25, 2) and lands here at the entrance, so arriving players face away from it.
+    // South door → ささやきの森 north clearing: lands on the tile in front of the
+    // forest's shrine door (25, 3), facing away from it.
     {
       type: 'warp',
       x: 15,
       y: 29,
       target_map: 'map_whisper_forest',
       target_x: 25,
-      target_y: 3,
+      target_y: 4,
       facing: 'down',
     },
     // Entrance sign

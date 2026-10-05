@@ -104,7 +104,7 @@ describe('森の祠 (map_forest_shrine)', () => {
       th: 1,
       targetMap: FOREST,
       targetX: 25,
-      targetY: 3,
+      targetY: 4,
       facing: 'down',
     });
     expect(south.requiredItem).toBeUndefined();

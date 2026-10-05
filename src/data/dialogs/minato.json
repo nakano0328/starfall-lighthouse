@@ -9,6 +9,11 @@
   "dlg_grandpa_entry": {
     "pages": [],
     "branches": [
+      { "if": "minato.lighthouse_unlocked", "next": "dlg_grandpa_go_lighthouse" },
+      { "if": "fragments.count>=3", "next": "dlg_grandpa_final" },
+      { "if": "forest.boss_defeated", "next": "dlg_grandpa_wait_mountain" },
+      { "if": "minato.talked_to_grandpa", "next": "dlg_grandpa_wait_forest" },
+      { "if": "main.core_shattered", "next": "dlg_grandpa_after_shatter" },
       { "if": "minato.intro_done", "next": "dlg_grandpa_02" },
       { "next": "dlg_grandpa_01" }
     ]
@@ -49,28 +54,326 @@
     "portrait": "portrait_grandpa_smile",
     "pages": ["はは、灯台守の見習いが何を言う。", "ミオも一緒に行ってくれるそうじゃ。"]
   },
+  "dlg_grandpa_after_shatter": {
+    "speaker": "じいちゃん",
+    "portrait": "portrait_grandpa_neutral",
+    "pages": [
+      "星心が 砕けたか……。",
+      "灯台の光は、あの石が\n集めた 星の光じゃった。\n欠片が 三つ、要る。",
+      "ひとつは 森の祠に 落ちた。\n東の街道を 抜けて、\nささやきの森へ 行け。",
+      "やくそうを 持っていけ。\n……無理は するなよ。"
+    ],
+    "effects": [
+      { "cmd": "give_item", "item": "it_herb", "qty": 3 },
+      { "cmd": "play_se", "key": "se_item" },
+      { "cmd": "set_flag", "key": "minato.talked_to_grandpa", "value": true }
+    ],
+    "next": "dlg_grandpa_after_shatter_mio"
+  },
+  "dlg_grandpa_after_shatter_mio": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_smile",
+    "pages": ["森の祠なら 道を 知ってる。\n行こう、ルカ！"]
+  },
+  "dlg_grandpa_wait_forest": {
+    "speaker": "じいちゃん",
+    "portrait": "portrait_grandpa_neutral",
+    "pages": [
+      "欠片は 森の祠じゃ。\n東の街道から ささやきの森へ。",
+      "祠の扉には かぎが 要る。\n森の どこかに あるはずじゃ。"
+    ]
+  },
+  "dlg_grandpa_wait_mountain": {
+    "speaker": "じいちゃん",
+    "portrait": "portrait_grandpa_smile",
+    "pages": [
+      "ひとつめを 取り戻したか。\nよう やった。",
+      "次は 山じゃ。森の 北東から\n山道を 抜けると\n鉱山町ハガネに 着く。"
+    ]
+  },
+  "dlg_grandpa_final": {
+    "speaker": "じいちゃん",
+    "portrait": "portrait_grandpa_smile",
+    "pages": [
+      "三つとも 集めたか……。\nよう やった、ルカ。",
+      "これが 灯台のかぎじゃ。\nそれと、この手紙を 持っていけ。\n塔の泉が 手紙に 応える。",
+      "ほしのはねも 二つ 渡そう。\n……灯台で 何かが 待っとる。\n気をつけてな。"
+    ],
+    "effects": [
+      { "cmd": "give_item", "item": "it_key_lighthouse", "qty": 1 },
+      { "cmd": "give_item", "item": "it_grandpa_letter", "qty": 1 },
+      { "cmd": "give_item", "item": "it_star_feather", "qty": 2 },
+      { "cmd": "play_se", "key": "se_item" },
+      { "cmd": "set_flag", "key": "minato.lighthouse_unlocked", "value": true }
+    ]
+  },
+  "dlg_grandpa_go_lighthouse": {
+    "speaker": "じいちゃん",
+    "portrait": "portrait_grandpa_smile",
+    "pages": [
+      "灯台の扉は そのかぎで 開く。\n泉には 手紙を 見せるんじゃ。",
+      "行ってこい。\n灯りを 取り戻してくれ。"
+    ]
+  },
+  "dlg_mio_idle": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_neutral",
+    "pages": ["ルカ、灯台へ 行くの？\nなら、わたしも 行くからね。"]
+  },
+  "dlg_mio_join_01": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_smile",
+    "pages": [
+      "待って、ルカ！\n灯台へ 行くんでしょ？",
+      "夜の道を ひとりなんて\nあぶないよ。\nわたしも いっしょに 行く！"
+    ],
+    "next": "dlg_mio_join_02"
+  },
+  "dlg_mio_join_02": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_neutral",
+    "pages": ["ミオ……。\nでも、夜の道は 暗いよ。"],
+    "next": "dlg_mio_join_03"
+  },
+  "dlg_mio_join_03": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_smile",
+    "pages": [
+      "だから 二人で 行くの！\nほら、おべんとうも 作ってきた。",
+      "父ちゃんの 舟だって、\n灯りが ないと 帰れないんだから。"
+    ]
+  },
+  "dlg_shatter_01": {
+    "pages": ["ほしふる灯台の 扉の前。\n灯りは とうに 消え、\n塔は 暗く そびえている。"],
+    "next": "dlg_shatter_01_mio"
+  },
+  "dlg_shatter_01_mio": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_neutral",
+    "pages": ["ルカ…… 空を 見て。\n星が、ざわついてる……。"],
+    "next": "dlg_shatter_01_luka"
+  },
+  "dlg_shatter_01_luka": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_neutral",
+    "pages": ["……だいじょうぶ。\n油を 入れれば、灯台は また 光る。"]
+  },
+  "dlg_shatter_02": {
+    "pages": [
+      "星心が まばゆく 光り、\n音を 立てて 砕け散った。",
+      "三つの 欠片が 夜空に 弧を描き、\n森へ、山の廃坑へ、海へと\n落ちていく。"
+    ],
+    "next": "dlg_shatter_02_mio"
+  },
+  "dlg_shatter_02_mio": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_neutral",
+    "pages": ["欠片が…… 森と、山と、\n海のほうへ 飛んでいった……！"],
+    "next": "dlg_shatter_02_luka"
+  },
+  "dlg_shatter_02_luka": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_neutral",
+    "pages": [
+      "灯りが なければ、迷い星が\n空へ 帰れなくなる……。",
+      "じいちゃんに 知らせなきゃ。\n村へ 戻ろう。"
+    ]
+  },
   "dlg_minato_guard": {
+    "pages": [],
+    "branches": [
+      { "if": "forest.boss_defeated", "next": "dlg_minato_guard_ch2" },
+      { "if": "minato.talked_to_grandpa", "next": "dlg_minato_guard_open" },
+      { "if": "main.core_shattered", "next": "dlg_minato_guard_shattered" },
+      { "if": "minato.intro_done", "next": "dlg_minato_guard_lighthouse" },
+      { "next": "dlg_minato_guard_01" }
+    ]
+  },
+  "dlg_minato_guard_01": {
     "speaker": "村人",
     "pages": ["この先は海岸街道だ。", "出かける前に、じいさんに\n顔を見せてやんな。"]
   },
+  "dlg_minato_guard_lighthouse": {
+    "speaker": "村人",
+    "pages": ["灯台へ 行くのか。\n村の 北の道を まっすぐだ。", "東の街道は また今度な。"]
+  },
+  "dlg_minato_guard_shattered": {
+    "speaker": "村人",
+    "pages": [
+      "さっきの 光と 地鳴りは\n灯台からか……？",
+      "まずは じいさんに 話してこい。\n街道は それからだ。"
+    ]
+  },
+  "dlg_minato_guard_open": {
+    "speaker": "村人",
+    "pages": ["森の祠か……。\n街道には まものが 出てる。\n気をつけて 行けよ。"]
+  },
+  "dlg_minato_guard_ch2": {
+    "speaker": "村人",
+    "pages": [
+      "森の 北東の トゲツタが\n消えたらしいな。",
+      "山道を 越えれば 鉱山町ハガネだ。\n遠いぞ、しっかり 支度しろよ。"
+    ]
+  },
   "dlg_minato_boy": {
+    "pages": [],
+    "branches": [
+      { "if": "forest.boss_defeated", "next": "dlg_minato_boy_ch2" },
+      { "if": "main.core_shattered", "next": "dlg_minato_boy_shattered" },
+      { "if": "minato.intro_done", "next": "dlg_minato_boy_lighthouse" },
+      { "next": "dlg_minato_boy_01" }
+    ]
+  },
+  "dlg_minato_boy_01": {
     "speaker": "男の子",
     "pages": ["ゆうべ、星がいっぱい落ちてきたんだ！\nすごかったなあ。"]
   },
+  "dlg_minato_boy_lighthouse": {
+    "speaker": "男の子",
+    "pages": ["ルカ、灯台へ 行くの？\nまっくらだから 気をつけてね。"]
+  },
+  "dlg_minato_boy_shattered": {
+    "speaker": "男の子",
+    "pages": [
+      "さっき 空が ピカッて 光って、\n星が 三つ 飛んでいったよ！",
+      "森と、山と、海のほうに\n落ちたんだ。ぼく 見てたもん。"
+    ]
+  },
+  "dlg_minato_boy_ch2": {
+    "speaker": "男の子",
+    "pages": ["山道の 向こうに 町が あるって\n本当？\nぼくも いつか 行ってみたいな。"]
+  },
   "dlg_minato_fisher": {
+    "pages": [],
+    "branches": [
+      { "if": "forest.boss_defeated", "next": "dlg_minato_fisher_ch2" },
+      { "if": "main.core_shattered", "next": "dlg_minato_fisher_shattered" },
+      { "if": "minato.intro_done", "next": "dlg_minato_fisher_lighthouse" },
+      { "next": "dlg_minato_fisher_01" }
+    ]
+  },
+  "dlg_minato_fisher_01": {
     "speaker": "漁師",
     "pages": [
       "今日は海がやけに静かだな……。",
       "灯台の灯りも消えちまってるし、\n夜の漁はしばらく無理だ。"
     ]
   },
+  "dlg_minato_fisher_lighthouse": {
+    "speaker": "漁師",
+    "pages": ["灯りが 消えたままじゃ\n夜の漁に 出られねえ。", "灯台を 頼んだぞ、ルカ。"]
+  },
+  "dlg_minato_fisher_shattered": {
+    "speaker": "漁師",
+    "pages": [
+      "光の かけらが 海へ 落ちるのを\n見たぞ。沈んだ遺跡の あたりだ。",
+      "あそこは 潮が 荒い。\n子どもが 行く所じゃねえ。"
+    ]
+  },
+  "dlg_minato_fisher_ch2": {
+    "speaker": "漁師",
+    "pages": [
+      "山向こうの ハガネは 鉱山の町だ。\n廃坑には 近づくなよ。",
+      "あそこの 連中は 口は 悪いが\n気は いいやつらだ。"
+    ]
+  },
   "dlg_minato_granny": {
+    "pages": [],
+    "branches": [
+      { "if": "forest.boss_defeated", "next": "dlg_minato_granny_ch2" },
+      { "if": "main.core_shattered", "next": "dlg_minato_granny_shattered" },
+      { "if": "minato.intro_done", "next": "dlg_minato_granny_lighthouse" },
+      { "next": "dlg_minato_granny_01" }
+    ]
+  },
+  "dlg_minato_granny_01": {
     "speaker": "おばあさん",
     "pages": ["迷い星はね、灯台の光で\n空へ帰るんだよ。", "昔から、そう決まっとる。"]
   },
+  "dlg_minato_granny_lighthouse": {
+    "speaker": "おばあさん",
+    "pages": ["灯台へ 行くのかい。\n油を こぼさんようにね。"]
+  },
+  "dlg_minato_granny_shattered": {
+    "speaker": "おばあさん",
+    "pages": [
+      "星心が 砕けたんだね……。",
+      "欠片は 森、山、海に ひとつずつ。\n昔話と 同じだよ。\n集めれば 元に 戻るさ。"
+    ]
+  },
+  "dlg_minato_granny_ch2": {
+    "speaker": "おばあさん",
+    "pages": [
+      "古木を 鎮めたんだってね。\nえらい 子だ。",
+      "山道は 高低が あるからね。\nつまずかんように、ゆっくりね。"
+    ]
+  },
   "dlg_minato_innkeeper": {
+    "pages": [],
+    "branches": [
+      { "if": "sq.necklace==2", "next": "dlg_minato_innkeeper_thanks" },
+      { "if": "sq.necklace==1", "next": "dlg_minato_innkeeper_check" },
+      { "if": "minato.mio_joined", "next": "dlg_minato_innkeeper_offer" },
+      { "next": "dlg_minato_innkeeper_01" }
+    ]
+  },
+  "dlg_minato_innkeeper_01": {
     "speaker": "女将",
     "pages": ["いらっしゃい、宿屋「なぎさ」だよ。\nゆっくり 休んでいきな。"]
+  },
+  "dlg_minato_innkeeper_offer": {
+    "speaker": "女将",
+    "pages": [
+      "いらっしゃい。……ねえ、ルカ。\nひとつ 頼まれて くれないかい？",
+      "森で かいがらのネックレスを\n落としちまってね。\n西の 大きな木の あたりだよ。"
+    ],
+    "choices": [
+      {
+        "text": "さがしてみる",
+        "next": "dlg_minato_innkeeper_accept",
+        "effects": [{ "cmd": "set_flag", "key": "sq.necklace", "value": 1 }]
+      },
+      { "text": "また今度", "next": "dlg_minato_innkeeper_decline" }
+    ]
+  },
+  "dlg_minato_innkeeper_accept": {
+    "speaker": "女将",
+    "pages": ["ありがとう！\n見つけたら 持ってきておくれ。"]
+  },
+  "dlg_minato_innkeeper_decline": {
+    "speaker": "女将",
+    "pages": ["そうかい。気が向いたら 頼むよ。\nゆっくり 休んでいきな。"]
+  },
+  "dlg_minato_innkeeper_check": {
+    "pages": [],
+    "branches": [
+      { "if": "chest.forest_05", "next": "dlg_minato_innkeeper_handover" },
+      { "next": "dlg_minato_innkeeper_searching" }
+    ]
+  },
+  "dlg_minato_innkeeper_searching": {
+    "speaker": "女将",
+    "pages": ["ネックレス、まだ 見つからない？\n森の 西の 木の裏だよ。\n無理は しないでおくれ。"]
+  },
+  "dlg_minato_innkeeper_handover": {
+    "speaker": "女将",
+    "pages": [
+      "それ…… あたしの ネックレス！\nああ、よかった……。",
+      "お礼に うみのゆびわを\n受け取っておくれ。\nお金も 少し 包んだよ。",
+      "それと、うちの宿は\nこれから ずっと ただだよ。"
+    ],
+    "effects": [
+      { "cmd": "take_item", "item": "it_shell_necklace", "qty": 1 },
+      { "cmd": "give_item", "item": "eq_acc_sea_ring", "qty": 1 },
+      { "cmd": "give_gold", "amount": 300 },
+      { "cmd": "play_se", "key": "se_item" },
+      { "cmd": "set_flag", "key": "sq.necklace", "value": 2 },
+      { "cmd": "set_flag", "key": "minato.inn_free", "value": true }
+    ]
+  },
+  "dlg_minato_innkeeper_thanks": {
+    "speaker": "女将",
+    "pages": ["ネックレス、ありがとうね。\nうちは いつでも ただだよ。\nゆっくり 休んでいきな。"]
   },
   "dlg_minato_shopkeeper": {
     "speaker": "店主",

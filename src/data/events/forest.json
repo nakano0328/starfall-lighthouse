@@ -1,0 +1,11 @@
+{
+  "ev_forest_boss_intro": [{ "cmd": "say", "dialog": "dlg_forest_boss_intro" }],
+  "ev_forest_boss_win": [
+    { "cmd": "say", "dialog": "dlg_forest_boss_win" },
+    { "cmd": "give_item", "item": "it_fragment_1", "qty": 1 },
+    { "cmd": "set_flag", "key": "fragments.count", "value": 1 },
+    { "cmd": "set_flag", "key": "forest.boss_defeated", "value": true },
+    { "cmd": "set_flag", "key": "main.chapter", "value": 2 },
+    { "cmd": "show_chapter", "title": "第二章　鉱山町と廃坑" }
+  ]
+}

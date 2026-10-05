@@ -20,5 +20,29 @@
       "wait": false
     },
     { "cmd": "show_chapter", "title": "序章　灯台の夜" }
+  ],
+  "ev_mio_join": [
+    { "cmd": "move", "actor": "npc_mio", "path": ["left", "left", "left"], "wait": true },
+    { "cmd": "face", "actor": "player", "dir": "right" },
+    { "cmd": "say", "dialog": "dlg_mio_join_01" },
+    { "cmd": "give_item", "item": "it_mio_lunch", "qty": 1 },
+    { "cmd": "remove_npc", "id": "npc_mio" },
+    { "cmd": "add_member", "id": "ch_mio" },
+    { "cmd": "set_flag", "key": "minato.mio_joined", "value": true }
+  ],
+  "ev_core_shatter": [
+    { "cmd": "say", "dialog": "dlg_shatter_01" },
+    { "cmd": "take_item", "item": "it_lamp_oil", "qty": 1 },
+    { "cmd": "play_bgm", "key": "none", "fade_ms": 500 },
+    { "cmd": "wait", "ms": 600 },
+    { "cmd": "play_se", "key": "se_shatter" },
+    { "cmd": "flash", "ms": 300, "color": "white" },
+    { "cmd": "shake", "ms": 1200, "intensity": 0.6 },
+    { "cmd": "say", "dialog": "dlg_shatter_02" },
+    { "cmd": "set_flag", "key": "main.core_shattered", "value": true },
+    { "cmd": "set_flag", "key": "fragments.count", "value": 0 },
+    { "cmd": "set_flag", "key": "main.chapter", "value": 1 },
+    { "cmd": "play_bgm", "key": "bgm_field", "fade_ms": 1000 },
+    { "cmd": "show_chapter", "title": "第一章　ささやきの森" }
   ]
 }
