@@ -1,27 +1,33 @@
 import Phaser from 'phaser';
 
 import { COLORS, GAME_HEIGHT, GAME_TITLE, GAME_TITLE_EN, GAME_VERSION, GAME_WIDTH } from '@/config';
+import { createNewSave, findSlotsWithSaves } from '@core/save';
+import { InputBindings } from '@ui/InputBindings';
+import { ListMenu } from '@ui/ListMenu';
 
 import { SceneKey } from './keys';
+import type { WorldSceneData } from './WorldScene';
 
 /**
- * Title screen. Phase 1 scope: show the title, a few drifting stars and a
- * "press start" prompt. The real menu (はじめから / つづきから / 設定) lands in Phase 5.
+ * Title screen: はじめから / つづきから / 設定 (GAME_DESIGN §11.5).
+ * つづきから is greyed out until a save exists; 設定 arrives with the menu work (#9).
  */
 export class TitleScene extends Phaser.Scene {
-  private prompt?: Phaser.GameObjects.Text;
-  private started = false;
+  private input2!: InputBindings;
+  private menu!: ListMenu;
+  private starting = false;
 
   constructor() {
     super(SceneKey.Title);
   }
 
   create(): void {
+    this.starting = false;
     this.cameras.main.setBackgroundColor(COLORS.night);
     this.spawnStars(60);
 
     this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 40, 'px-lighthouse')
+      .image(GAME_WIDTH / 2 + 180, GAME_HEIGHT / 2 + 60, 'px_lighthouse')
       .setScale(2)
       .setOrigin(0.5, 1);
 
@@ -34,7 +40,6 @@ export class TitleScene extends Phaser.Scene {
         strokeThickness: 4,
       })
       .setOrigin(0.5);
-
     this.add
       .text(GAME_WIDTH / 2, 124, GAME_TITLE_EN, {
         fontFamily: 'sans-serif',
@@ -42,23 +47,6 @@ export class TitleScene extends Phaser.Scene {
         color: COLORS.textDim,
       })
       .setOrigin(0.5);
-
-    this.prompt = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT - 60, 'Z / Enter で はじめる', {
-        fontFamily: 'sans-serif',
-        fontSize: '18px',
-        color: COLORS.textMain,
-      })
-      .setOrigin(0.5);
-
-    this.tweens.add({
-      targets: this.prompt,
-      alpha: { from: 1, to: 0.25 },
-      duration: 700,
-      yoyo: true,
-      repeat: -1,
-    });
-
     this.add
       .text(GAME_WIDTH - 8, GAME_HEIGHT - 8, `v${GAME_VERSION} 開発中`, {
         fontFamily: 'sans-serif',
@@ -67,13 +55,20 @@ export class TitleScene extends Phaser.Scene {
       })
       .setOrigin(1, 1);
 
-    const keyboard = this.input.keyboard;
-    if (keyboard) {
-      keyboard.on('keydown-Z', this.onStart, this);
-      keyboard.on('keydown-ENTER', this.onStart, this);
-      keyboard.on('keydown-SPACE', this.onStart, this);
-    }
-    this.input.on('pointerdown', this.onStart, this);
+    const hasSave = findSlotsWithSaves(readStorage).length > 0;
+    this.input2 = new InputBindings(this);
+    this.menu = new ListMenu(this, {
+      x: GAME_WIDTH / 2 - 80,
+      y: 200,
+      items: [
+        { label: 'はじめから' },
+        { label: 'つづきから', disabled: !hasSave, ...(hasSave ? {} : { note: '（セーブなし）' }) },
+        { label: '設定', disabled: true, note: '（準備中）' },
+      ],
+      onConfirm: (index) => this.onConfirm(index),
+    });
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.input2.destroy());
 
     if (window.__starfall) {
       window.__starfall.ready = true;
@@ -81,16 +76,21 @@ export class TitleScene extends Phaser.Scene {
     }
   }
 
-  private onStart(): void {
-    if (this.started) return;
-    this.started = true;
-    this.prompt?.setText('フィールドは Phase 2 で実装予定です');
-    this.tweens.killTweensOf(this.prompt ?? []);
-    this.prompt?.setAlpha(1);
-    this.cameras.main.flash(300, 255, 233, 163);
-    this.time.delayedCall(1500, () => {
-      this.started = false;
-      this.prompt?.setText('Z / Enter で はじめる');
+  override update(): void {
+    if (!this.starting) this.menu.update(this.input2);
+  }
+
+  private onConfirm(index: number): void {
+    if (index === 0) this.startNewGame();
+  }
+
+  private startNewGame(): void {
+    this.starting = true;
+    const save = createNewSave(Date.now());
+    const data: WorldSceneData = { save };
+    this.cameras.main.fadeOut(300, 0, 0, 0);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.scene.start(SceneKey.World, data);
     });
   }
 
@@ -98,7 +98,7 @@ export class TitleScene extends Phaser.Scene {
     for (let i = 0; i < count; i += 1) {
       const x = Phaser.Math.Between(0, GAME_WIDTH);
       const y = Phaser.Math.Between(0, GAME_HEIGHT - 80);
-      const star = this.add.image(x, y, 'px-star').setAlpha(Phaser.Math.FloatBetween(0.3, 1));
+      const star = this.add.image(x, y, 'px_star').setAlpha(Phaser.Math.FloatBetween(0.3, 1));
       this.tweens.add({
         targets: star,
         alpha: { from: star.alpha, to: 0.1 },
@@ -108,5 +108,13 @@ export class TitleScene extends Phaser.Scene {
         delay: Phaser.Math.Between(0, 1500),
       });
     }
+  }
+}
+
+function readStorage(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
   }
 }

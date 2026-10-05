@@ -19,4 +19,6 @@ export const COLORS = {
   lighthouseRed: 0xc8453c,
   textMain: '#f4f1ea',
   textDim: '#9aa6c8',
+  textAccent: '#ffe9a3',
+  textDanger: '#ff7a6b',
 } as const;

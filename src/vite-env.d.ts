@@ -9,5 +9,7 @@ interface Window {
     ready: boolean;
     scene: string;
     version: string;
+    /** The Phaser game instance, for debugging and e2e inspection only. */
+    game?: unknown;
   };
 }

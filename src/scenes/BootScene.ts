@@ -1,52 +1,50 @@
 import Phaser from 'phaser';
 
-import { COLORS, TILE_SIZE } from '@/config';
+import { COLORS, GAME_HEIGHT, GAME_WIDTH } from '@/config';
+import { IMAGES, assetUrl } from '@/assets/manifest';
+import { generatePlaceholder } from '@/assets/placeholders';
 
 import { SceneKey } from './keys';
 
 /**
- * First scene to run. Generates placeholder textures in code so the game is
- * playable before any real art exists, then hands over to the title screen.
- * Real assets will be loaded here from `assets/manifest.ts` in Phase 6.
+ * First scene to run. Loads every manifest image that has a real file, draws a
+ * loading bar meanwhile, then generates placeholder textures for the rest and
+ * hands over to the title screen.
  */
 export class BootScene extends Phaser.Scene {
   constructor() {
     super(SceneKey.Boot);
   }
 
+  preload(): void {
+    this.drawLoadingBar();
+    for (const asset of IMAGES) {
+      if (asset.src) this.load.image(asset.key, assetUrl(`images/${asset.src}`));
+    }
+  }
+
   create(): void {
-    this.makeStarTexture();
-    this.makeLighthouseTexture();
+    for (const asset of IMAGES) generatePlaceholder(this, asset);
     this.scene.start(SceneKey.Title);
   }
 
-  private makeStarTexture(): void {
-    const g = this.make.graphics({ x: 0, y: 0 }, false);
-    g.fillStyle(COLORS.starBright, 1);
-    g.fillRect(1, 0, 1, 3);
-    g.fillRect(0, 1, 3, 1);
-    g.generateTexture('px-star', 3, 3);
-    g.destroy();
-  }
-
-  private makeLighthouseTexture(): void {
-    const w = TILE_SIZE;
-    const h = TILE_SIZE * 3;
-    const g = this.make.graphics({ x: 0, y: 0 }, false);
-    // tower body with red/white bands
-    for (let i = 0; i < 6; i += 1) {
-      g.fillStyle(i % 2 === 0 ? COLORS.lighthouseWhite : COLORS.lighthouseRed, 1);
-      g.fillRect(8, 16 + i * 12, 16, 12);
-    }
-    // lamp room
-    g.fillStyle(COLORS.deepSea, 1);
-    g.fillRect(6, 6, 20, 10);
-    g.fillStyle(COLORS.star, 1);
-    g.fillRect(10, 8, 12, 6);
-    // roof
-    g.fillStyle(COLORS.lighthouseRed, 1);
-    g.fillTriangle(4, 6, w - 4, 6, w / 2, 0);
-    g.generateTexture('px-lighthouse', w, h);
-    g.destroy();
+  private drawLoadingBar(): void {
+    const w = 240;
+    const h = 10;
+    const x = (GAME_WIDTH - w) / 2;
+    const y = GAME_HEIGHT / 2;
+    const frame = this.add.graphics();
+    frame.lineStyle(1, 0x9aa6c8, 1);
+    frame.strokeRect(x - 1, y - 1, w + 2, h + 2);
+    const bar = this.add.graphics();
+    this.load.on(Phaser.Loader.Events.PROGRESS, (value: number) => {
+      bar.clear();
+      bar.fillStyle(COLORS.star, 1);
+      bar.fillRect(x, y, Math.round(w * value), h);
+    });
+    this.load.on(Phaser.Loader.Events.COMPLETE, () => {
+      frame.destroy();
+      bar.destroy();
+    });
   }
 }
