@@ -17,11 +17,21 @@ export interface GameState {
   party: PartyMember[];
 }
 
+/** Condition keys of the form `item.<id>` read the bag count (§9.3). */
+export const ITEM_FLAG_PREFIX = 'item.';
+
 export function fromSaveData(save: SaveData, maxQtyOf: (itemId: string) => number): GameState {
+  const flags = Flags.wrap(save.flags);
+  const inventory = new Inventory(maxQtyOf, save.inventory);
+  flags.setResolver((key) =>
+    key.startsWith(ITEM_FLAG_PREFIX)
+      ? inventory.count(key.slice(ITEM_FLAG_PREFIX.length))
+      : undefined,
+  );
   return {
     save,
-    flags: Flags.wrap(save.flags),
-    inventory: new Inventory(maxQtyOf, save.inventory),
+    flags,
+    inventory,
     gold: save.gold,
     party: save.party.map((m) => ({
       ...m,
