@@ -720,3 +720,137 @@ test('a held X keeps the menu open: keyboard auto-repeat is not a press', async 
   );
   expect(errors).toEqual([]);
 });
+
+type BattleProbe = {
+  phaseName: string;
+  outcome: string;
+  round: number;
+  log: string[];
+  enemyHp: number[];
+};
+
+type BattleStarter = {
+  startBattle: (groupId: string, options: { seed?: number }) => Promise<string>;
+  isBattleActive: boolean;
+  gameState: { gold: number; party: { exp: number; hp: number }[] };
+};
+
+const battlePhase = (page: Page) =>
+  page.evaluate(() => {
+    const game = window.__starfall?.game as Game;
+    if (!game.scene.isActive('Battle')) return 'inactive';
+    return game.scene.getScene<BattleProbe>('Battle').phaseName;
+  });
+
+/** Waits until the battle asks for the next command or has ended. */
+const waitForCommandOrEnd = (page: Page) =>
+  page.waitForFunction(
+    () => {
+      const game = window.__starfall?.game as Game;
+      if (!game.scene.isActive('Battle')) return true;
+      return game.scene.getScene<BattleProbe>('Battle').phaseName === 'command';
+    },
+    undefined,
+    { timeout: 30_000 },
+  );
+
+/** Plays たたかう on the first enemy every round until the battle ends. */
+async function fightWithAttacks(page: Page): Promise<void> {
+  for (let i = 0; i < 40; i += 1) {
+    await waitForCommandOrEnd(page);
+    if ((await battlePhase(page)) === 'inactive') return;
+    await page.keyboard.press('z'); // たたかう
+    await page.waitForFunction(
+      () => {
+        const game = window.__starfall?.game as Game;
+        return game.scene.getScene<BattleProbe>('Battle').phaseName === 'target';
+      },
+      undefined,
+      { timeout: 5_000 },
+    );
+    await page.keyboard.press('z'); // first live enemy
+    await page.waitForTimeout(200);
+  }
+  throw new Error('battle did not end');
+}
+
+test('a seeded battle on the coast is won with plain attacks and pays out', async ({ page }) => {
+  const errors = await startNewGame(page);
+  const before = await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<BattleStarter>('World');
+    return { gold: w.gameState.gold, exp: w.gameState.party[0]?.exp ?? -1 };
+  });
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<BattleStarter>('World');
+    void w.startBattle('grp_coast_a', { seed: 1 });
+  });
+  await page.waitForFunction(
+    () => (window.__starfall?.game as Game).scene.isActive('Battle'),
+    undefined,
+    { timeout: 5_000 },
+  );
+  await waitForCommandOrEnd(page);
+  expect(await battlePhase(page)).toBe('command');
+
+  await fightWithAttacks(page);
+
+  await page.waitForFunction(
+    () => {
+      const game = window.__starfall?.game as Game;
+      return game.scene.isActive('World') && !game.scene.isActive('Battle');
+    },
+    undefined,
+    { timeout: 10_000 },
+  );
+  const after = await page.evaluate(() => {
+    const game = window.__starfall?.game as Game;
+    const w = game.scene.getScene<BattleStarter>('World');
+    const b = game.scene.getScene<BattleProbe>('Battle');
+    return {
+      gold: w.gameState.gold,
+      exp: w.gameState.party[0]?.exp ?? -1,
+      hp: w.gameState.party[0]?.hp ?? -1,
+      active: w.isBattleActive,
+      outcome: b.outcome,
+      log: b.log,
+    };
+  });
+  expect(after.outcome).toBe('victory');
+  expect(after.active).toBe(false);
+  // Two 迷い星スライム: 7 EXP and 5 G each (§8.1).
+  expect(after.exp - before.exp).toBe(14);
+  expect(after.gold - before.gold).toBe(10);
+  expect(after.hp).toBeGreaterThan(0);
+  expect(after.log).toContain('迷い星スライムが あらわれた！');
+  expect(after.log).toContain('敵を すべて たおした！');
+  expect(after.log.some((l) => l.includes('の経験値を 手に入れた！'))).toBe(true);
+  expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
+});
+
+test('losing a battle leads to the game over screen and back to the title', async ({ page }) => {
+  const errors = await startNewGame(page);
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<BattleStarter>('World');
+    void w.startBattle('grp_boss_tree', { seed: 1 });
+  });
+  await page.waitForFunction(
+    () => (window.__starfall?.game as Game).scene.isActive('Battle'),
+    undefined,
+    { timeout: 5_000 },
+  );
+  await fightWithAttacks(page);
+  await page.waitForFunction(() => window.__starfall?.scene === 'GameOver', undefined, {
+    timeout: 10_000,
+  });
+  const outcome = await page.evaluate(
+    () => (window.__starfall?.game as Game).scene.getScene<BattleProbe>('Battle').outcome,
+  );
+  expect(outcome).toBe('defeat');
+  await page.waitForTimeout(600);
+  // No save exists, so the cursor starts on タイトルへ.
+  await page.keyboard.press('z');
+  await page.waitForFunction(() => window.__starfall?.scene === 'Title', undefined, {
+    timeout: 10_000,
+  });
+  expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
+});

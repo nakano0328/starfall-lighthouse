@@ -1,17 +1,31 @@
 import Phaser from 'phaser';
 
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TILE_SIZE } from '@/config';
+import { mathRng } from '@core/battle/rng';
 import { evaluateCondition } from '@core/condition';
 import type { DialogStep } from '@core/dialog/runner';
 import { DialogRunner } from '@core/dialog/runner';
 import { formatDialogText } from '@core/dialog/text';
 import type { EventHost } from '@core/events/interpreter';
 import { EventInterpreter, pickupMessage } from '@core/events/interpreter';
+import type { SymbolState } from '@core/field/symbols';
+import {
+  ESCAPE_SAFE_MS,
+  createSymbol,
+  hasLineOfSight,
+  pickGroup,
+  renderPosition,
+  shouldRespawn,
+  stunSymbol,
+  symbolSpecFromObject,
+  updateSymbol,
+} from '@core/field/symbols';
 import { FACING_DELTA, GridMover } from '@core/grid/mover';
 import { cameraScroll } from '@core/map/camera';
 import { PLACEHOLDER_TILESET_NAME, compileMap } from '@core/map/compile';
 import type {
   ChestObject,
+  EnemyObject,
   MapObject,
   NpcObject,
   SavePointObject,
@@ -35,6 +49,7 @@ import type { CharacterId, Facing } from '@data/types';
 import { DialogBox } from '@ui/DialogBox';
 import { InputBindings } from '@ui/InputBindings';
 
+import type { BattleResult, BattleSceneData } from './BattleScene';
 import { SceneKey } from './keys';
 import type { MenuSceneData } from './MenuScene';
 
@@ -54,6 +69,28 @@ const SCRIPT_STEP_MS = 150;
 /** Chapter title: fade in, hold, fade out = 2.5 s (§11.5). */
 const CHAPTER_FADE_MS = 300;
 const CHAPTER_HOLD_MS = 1900;
+
+interface SymbolRuntime {
+  state: SymbolState;
+  image: Phaser.GameObjects.Image;
+}
+
+export interface BattleStartOptions {
+  preemptive?: boolean;
+  /** The symbol that made contact; removed on a win, stunned on an escape. */
+  source?: SymbolRuntime;
+  /** Deterministic rng for tests. */
+  seed?: number;
+  /** Event battles decide themselves what a loss means (lose:continue). */
+  fromEvent?: boolean;
+}
+
+/**
+ * When each defeated symbol fell (`<map>:<id>` → Date.now()). Session-wide so a
+ * symbol stays gone while the player is on the map and comes back on re-entry
+ * once its respawn delay has passed (§5.12).
+ */
+const defeatedAt = new Map<string, number>();
 
 interface NpcRuntime {
   obj: NpcObject;
@@ -83,6 +120,9 @@ export class WorldScene extends Phaser.Scene {
   private objects: MapObject[] = [];
   private readonly npcs = new Map<string, NpcRuntime>();
   private readonly chests = new Map<string, Phaser.GameObjects.Image>();
+  private symbols: SymbolRuntime[] = [];
+  /** True from contact until the battle scene hands the result back. */
+  private battleActive = false;
   private talkingTo: NpcRuntime | null = null;
   private settings!: Settings;
   private runner!: DialogRunner;
@@ -128,8 +168,11 @@ export class WorldScene extends Phaser.Scene {
     this.choiceDone = null;
     this.menuRequested = false;
     this.scriptedPlayerStep = false;
+    this.symbols = [];
+    this.battleActive = false;
     this.buildMap(this.save.location.map);
     this.spawnObjects();
+    this.spawnSymbols();
     this.rebuildCollision();
 
     this.runner = new DialogRunner(DIALOGS, {
@@ -159,7 +202,10 @@ export class WorldScene extends Phaser.Scene {
     if (!resumingScript) this.interpreter = new EventInterpreter(this.eventHost(), EVENTS);
 
     const { x, y, facing } = this.save.location;
-    this.mover = new GridMover({ x, y, facing }, (tx, ty) => this.collision.isBlocked(tx, ty));
+    this.mover = new GridMover(
+      { x, y, facing },
+      (tx, ty) => this.collision.isBlocked(tx, ty) || this.symbolAt(tx, ty) !== undefined,
+    );
     this.player = this.add.image(0, 0, 'sprite_player', facing);
     this.hud = this.add
       .text(8, 8, '', { fontFamily: 'sans-serif', fontSize: '12px', color: COLORS.textDim })
@@ -225,6 +271,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.syncPlayerSprite();
     this.updateCamera();
+    this.updateSymbols();
     if (
       this.menuRequested &&
       !this.transitioning &&
@@ -280,6 +327,20 @@ export class WorldScene extends Phaser.Scene {
 
   get gameState(): GameState {
     return this.state;
+  }
+
+  /** Enemy symbols currently on the map (logical tiles). */
+  get symbolTiles(): { id: string; x: number; y: number; mode: string }[] {
+    return this.symbols.map((s) => ({
+      id: s.state.spec.id,
+      x: s.state.tx,
+      y: s.state.ty,
+      mode: s.state.mode,
+    }));
+  }
+
+  get isBattleActive(): boolean {
+    return this.battleActive;
   }
 
   private get save(): GameState['save'] {
@@ -351,9 +412,143 @@ export class WorldScene extends Phaser.Scene {
           this.add.image(x, y, 'obj_save_point').setDepth(depth);
           break;
         default:
-          break; // warps, triggers and enemies have no static sprite
+          break; // warps and triggers have no sprite; enemies are symbols (spawnSymbols)
       }
     }
+  }
+
+  // ---- enemy symbols (§5.12) ---------------------------------------------------
+
+  /** Places a wandering symbol for every `enemy` object that is alive and due. */
+  private spawnSymbols(): void {
+    const now = this.time.now;
+    this.objects.forEach((o, index) => {
+      if (o.kind !== 'enemy') return;
+      const spec = symbolSpecFromObject(o as EnemyObject, `enemy_${index}`);
+      if (spec.defeatedFlag !== undefined && this.flags.has(spec.defeatedFlag)) return;
+      if (!shouldRespawn(spec, defeatedAt.get(`${this.mapId}:${spec.id}`), Date.now())) return;
+      const state = createSymbol(spec, now, mathRng);
+      const image = this.add
+        .image(tileCenter(state.tx), tileCenter(state.ty), 'sprite_enemy', 'down')
+        .setDepth(DEPTH.actors + state.ty / 1000);
+      this.symbols.push({ state, image });
+    });
+  }
+
+  private symbolAt(x: number, y: number): SymbolRuntime | undefined {
+    return this.symbols.find((s) => s.state.tx === x && s.state.ty === y);
+  }
+
+  /** Moves every symbol and starts a battle on contact (unless the player is safe). */
+  private updateSymbols(): void {
+    if (this.battleActive || this.transitioning) return;
+    const now = this.time.now;
+    const player = this.mover.position;
+    const playerSafe = this.isSafe || this.interpreter.running || this.dialogBox.isOpen;
+    for (const sym of this.symbols) {
+      const env = {
+        blocked: (x: number, y: number) =>
+          this.collision.isBlocked(x, y) ||
+          this.symbols.some((o) => o !== sym && o.state.tx === x && o.state.ty === y),
+        canSee: (ax: number, ay: number, bx: number, by: number) =>
+          hasLineOfSight(ax, ay, bx, by, (x, y) => this.baseCollision.isBlocked(x, y)),
+        playerSafe,
+      };
+      const result = updateSymbol(sym.state, now, player, env, mathRng);
+      const pos = renderPosition(sym.state, now);
+      sym.image
+        .setPosition(pos.x * TILE_SIZE + TILE_SIZE / 2, pos.y * TILE_SIZE + TILE_SIZE / 2)
+        .setDepth(DEPTH.actors + pos.y / 1000)
+        .setFrame(facingOf(sym.state));
+      if (result.contact) {
+        void this.startBattle(pickGroup(sym.state.spec, mathRng), {
+          preemptive: result.contact.preemptive,
+          source: sym,
+        });
+        return;
+      }
+    }
+  }
+
+  /**
+   * Runs a battle over the paused field and applies its outcome: a defeated symbol
+   * disappears (boss flags are set), an escaped one is stunned and the player gets
+   * 3 s of invulnerability, a loss goes to the game over screen unless the caller
+   * (an event with lose:continue) handles it.
+   */
+  startBattle(groupId: string, options: BattleStartOptions = {}): Promise<BattleResult> {
+    if (this.battleActive) return Promise.resolve('lose');
+    this.battleActive = true;
+    this.menuRequested = false;
+    this.input2.flush();
+    return new Promise<BattleResult>((resolve) => {
+      const data: BattleSceneData = {
+        state: this.state,
+        groupId,
+        preemptive: options.preemptive ?? false,
+        ...(options.seed === undefined ? {} : { seed: options.seed }),
+        onEnd: (result) => {
+          this.scene.resume(SceneKey.World);
+          this.battleActive = false;
+          this.input2.flush();
+          this.afterBattle(result, options.source);
+          if (result === 'lose' && !options.fromEvent) this.gameOver();
+          resolve(result);
+        },
+      };
+      void this.flashEncounter().then(() => {
+        this.scene.launch(SceneKey.Battle, data);
+        this.scene.pause(SceneKey.World);
+      });
+    });
+  }
+
+  private afterBattle(result: BattleResult, source: SymbolRuntime | undefined): void {
+    if (result === 'win' && source) {
+      defeatedAt.set(`${this.mapId}:${source.state.spec.id}`, Date.now());
+      if (source.state.spec.defeatedFlag !== undefined) {
+        this.flags.set(source.state.spec.defeatedFlag, true);
+      }
+      source.image.destroy();
+      this.symbols = this.symbols.filter((s) => s !== source);
+    } else if (result === 'escape') {
+      if (source) stunSymbol(source.state, this.time.now);
+      this.safeUntil = this.time.now + ESCAPE_SAFE_MS;
+      this.tweens.add({
+        targets: this.player,
+        alpha: { from: 1, to: 0.3 },
+        duration: 150,
+        yoyo: true,
+        repeat: Math.floor(ESCAPE_SAFE_MS / 300) - 1,
+        onComplete: () => this.player.setAlpha(1),
+      });
+    }
+    this.syncPlayerSprite();
+  }
+
+  /** Short white flash before the battle screen (§5.12). */
+  private flashEncounter(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      this.cameras.main.flash(
+        200,
+        255,
+        255,
+        255,
+        true,
+        (_c: Phaser.Cameras.Scene2D.Camera, progress: number) => {
+          if (progress >= 1) resolve();
+        },
+      );
+    });
+  }
+
+  /** Leaves the field for the defeat screen (§5.11). */
+  private gameOver(): void {
+    this.transitioning = true;
+    this.input2.flush();
+    void this.fade('out', WARP_FADE_MS, 'black').then(() => {
+      this.scene.start(SceneKey.GameOver);
+    });
   }
 
   /**
@@ -697,7 +892,12 @@ export class WorldScene extends Phaser.Scene {
         if (npc) npc.hidden = true;
         this.rebuildCollision();
       },
-      battle: () => Promise.resolve('win'), // battles land in Phase 3
+      battle: async (group, lose) => {
+        const result = await this.startBattle(group, { fromEvent: true });
+        if (result === 'win') return 'win';
+        if (lose === 'gameover') this.gameOver();
+        return 'lose';
+      },
       endGame: () => undefined, // ending lands in Phase 5
     };
   }
@@ -870,6 +1070,16 @@ export class WorldScene extends Phaser.Scene {
 
 function tileCenter(tile: number): number {
   return tile * TILE_SIZE + TILE_SIZE / 2;
+}
+
+/** Frame for a symbol from its current step direction (down when idle). */
+function facingOf(sym: SymbolState): Facing {
+  const dx = sym.tx - sym.fromX;
+  const dy = sym.ty - sym.fromY;
+  if (dx > 0) return 'right';
+  if (dx < 0) return 'left';
+  if (dy < 0) return 'up';
+  return 'down';
 }
 
 function opposite(facing: Facing): Facing {

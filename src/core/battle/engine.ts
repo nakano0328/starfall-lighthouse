@@ -527,6 +527,7 @@ export class BattleEngine {
     if (actor.ko) return;
     const tick = tickStatuses(actor);
     if (tick.poisonDamage > 0) {
+      this.emit({ type: 'message', text: `${actor.name}は 毒に むしばまれている！` });
       this.dealDamage(actor, {
         amount: tick.poisonDamage,
         crit: false,
