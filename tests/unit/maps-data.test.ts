@@ -7,6 +7,7 @@ import { CollisionGrid, parseMapObjects } from '@core/map/objects';
 import type { LegendEntry, MapSource } from '@core/map/source';
 import { OVERLAY_EMPTY, normalizeLegendEntry } from '@core/map/source';
 import { createNewSave } from '@core/save';
+import { findItem } from '@data/items';
 import { MAP_IDS, MAP_SOURCES, getMapSource } from '@data/maps';
 import type { Facing } from '@data/types';
 
@@ -105,11 +106,15 @@ describe('authored maps', () => {
     expect(MAP_IDS.length).toBeGreaterThanOrEqual(4);
   });
 
-  it('start the new game on a walkable tile of an existing map', () => {
+  it('start the new game on a walkable tile of an existing map, on the opening trigger', () => {
     const save = createNewSave(0);
     const map = compiled[save.location.map];
     expect(map).toBeDefined();
     expect(CollisionGrid.fromMap(map!).isBlocked(save.location.x, save.location.y)).toBe(false);
+    const trigger = parseMapObjects(map!).find(
+      (o) => o.kind === 'trigger' && o.tx === save.location.x && o.ty === save.location.y,
+    );
+    expect(trigger).toMatchObject({ kind: 'trigger', eventId: 'ev_opening', once: true });
   });
 
   it('place entrances, NPCs, chests, signs and save points on walkable tiles', () => {
@@ -146,6 +151,17 @@ describe('authored maps', () => {
           CollisionGrid.fromMap(compiled[id]!).isBlocked(o.tx, o.ty),
           `${id} warp tile (${o.tx}, ${o.ty})`,
         ).toBe(false);
+      }
+    }
+  });
+
+  it('reference existing items in chests and door locks', () => {
+    for (const id of MAP_IDS) {
+      for (const o of parseMapObjects(compiled[id]!)) {
+        if (o.kind === 'chest' && o.itemId !== 'gold')
+          expect(findItem(o.itemId), `${id} chest ${o.itemId}`).toBeDefined();
+        if (o.kind === 'warp' && o.requiredItem !== undefined)
+          expect(findItem(o.requiredItem), `${id} door ${o.requiredItem}`).toBeDefined();
       }
     }
   });

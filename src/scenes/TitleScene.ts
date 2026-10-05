@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 
 import { COLORS, GAME_HEIGHT, GAME_TITLE, GAME_TITLE_EN, GAME_VERSION, GAME_WIDTH } from '@/config';
 import { createNewSave, findSlotsWithSaves } from '@core/save';
+import { createGameState } from '@core/state';
+import { findItem } from '@data/items';
 import { InputBindings } from '@ui/InputBindings';
 import { ListMenu } from '@ui/ListMenu';
 
@@ -87,7 +89,9 @@ export class TitleScene extends Phaser.Scene {
   private startNewGame(): void {
     this.starting = true;
     const save = createNewSave(Date.now());
-    const data: WorldSceneData = { save };
+    const data: WorldSceneData = {
+      state: createGameState(save, (itemId) => findItem(itemId)?.maxQty ?? 99),
+    };
     this.cameras.main.fadeOut(300, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.start(SceneKey.World, data);

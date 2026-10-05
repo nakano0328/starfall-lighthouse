@@ -1,6 +1,21 @@
 import { expect, test } from '@playwright/test';
 
-test('new game: walk into the house, talk to grandpa, walk back out', async ({ page }) => {
+type WorldProbe = {
+  gameState: {
+    save: {
+      location: { map: string; x: number; y: number; facing: string };
+      flags: Record<string, unknown>;
+    };
+    inventory: { count: (id: string) => number };
+    gold: number;
+  };
+  isDialogOpen: boolean;
+  isEventRunning: boolean;
+  isMoving: boolean;
+  playerTile: { x: number; y: number; facing: string };
+};
+
+test('new game: opening event, leave the house, read the village sign', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (err) => errors.push(err.message));
   page.on('console', (msg) => {
@@ -13,66 +28,20 @@ test('new game: walk into the house, talk to grandpa, walk back out', async ({ p
     errors.push(`request failed: ${req.url()} ${req.failure()?.errorText ?? ''}`);
   });
 
-  await page.goto('/');
-  await expect(page).toHaveTitle(/ほしふる灯台/);
-
-  const canvas = page.locator('#game canvas');
-  await expect(canvas).toBeVisible();
-
-  await page.waitForFunction(() => window.__starfall?.ready === true, undefined, {
-    timeout: 20_000,
-  });
-  const state = await page.evaluate(() => window.__starfall);
-  expect(state?.scene).toBe('Title');
-  expect(state?.version).toMatch(/^\d+\.\d+\.\d+/);
-
-  // はじめから is the first menu item: confirm starts a new game on the field.
-  await page.keyboard.press('Enter');
-  await page.waitForFunction(() => window.__starfall?.scene === 'World', undefined, {
-    timeout: 10_000,
-  });
-
-  // Walk north from the start tile (10,12) through the door at (10,6) into Luka's house.
-  const currentMap = () =>
-    page.evaluate(() => {
-      const game = window.__starfall?.game as {
-        scene: { getScene: (k: string) => { save?: { location: { map: string } } } };
-      };
-      return game.scene.getScene('World').save?.location.map;
-    });
-  await page.waitForTimeout(400);
-  await page.keyboard.down('ArrowUp');
-  await page.waitForFunction(
-    () => {
-      const game = window.__starfall?.game as {
-        scene: { getScene: (k: string) => { save?: { location: { map: string } } } };
-      };
-      return game.scene.getScene('World').save?.location.map === 'map_minato_luka_house';
-    },
-    undefined,
-    { timeout: 10_000 },
-  );
-  await page.keyboard.up('ArrowUp');
-  expect(await currentMap()).toBe('map_minato_luka_house');
-
-  // Talk to grandpa at (6,3): stand at (7,3) facing left, press Z and read through
-  // the conversation (first choice when offered). The effects set the intro flags.
-  type WorldProbe = {
-    save: { location: { x: number; y: number; facing: string }; flags: Record<string, unknown> };
-    isDialogOpen: boolean;
-    isMoving: boolean;
-    playerTile: { x: number; y: number; facing: string };
-  };
   const world = () =>
     page.evaluate(() => {
       const game = window.__starfall?.game as { scene: { getScene: (k: string) => WorldProbe } };
       const w = game.scene.getScene('World');
-      return { location: w.save.location, flags: w.save.flags, dialog: w.isDialogOpen };
+      return {
+        location: w.gameState.save.location,
+        flags: w.gameState.save.flags,
+        lampOil: w.gameState.inventory.count('it_lamp_oil'),
+        dialog: w.isDialogOpen,
+        event: w.isEventRunning,
+        tile: w.playerTile,
+      };
     });
-  /**
-   * Holds a direction key until the player's logical tile (the step destination)
-   * is the target, then releases it so the step finishes there.
-   */
+  /** Holds a direction key until the step destination is the target tile. */
   const walkTo = async (key: string, x: number, y: number) => {
     await page.keyboard.down(key);
     await page.waitForFunction(
@@ -100,46 +69,70 @@ test('new game: walk into the house, talk to grandpa, walk back out', async ({ p
     await page.keyboard.up(key);
     await page.waitForTimeout(100);
   };
-  await page.waitForTimeout(500);
-  await walkTo('ArrowUp', 5, 5);
-  await walkTo('ArrowRight', 7, 5);
-  await walkTo('ArrowUp', 7, 3);
-  await tap('ArrowLeft');
-  const beforeTalk = await world();
-  expect(beforeTalk.location).toMatchObject({ x: 7, y: 3, facing: 'left' });
-  expect(beforeTalk.dialog).toBe(false);
+  const waitForMap = (map: string) =>
+    page.waitForFunction(
+      (target) => {
+        const game = window.__starfall?.game as { scene: { getScene: (k: string) => WorldProbe } };
+        return game.scene.getScene('World').gameState.save.location.map === target;
+      },
+      map,
+      { timeout: 10_000 },
+    );
 
-  await page.keyboard.press('z');
-  await page.waitForTimeout(200);
-  expect((await world()).dialog).toBe(true);
-  for (let i = 0; i < 12 && (await world()).dialog; i += 1) {
+  await page.goto('/');
+  await expect(page).toHaveTitle(/ほしふる灯台/);
+  await expect(page.locator('#game canvas')).toBeVisible();
+  await page.waitForFunction(() => window.__starfall?.ready === true, undefined, {
+    timeout: 20_000,
+  });
+  const state = await page.evaluate(() => window.__starfall);
+  expect(state?.scene).toBe('Title');
+  expect(state?.version).toMatch(/^\d+\.\d+\.\d+/);
+
+  // はじめから → the opening event starts in Luka's house.
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => window.__starfall?.scene === 'World', undefined, {
+    timeout: 10_000,
+  });
+  await page.waitForTimeout(300);
+  expect((await world()).event).toBe(true);
+
+  // Press through narration, grandpa's lines and the choice until the event ends.
+  for (let i = 0; i < 40 && (await world()).event; i += 1) {
     await page.keyboard.press('z');
-    await page.waitForTimeout(450);
+    await page.waitForTimeout(400);
   }
-  const afterTalk = await world();
-  expect(afterTalk.dialog).toBe(false);
-  expect(afterTalk.flags['minato.intro_done']).toBe(true);
-  expect(afterTalk.flags['minato.talked_to_grandpa']).toBe(true);
+  const afterOpening = await world();
+  expect(afterOpening.event).toBe(false);
+  expect(afterOpening.dialog).toBe(false);
+  expect(afterOpening.flags['minato.intro_done']).toBe(true);
+  expect(afterOpening.flags['main.chapter']).toBe(0);
+  expect(afterOpening.flags['ev.ev_opening']).toBe(true);
+  expect(afterOpening.lampOil).toBe(1);
+  expect(afterOpening.location).toMatchObject({ map: 'map_minato_luka_house', x: 7, y: 7 });
 
-  // Walk back out through the door at the bottom of the room.
-  await walkTo('ArrowDown', 7, 5);
-  await walkTo('ArrowLeft', 5, 5);
+  // Leave through the door at (5,9): the exit lands on the village path at (10,7).
+  await walkTo('ArrowLeft', 5, 7);
   await page.keyboard.down('ArrowDown');
-  await page.waitForFunction(
-    () => {
-      const game = window.__starfall?.game as {
-        scene: { getScene: (k: string) => { save?: { location: { map: string } } } };
-      };
-      return game.scene.getScene('World').save?.location.map === 'map_minato_village';
-    },
-    undefined,
-    { timeout: 10_000 },
-  );
+  await waitForMap('map_minato_village');
   await page.keyboard.up('ArrowDown');
-  expect(await currentMap()).toBe('map_minato_village');
+  await page.waitForTimeout(600);
+  expect((await world()).location).toMatchObject({ map: 'map_minato_village' });
+
+  // Walk to the sign at (21,13): down to row 12, right to x=21, face down and read it.
+  await walkTo('ArrowDown', 10, 12);
+  await walkTo('ArrowRight', 21, 12);
+  await tap('ArrowDown');
+  await page.keyboard.press('z');
+  await page.waitForTimeout(300);
+  expect((await world()).dialog).toBe(true);
+  for (let i = 0; i < 6 && (await world()).dialog; i += 1) {
+    await page.keyboard.press('z');
+    await page.waitForTimeout(400);
+  }
+  expect((await world()).dialog).toBe(false);
 
   // X returns to the title for now (until the pause menu exists).
-  await page.waitForTimeout(600);
   await page.keyboard.press('x');
   await page.waitForFunction(() => window.__starfall?.scene === 'Title', undefined, {
     timeout: 10_000,

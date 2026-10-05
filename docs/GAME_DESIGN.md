@@ -114,8 +114,8 @@
 
 | ID                      | 名称                  | 種別       | サイズ | 接続先                                                                                                                         | 出現敵グループ                                 | BGM              | 備考・ギミック                                                                          |
 | ----------------------- | --------------------- | ---------- | ------ | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------- |
-| `map_minato_village`    | ミナト村              | 町         | 40×30  | `map_minato_luka_house`, `map_minato_inn`, `map_minato_shop`, `map_lighthouse_path`(北), `map_coast_road`(東)                  | なし                                           | `bgm_village`    | 開始地点（タイル 10,12）。東出口は `minato.talked_to_grandpa` まで村人が塞ぐ            |
-| `map_minato_luka_house` | ルカの家              | 屋内       | 12×10  | `map_minato_village`                                                                                                           | なし                                           | `bgm_village`    | 祖父（`npc_grandpa`）の定位置。序章イベント                                             |
+| `map_minato_village`    | ミナト村              | 町         | 40×30  | `map_minato_luka_house`, `map_minato_inn`, `map_minato_shop`, `map_lighthouse_path`(北), `map_coast_road`(東)                  | なし                                           | `bgm_village`    | 東出口は `minato.talked_to_grandpa` まで村人が塞ぐ                                      |
+| `map_minato_luka_house` | ルカの家              | 屋内       | 12×10  | `map_minato_village`                                                                                                           | なし                                           | `bgm_village`    | **開始地点（タイル 7,7）**。祖父（`npc_grandpa`）の定位置。序章イベント `ev_opening`    |
 | `map_minato_inn`        | 宿屋「なぎさ」        | 屋内       | 14×10  | `map_minato_village`                                                                                                           | なし                                           | `bgm_village`    | 宿泊 20G、`sq_lost_necklace` 受注                                                       |
 | `map_minato_shop`       | 道具屋                | 屋内       | 12×10  | `map_minato_village`                                                                                                           | なし                                           | `bgm_village`    | `shop_minato`                                                                           |
 | `map_lighthouse_path`   | 灯台への道            | フィールド | 30×20  | `map_minato_village`(南), `map_lighthouse_1f`(北)                                                                              | `grp_coast_a`（`main.core_shattered` 後のみ）  | `bgm_field`      | 序章イベント `ev_core_shatter`。灯台扉は `it_key_lighthouse` が必要                     |
@@ -1066,7 +1066,7 @@ interface SaveData {
 ```
 
 - `deserialize` は壊れた JSON・形違い・**より新しい schemaVersion** を `null` にする。古いバージョンは `migrate()` で 1 段ずつ上げる。
-- `createNewSave` は本書の ID 規約どおり `location.map = 'map_minato_village'`（x10, y12, down）を返す（`tests/unit/save.test.ts` で検証）。
+- `createNewSave` は `location.map = 'map_minato_luka_house'`（x7, y7, up）を返す（`tests/unit/save.test.ts` で検証）。ニューゲーム直後に同じタイルの `trigger` が `ev_opening` を発火する（§10.3）。
 - スロット以外に `starfall.save.auto`（ボス前自動バックアップ、§5.11）と `starfall.settings`（設定）を持つ。これらは `SAVE_SLOT_COUNT` の範囲外で `slotKey()` を通さない。
 
 ### 12.2 v2 追加項目（Phase 3 でパーティ・所持品が生まれた時点で導入）

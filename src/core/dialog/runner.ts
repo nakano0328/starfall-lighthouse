@@ -69,6 +69,15 @@ export class DialogRunner {
     return this.enter(id, 0);
   }
 
+  /** Shows ad-hoc pages (system messages, pickups) with no speaker and no effects. */
+  startInline(pages: string[], choices?: string[]): DialogStep {
+    const node: DialogNode = { id: '__inline', pages: pages.length > 0 ? pages : [''] };
+    if (choices && choices.length > 0) node.choices = choices.map((text) => ({ text }));
+    this.node = node;
+    this.page = 0;
+    return this.currentPage(node);
+  }
+
   /** Called when the player dismisses the current page. */
   advance(): DialogStep {
     const node = this.node;
