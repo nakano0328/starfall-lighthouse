@@ -6,6 +6,7 @@ import { BootScene } from '@scenes/BootScene';
 import { GameOverScene } from '@scenes/GameOverScene';
 import { TitleScene } from '@scenes/TitleScene';
 import { MenuScene } from '@scenes/MenuScene';
+import { ShopScene } from '@scenes/ShopScene';
 import { WorldScene } from '@scenes/WorldScene';
 
 window.__starfall = { ready: false, scene: '', version: GAME_VERSION };
@@ -22,7 +23,7 @@ const config: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [BootScene, TitleScene, WorldScene, MenuScene, BattleScene, GameOverScene],
+  scene: [BootScene, TitleScene, WorldScene, MenuScene, BattleScene, GameOverScene, ShopScene],
 };
 
 export const game = new Phaser.Game(config);

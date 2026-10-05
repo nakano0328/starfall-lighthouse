@@ -37,6 +37,7 @@ import type { TiledMap } from '@core/map/tiled';
 import { expForLevel } from '@core/party/exp';
 import { createMember, memberStats } from '@core/party/member';
 import type { Settings } from '@core/settings';
+import { innPrice, payInn } from '@core/shop';
 import { SETTINGS_KEY, TEXT_SPEED_MS, parseSettings } from '@core/settings';
 import type { GameState } from '@core/state';
 import { CHARACTERS } from '@data/characters';
@@ -52,6 +53,7 @@ import { InputBindings } from '@ui/InputBindings';
 import type { BattleResult, BattleSceneData } from './BattleScene';
 import { SceneKey } from './keys';
 import type { MenuSceneData } from './MenuScene';
+import type { ShopSceneData } from './ShopScene';
 
 export interface WorldSceneData {
   /** The run being played; location/flags/inventory are read from and written back to it. */
@@ -646,9 +648,6 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private talkTo(npc: NpcRuntime, playerFacing: Facing): void {
-    // npc.obj.shop / npc.obj.innPrice (§9.2) are parsed but not acted on yet: the
-    // inn lands with the Phase 3 party, the shop with the Phase 4 equipment data.
-    // Until then those NPCs' dialogs end on a 準備中 line.
     npc.image.setFrame(opposite(playerFacing));
     this.talkingTo = npc;
     this.startDialog(npc.obj.dialog);
@@ -738,6 +737,7 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     this.dialogBox.close();
+    const npc = this.talkingTo?.obj;
     if (this.talkingTo) {
       this.talkingTo.image.setFrame(this.talkingTo.facing);
       this.talkingTo = null;
@@ -747,6 +747,58 @@ export class WorldScene extends Phaser.Scene {
     const done = this.dialogDone;
     this.dialogDone = null;
     done?.();
+    // Shop / inn NPCs open their counter once their greeting is over (§9.2).
+    if (npc && !this.interpreter.running && !this.dialogBox.isOpen) {
+      if (npc.innPrice !== undefined) this.offerInn(npc.innPrice);
+      else if (npc.shop !== undefined) this.openShop(npc.shop);
+    }
+  }
+
+  // ---- shop and inn (§7.5, §7.6, §9.2) ---------------------------------------
+
+  private openShop(shopId: string): void {
+    this.input2.flush();
+    const data: ShopSceneData = { state: this.state, shopId };
+    this.events.once(Phaser.Scenes.Events.RESUME, () => this.input2.flush());
+    this.scene.launch(SceneKey.Shop, data);
+    this.scene.pause();
+  }
+
+  /** 「○G で泊まりますか？」→ pay → heal → fade → save screen. */
+  private offerInn(base: number): void {
+    const free = this.mapId === 'map_minato_inn' && this.flags.has('minato.inn_free');
+    const price = innPrice(base, free);
+    this.choiceDone = (index) => {
+      if (index === 0) this.stayAtInn(price);
+    };
+    this.input2.flush();
+    this.applyDialogStep(
+      this.runner.startInline(
+        [
+          price === 0
+            ? '今夜は 無料で いいよ。泊まっていく？'
+            : `ひとばん ${price}G だよ。泊まっていく？`,
+        ],
+        ['はい', 'いいえ'],
+      ),
+    );
+  }
+
+  private stayAtInn(price: number): void {
+    if (!payInn(this.state, price)) {
+      this.showMessage(['……お金が 足りないみたいだね。']);
+      return;
+    }
+    this.healParty();
+    this.transitioning = true;
+    void this.fade('out', WARP_FADE_MS * 2, 'black')
+      .then(() => new Promise<void>((resolve) => this.time.delayedCall(400, resolve)))
+      .then(() => this.fade('in', WARP_FADE_MS * 2, 'black'))
+      .then(() => {
+        this.transitioning = false;
+        this.dialogDone = () => this.openMenu({ canSave: true, startMode: 'save' });
+        this.showMessage(['ぐっすり 眠った。', 'HP と MP が 全快した。']);
+      });
   }
 
   // ---- triggers and warps ---------------------------------------------------
