@@ -37,6 +37,13 @@ describe('Flags', () => {
     expect(f.increment('x')).toBe(1);
   });
 
+  it('peek returns the raw value or undefined', () => {
+    const f = new Flags({ a: 0, b: 'x' });
+    expect(f.peek('a')).toBe(0);
+    expect(f.peek('b')).toBe('x');
+    expect(f.peek('c')).toBeUndefined();
+  });
+
   it('toJSON returns a detached copy', () => {
     const f = new Flags({ a: 1 });
     const snapshot = f.toJSON();

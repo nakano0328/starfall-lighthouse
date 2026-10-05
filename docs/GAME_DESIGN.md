@@ -790,6 +790,8 @@ Z（決定）で向いているタイルのオブジェクトに作用する。�
 
 ### 9.3 Tiled 規約
 
+> **作成方法（ADR-0002）**: マップは Tiled ではなく `src/data/maps/<map_id>.ts` の ASCII 形式で記述し、`compileMap()` が本節の規約どおりの Tiled 互換 JSON を生成する。本節は **生成される JSON の仕様** であり、Tiled でエクスポートした JSON も同じ規約で読み込める。
+
 **全般**
 
 - 直交（orthogonal）、タイル 32×32、描画順 right-down。マップ最大 64×64。

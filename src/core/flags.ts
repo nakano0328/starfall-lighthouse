@@ -21,6 +21,11 @@ export class Flags {
     return v !== undefined && v !== false && v !== 0 && v !== '';
   }
 
+  /** Raw value, or undefined when the flag was never set. */
+  peek(key: string): FlagValue | undefined {
+    return this.map[key];
+  }
+
   get<T extends FlagValue = FlagValue>(key: string, fallback: T): T {
     const v = this.map[key];
     return (v === undefined ? fallback : v) as T;

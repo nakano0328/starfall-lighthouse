@@ -1,0 +1,128 @@
+import type { MapSource } from '@core/map/source';
+
+import { OUTDOOR_LEGEND } from './legends';
+
+/**
+ * ミナト村 (40x30). Start of the game; Luka's house NW, inn N, shop E of the
+ * main road. Exits: north (x19-20) → 灯台への道, east (y14) → 海岸街道.
+ * The exit warps are added once those maps exist (Phase 4 content).
+ */
+export const map_minato_village: MapSource = {
+  meta: {
+    id: 'map_minato_village',
+    displayName: 'ミナト村',
+    kind: 'town',
+    bgmKey: 'bgm_village',
+    battleBgKey: 'battle_bg_coast',
+    encounterGroups: [],
+    tilesets: ['ts_placeholder'],
+    entrance: { x: 10, y: 12, facing: 'down' },
+    canSaveAnywhere: true,
+  },
+  width: 40,
+  height: 30,
+  legend: OUTDOOR_LEGEND,
+  tiles: [
+    'TTTTTTTTTTTTTTTTTTT==TTTTTTTTTTTTTTTTTTT',
+    'T.................,==,.................T',
+    'T..,...............==...............,..T',
+    'T.......rrrrrr.....==......bbbbbbbb....T',
+    'T.......rrrrrr.....==......bbbbbbbb....T',
+    'T..f....wwwwww.....==......wwwwwwww..f.T',
+    'T.......wwDwww.....==......wwwDwwww....T',
+    'T.........=........==.........=........T',
+    'T.f.......=........==...rrrrrr=........T',
+    'T.........=........==...rrrrrr=....,...T',
+    'T.........=...T....==...wwwwww=........T',
+    'T...,.....=........==...wwDwww=...T....T',
+    'T.........=........==.....=...=........T',
+    'T.........=..T.....==.....=...=........T',
+    'T..:====================================',
+    'T..:==================================.T',
+    '~~~:..............==...............,...T',
+    '~~~:......T.......==....R..............T',
+    '~~~:..............==..........T........T',
+    '~~~:.....f........==...................T',
+    '~~~:..............==.......,...........T',
+    '~~~:....T.........==..............T....T',
+    '~~~:..............==...R...............T',
+    '~~~:..............==...................T',
+    '~~~:...,..........==.........f.........T',
+    '~~~:......pp......==...................T',
+    '~~~~::::::pp::::::==:::::::::::::::::::T',
+    '~~~~~~~~~~pp~~~~~~::~~~~~~~~~~~~~~~~~~~T',
+    '~~~~~~~~~~pp~~~~~~~~~~~~~~~~~~~~~~~~~~WT',
+    'WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+  ],
+  objects: [
+    // Doors
+    {
+      type: 'warp',
+      x: 10,
+      y: 6,
+      target_map: 'map_minato_luka_house',
+      target_x: 5,
+      target_y: 8,
+      facing: 'up',
+    },
+    {
+      type: 'warp',
+      x: 30,
+      y: 6,
+      target_map: 'map_minato_inn',
+      target_x: 6,
+      target_y: 8,
+      facing: 'up',
+    },
+    {
+      type: 'warp',
+      x: 26,
+      y: 11,
+      target_map: 'map_minato_shop',
+      target_x: 5,
+      target_y: 8,
+      facing: 'up',
+    },
+    // Villagers
+    {
+      type: 'npc',
+      x: 37,
+      y: 14,
+      id: 'npc_minato_guard',
+      dialog: 'dlg_minato_guard',
+      facing: 'left',
+      sprite: 'sprite_npc',
+      hidden_if: 'minato.talked_to_grandpa',
+    },
+    {
+      type: 'npc',
+      x: 4,
+      y: 8,
+      id: 'npc_minato_boy',
+      dialog: 'dlg_minato_boy',
+      facing: 'down',
+      sprite: 'sprite_npc',
+    },
+    {
+      type: 'npc',
+      x: 11,
+      y: 24,
+      id: 'npc_minato_fisher',
+      dialog: 'dlg_minato_fisher',
+      facing: 'down',
+      sprite: 'sprite_npc',
+    },
+    {
+      type: 'npc',
+      x: 34,
+      y: 20,
+      id: 'npc_minato_granny',
+      dialog: 'dlg_minato_granny',
+      facing: 'left',
+      sprite: 'sprite_npc',
+    },
+    // Signs and chests
+    { type: 'sign', x: 21, y: 13, text_id: 'dlg_sign_minato' },
+    { type: 'chest', x: 36, y: 2, item_id: 'it_herb', qty: 2, flag: 'chest.minato_01' },
+  ],
+};
