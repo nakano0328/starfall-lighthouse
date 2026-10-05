@@ -372,16 +372,19 @@ hit% = clamp(accuracy + (SPD_a − SPD_t) / 2, 60, 100)
 
 敵ごとに `ai: AiRule[]` を持つ。各ルールは次の形：
 
-| 列         | 意味                                                                                                                                                                                                                               |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `priority` | 大きいほど優先。条件を満たすルールのうち最大 `priority` の集合から `weight` で重み抽選                                                                                                                                             |
-| `cond`     | `always` / `hp_below:0.5`（自 HP 割合）/ `turn_every:3`（ターン番号が 3 の倍数）/ `turn_eq:1` / `ally_count_below:2` / `party_has_status:blind` / `self_has_status:atk_up` / `not_self_status:atk_up` / `charge:n`（n 回目の充填） |
-| `action`   | `attack`（通常攻撃）か スキル ID                                                                                                                                                                                                   |
-| `target`   | `random` / `lowest_hp` / `highest_atk` / `all` / `self` / `ally_random`                                                                                                                                                            |
-| `weight`   | 重み（整数）                                                                                                                                                                                                                       |
-| `once`     | 戦闘中 1 回のみ（任意）                                                                                                                                                                                                            |
+| 列         | 意味                                                                                                                                                                                                                                                                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `priority` | 大きいほど優先。条件を満たすルールのうち最大 `priority` の集合から `weight` で重み抽選                                                                                                                                                                                                                                                   |
+| `cond`     | `always` / `hp_below:0.5`（自 HP 割合）/ `turn_every:3`（ターン番号が 3 の倍数）/ `turn_eq:1` / `ally_count_below:2` / `party_has_status:blind` / `self_has_status:atk_up` / `not_self_status:atk_up` / `charge:n`（n 回目の充填）/ `all:[…]`（列挙した条件をすべて満たす。例：番人の `hp_below:0.5` かつ `not_self_status:water_veil`） |
+| `action`   | `attack`（通常攻撃）か スキル ID。擬似行動として `guard`（防御）、`charge`（充填を 1 段進める。行動を消費）、`double_act`（以降 2 回行動。行動を消費せず同ラウンドに再抽選）も可                                                                                                                                                         |
+| `message`  | 行動前に表示する台詞・演出文（任意）                                                                                                                                                                                                                                                                                                     |
+| `target`   | `random` / `lowest_hp` / `highest_atk` / `all` / `self` / `ally_random`                                                                                                                                                                                                                                                                  |
+| `weight`   | 重み（整数）                                                                                                                                                                                                                                                                                                                             |
+| `once`     | 戦闘中 1 回のみ（任意）                                                                                                                                                                                                                                                                                                                  |
 
 通常敵の既定パターン：`priority 0: always → attack(random) weight 60 / 固有スキル weight 40`。各敵の表（§8）には固有部分のみ記す。
+
+充填の規約：`charge` 行動、または `charging` 状態を自分に付与するスキル（番人の `sk_bo_tide_omen`）で充填カウントが 1 増える。`charge:n` 条件で選ばれた行動は実行時にカウントが変わっていれば無効（中断後は「ひるんで動けない」）。充填中に充填以外の行動を取るとカウントは 0 に戻る（= 大技の発動で消費）。
 
 ### 5.9 逃げる
 
@@ -1311,7 +1314,8 @@ export type AiCondition =
   | { type: 'party_has_status'; status: StatusKey }
   | { type: 'self_has_status'; status: string }
   | { type: 'not_self_status'; status: string }
-  | { type: 'charge'; n: number };
+  | { type: 'charge'; n: number }
+  | { type: 'all'; conds: AiCondition[] }; // すべて満たす
 
 export type AiTarget = 'random' | 'lowest_hp' | 'highest_atk' | 'all' | 'self' | 'ally_random';
 

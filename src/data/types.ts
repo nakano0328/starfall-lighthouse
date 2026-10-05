@@ -118,7 +118,9 @@ export type AiCondition =
   | { type: 'party_has_status'; status: StatusKey }
   | { type: 'self_has_status'; status: string }
   | { type: 'not_self_status'; status: string }
-  | { type: 'charge'; n: number };
+  | { type: 'charge'; n: number }
+  /** Every sub-condition must hold (e.g. hp_below AND not_self_status). */
+  | { type: 'all'; conds: AiCondition[] };
 
 export type AiTarget = 'random' | 'lowest_hp' | 'highest_atk' | 'all' | 'self' | 'ally_random';
 
