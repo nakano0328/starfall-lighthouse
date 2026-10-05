@@ -755,8 +755,8 @@ const waitForCommandOrEnd = (page: Page) =>
   );
 
 /** Plays たたかう on the first enemy every round until the battle ends. */
-async function fightWithAttacks(page: Page): Promise<void> {
-  for (let i = 0; i < 40; i += 1) {
+async function fightWithAttacks(page: Page, maxTurns = 40): Promise<void> {
+  for (let i = 0; i < maxTurns; i += 1) {
     await waitForCommandOrEnd(page);
     if ((await battlePhase(page)) === 'inactive') return;
     await page.keyboard.press('z'); // たたかう
@@ -1007,5 +1007,187 @@ test('shop, inn and equipment: buy a herb, sleep, then change the weapon', async
   const equipped = await economy(page);
   expect(equipped.weapon).toBe('eq_wp_luka_2');
   expect(equipped.oldSword).toBe(1);
+  expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
+});
+
+type ChapterProbe = {
+  gameState: {
+    gold: number;
+    flags: { set: (key: string, value: boolean | number | string) => void };
+    save: { flags: Record<string, unknown>; location: { map: string } };
+    inventory: { count: (id: string) => number; add: (id: string, qty: number) => number };
+    party: { id: string; exp: number; hp: number; mp: number }[];
+  };
+  interpreter: { runCommands: (commands: object[]) => Promise<unknown> };
+  startBattle: (groupId: string, options: { seed?: number }) => Promise<string>;
+};
+
+const chapter = (page: Page) =>
+  page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+    return {
+      map: w.gameState.save.location.map,
+      flags: w.gameState.save.flags,
+      gold: w.gameState.gold,
+      party: w.gameState.party.map((m) => m.id),
+      hp: w.gameState.party.map((m) => m.hp),
+      count: (id: string) => w.gameState.inventory.count(id),
+      lunch: w.gameState.inventory.count('it_mio_lunch'),
+      oil: w.gameState.inventory.count('it_lamp_oil'),
+      herbs: w.gameState.inventory.count('it_herb'),
+      key: w.gameState.inventory.count('it_key_shrine'),
+      fragment: w.gameState.inventory.count('it_fragment_1'),
+      ring: w.gameState.inventory.count('eq_acc_sea_ring'),
+      necklace: w.gameState.inventory.count('it_shell_necklace'),
+    };
+  });
+
+/** Warps through a script command and waits for the new map to settle. */
+async function warpTo(page: Page, map: string, x: number, y: number, facing: string) {
+  await page.evaluate(
+    ([m, tx, ty, f]) => {
+      const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+      void w.interpreter.runCommands([{ cmd: 'warp', map: m, x: tx, y: ty, facing: f }]);
+    },
+    [map, x, y, facing] as const,
+  );
+  await waitForFieldMap(page, map);
+  await waitForField(page, 'isEventRunning', false);
+  await page.waitForTimeout(400);
+}
+
+test('chapter 1: Mio joins, the core shatters, the forest shrine falls and the necklace comes home', async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const errors = await startNewGame(page);
+  // Symbols stay frozen so the walkthrough is deterministic; the boss fight is seeded below.
+  await page.evaluate(() => {
+    if (window.__starfall) window.__starfall.encounters = false;
+  });
+
+  // 序章: the trigger at the village north gate brings Mio in.
+  await warpTo(page, 'map_minato_village', 20, 3, 'up');
+  await walkField(page, 'ArrowUp', 20, 1);
+  await pressThrough(page, 'event');
+  let s = await chapter(page);
+  expect(s.flags['minato.mio_joined']).toBe(true);
+  expect(s.party).toEqual(['ch_luka', 'ch_mio']);
+  expect(s.lunch).toBe(1);
+
+  // The lighthouse door: the core shatters and chapter 1 begins.
+  await warpTo(page, 'map_lighthouse_path', 15, 4, 'up');
+  await walkField(page, 'ArrowUp', 15, 2);
+  await pressThrough(page, 'event');
+  s = await chapter(page);
+  expect(s.flags['main.core_shattered']).toBe(true);
+  expect(s.flags['main.chapter']).toBe(1);
+  expect(s.oil).toBe(0);
+
+  // Grandpa sends the party to the forest shrine and hands over herbs.
+  await warpTo(page, 'map_minato_luka_house', 7, 4, 'up');
+  const herbsBefore = (await chapter(page)).herbs;
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog');
+  s = await chapter(page);
+  expect(s.flags['minato.talked_to_grandpa']).toBe(true);
+  expect(s.herbs).toBe(herbsBefore + 3);
+
+  // The guard has left the east gate: the road to the coast is open.
+  await warpTo(page, 'map_minato_village', 37, 14, 'right');
+  await page.keyboard.down('ArrowRight');
+  await waitForFieldMap(page, 'map_coast_road');
+  await page.keyboard.up('ArrowRight');
+  await page.waitForTimeout(500);
+
+  // The shrine key waits at the end of the forest's dead-end trail.
+  await warpTo(page, 'map_whisper_forest', 45, 33, 'right');
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog');
+  s = await chapter(page);
+  expect(s.key).toBe(1);
+  expect(s.flags['chest.forest_02']).toBe(true);
+
+  // The shrine door opens with the key and stays open.
+  await warpTo(page, 'map_whisper_forest', 25, 5, 'up');
+  await walkField(page, 'ArrowUp', 25, 4);
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog');
+  expect((await chapter(page)).flags['door.forest_shrine_01']).toBe(true);
+  await page.keyboard.down('ArrowUp');
+  await waitForFieldMap(page, 'map_forest_shrine');
+  await page.keyboard.up('ArrowUp');
+  await page.waitForTimeout(500);
+
+  // The boss talk fires at the doorway; a seeded Lv8 party then beats 古木のウロ with plain attacks.
+  await warpTo(page, 'map_forest_shrine', 15, 9, 'up');
+  await walkField(page, 'ArrowUp', 15, 7);
+  await pressThrough(page, 'event');
+  expect((await chapter(page)).flags['ev.ev_forest_boss_intro']).toBe(true);
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+    for (const m of w.gameState.party) {
+      m.exp = 1500; // Lv8 (§6.1 curve)
+      m.hp = 999;
+      m.mp = 999;
+    }
+    void w.startBattle('grp_boss_tree', { seed: 1 });
+  });
+  await page.waitForFunction(
+    () => (window.__starfall?.game as Game).scene.isActive('Battle'),
+    undefined,
+    { timeout: 10_000 },
+  );
+  await fightWithAttacks(page, 120);
+  await page.waitForFunction(
+    () => {
+      const game = window.__starfall?.game as Game;
+      return game.scene.isActive('World') && !game.scene.isActive('Battle');
+    },
+    undefined,
+    { timeout: 10_000 },
+  );
+  await page.waitForTimeout(500);
+  await pressThrough(page, 'event');
+  s = await chapter(page);
+  expect(s.flags['forest.boss_defeated']).toBe(true);
+  expect(s.flags['fragments.count']).toBe(1);
+  expect(s.flags['main.chapter']).toBe(2);
+  expect(s.fragment).toBe(1);
+
+  // 女将のネックレス: accept (no gold, so the inn offer fails politely), find it, hand it over,
+  // then sleep for free and land on the save screen.
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+    w.gameState.gold = 0;
+  });
+  await warpTo(page, 'map_minato_inn', 9, 2, 'up');
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog'); // offer → さがしてみる → inn offer → はい → no gold
+  await page.waitForTimeout(500);
+  await pressThrough(page, 'dialog');
+  expect((await chapter(page)).flags['sq.necklace']).toBe(1);
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+    w.gameState.inventory.add('it_shell_necklace', 1);
+    w.gameState.flags.set('chest.forest_05', true);
+  });
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog'); // hand-over → free inn offer → はい
+  await page.waitForTimeout(1500); // the night fades out and in
+  await waitForField(page, 'isDialogOpen', true); // ぐっすり 眠った
+  await pressThrough(page, 'dialog');
+  await waitForMenuMode(page, 'save');
+  s = await chapter(page);
+  expect(s.flags['sq.necklace']).toBe(2);
+  expect(s.flags['minato.inn_free']).toBe(true);
+  expect(s.gold).toBe(300);
+  expect(s.ring).toBe(1);
+  expect(s.necklace).toBe(0);
   expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
 });

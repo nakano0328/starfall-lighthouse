@@ -816,15 +816,15 @@ Z（決定）で向いているタイルのオブジェクトに作用する。�
 
 **オブジェクト（`events` レイヤー）**：Tiled の「クラス（Type）」にオブジェクト種別、カスタムプロパティに引数。位置はタイルにスナップ（32 の倍数）。
 
-| type         | 必須プロパティ                                                                                 | 任意プロパティ                                                                                                          | 備考                                                                        |
-| ------------ | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `npc`        | `id`(string `npc_*`), `dialog`(string `dlg_*`), `facing`(up/down/left/right), `sprite`(string) | `move`(static/random, 既定 static), `shop`(string `shop_*`), `inn_price`(int), `condition`(string), `hidden_if`(string) | `dialog` は会話ツリーの入口ノード。段階分岐はノード側の `conditions` で行う |
-| `warp`       | `target_map`, `target_x`, `target_y`, `facing`                                                 | `required_item`(string `it_*`), `locked_text_id`(string `dlg_*`), `door_flag`(string)                                   | 複数タイルにまたがる矩形可（幅・高さを 32 の倍数で）                        |
-| `chest`      | `item_id`(string `it_*`/`eq_*`/`gold`), `qty`(int), `flag`(string `chest.*`)                   | `tide`(high/low/any)                                                                                                    | `gold` のとき `qty` がゴールド額                                            |
-| `sign`       | `text_id`(string `dlg_*`)                                                                      | —                                                                                                                       |                                                                             |
-| `save_point` | —                                                                                              | `heal`(bool, 既定 false)                                                                                                | 灯台 5F の泉は `heal:true` ＋ `once_flag`                                   |
-| `enemy`      | `group_id`(string, カンマ区切り可), `respawn_sec`(int, 既定 60, −1 で復活なし)                 | `sprite`(string), `radius`(int 既定 4), `tide`(high/low/any), `defeated_flag`(string)                                   | ボスは `defeated_flag` 必須                                                 |
-| `trigger`    | `event_id`(string `ev_*`), `once`(bool)                                                        | `condition`(string)                                                                                                     | `once:true` なら `ev.<event_id>` が立つと以後発火しない                     |
+| type         | 必須プロパティ                                                                                 | 任意プロパティ                                                                                                                                                                                                                             | 備考                                                                                                                        |
+| ------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `npc`        | `id`(string `npc_*`), `dialog`(string `dlg_*`), `facing`(up/down/left/right), `sprite`(string) | `move`(static/random, 既定 static), `shop`(string `shop_*`), `inn_price`(int), `condition`(string), `hidden_if`(string), `markers`(JSON 文字列 `[{"if":condition,"text":"！"}]`。最初に成立した要素の `text` を頭上に表示、空文字で非表示) | `dialog` は会話ツリーの入口ノード。段階分岐はノード側の `branches` で行う。`move: random` は出現地点から半径 2 タイルを歩く |
+| `warp`       | `target_map`, `target_x`, `target_y`, `facing`                                                 | `required_item`(string `it_*`), `locked_text_id`(string `dlg_*`), `door_flag`(string)                                                                                                                                                      | 複数タイルにまたがる矩形可（幅・高さを 32 の倍数で）                                                                        |
+| `chest`      | `item_id`(string `it_*`/`eq_*`/`gold`), `qty`(int), `flag`(string `chest.*`)                   | `tide`(high/low/any)                                                                                                                                                                                                                       | `gold` のとき `qty` がゴールド額                                                                                            |
+| `sign`       | `text_id`(string `dlg_*`)                                                                      | —                                                                                                                                                                                                                                          |                                                                                                                             |
+| `save_point` | —                                                                                              | `heal`(bool, 既定 false)                                                                                                                                                                                                                   | 灯台 5F の泉は `heal:true` ＋ `once_flag`                                                                                   |
+| `enemy`      | `group_id`(string, カンマ区切り可), `respawn_sec`(int, 既定 60, −1 で復活なし)                 | `sprite`(string), `radius`(int 既定 4), `tide`(high/low/any), `defeated_flag`(string), `condition`(string。成立時のみ出現)                                                                                                                 | ボスは `defeated_flag` 必須                                                                                                 |
+| `trigger`    | `event_id`(string `ev_*`), `once`(bool)                                                        | `condition`(string)                                                                                                                                                                                                                        | `once:true` なら `ev.<event_id>` が立つと以後発火しない                                                                     |
 
 `condition` の文法：`flag.key`（真）、`!flag.key`（偽）、`flag.key>=3` / `==` / `<`（数値）、`flag.key=='low'`（文字列）。1 条件のみ（AND が必要なら事前に合成フラグを立てる）。
 
@@ -876,15 +876,15 @@ Z（決定）で向いているタイルのオブジェクトに作用する。�
 }
 ```
 
-| フィールド | 型              | 意味                                                                                             |
-| ---------- | --------------- | ------------------------------------------------------------------------------------------------ |
-| `speaker`  | string?         | 名前枠に表示                                                                                     |
-| `portrait` | string?         | 顔アイコンのアセットキー                                                                         |
-| `pages`    | string[]        | 1 ページ = 1 ウィンドウ（最大 3 行 × 22 文字目安）。`\n` で改行。空配列なら表示せず分岐のみ      |
-| `choices`  | Choice[]?       | 最終ページ表示後に選択肢。`text`, `next`, `effects`                                              |
-| `branches` | Branch[]?       | 上から順に `if`（§9.3 の condition 文法）を評価し最初に合致した `next` へ。`if` なしは既定       |
-| `effects`  | EventCommand[]? | 最終ページ表示後に実行（`set_flag`, `give_item`, `take_item`, `play_se`, `heal_party` のみ許可） |
-| `next`     | string?         | 続きのノード。なければ会話終了                                                                   |
+| フィールド | 型              | 意味                                                                                                          |
+| ---------- | --------------- | ------------------------------------------------------------------------------------------------------------- |
+| `speaker`  | string?         | 名前枠に表示                                                                                                  |
+| `portrait` | string?         | 顔アイコンのアセットキー                                                                                      |
+| `pages`    | string[]        | 1 ページ = 1 ウィンドウ（最大 3 行 × 22 文字目安）。`\n` で改行。空配列なら表示せず分岐のみ                   |
+| `choices`  | Choice[]?       | 最終ページ表示後に選択肢。`text`, `next`, `effects`                                                           |
+| `branches` | Branch[]?       | 上から順に `if`（§9.3 の condition 文法）を評価し最初に合致した `next` へ。`if` なしは既定                    |
+| `effects`  | EventCommand[]? | 最終ページ表示後に実行（`set_flag`, `give_item`, `give_gold`, `take_item`, `play_se`, `heal_party` のみ許可） |
+| `next`     | string?         | 続きのノード。なければ会話終了                                                                                |
 
 テキスト中の制御記法：`{luka}` などのパーティ名置換（将来の名前変更に備える）、`{gold}` 所持金、`{item:it_herb}` アイテム名。
 
@@ -900,6 +900,7 @@ Z（決定）で向いているタイルのオブジェクトに作用する。�
 | `say`                      | `dialog`(`dlg_*`)                                                     | 会話ノードを表示（分岐・選択肢込み）。終了まで待つ                                                                                           |
 | `choice`                   | `text`[], `set`(string フラグキー)                                    | 選択肢を出し、選んだインデックスを `set` のフラグへ数値で保存                                                                                |
 | `give_item`                | `item`, `qty`                                                         | 入手メッセージ付き                                                                                                                           |
+| `give_gold`                | `amount`                                                              | 所持金に加算（入手メッセージ付き）。会話の `effects` でも使用可                                                                              |
 | `take_item`                | `item`, `qty`                                                         | 所持数不足なら 0 まで                                                                                                                        |
 | `set_flag`                 | `key`, `value`(bool/number/string) または `increment`(number)         | フラグ操作                                                                                                                                   |
 | `battle`                   | `group`(`grp_*`), `win_event`(`ev_*`?), `lose`(`gameover`/`continue`) | 戦闘開始。勝利後 `win_event` を実行。`lose:continue` はイベント戦用（v1 未使用）                                                             |

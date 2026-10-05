@@ -152,7 +152,7 @@ export const map_whisper_forest: MapSource = {
     { type: 'enemy', x: 8, y: 30, group_id: 'grp_forest_b', respawn_sec: 60, radius: 4 },
     {
       type: 'enemy',
-      x: 26,
+      x: 29,
       y: 8,
       group_id: 'grp_forest_b,grp_forest_c',
       respawn_sec: 60,

@@ -488,6 +488,7 @@ export class WorldScene extends Phaser.Scene {
   /** Moves every symbol and starts a battle on contact (unless the player is safe). */
   private updateSymbols(): void {
     if (this.battleActive || this.transitioning) return;
+    if (window.__starfall?.encounters === false) return;
     const now = this.time.now;
     const player = this.mover.position;
     const playerSafe = this.isSafe || this.interpreter.running || this.dialogBox.isOpen;
