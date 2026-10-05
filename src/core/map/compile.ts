@@ -28,6 +28,14 @@ export function compileMap(src: MapSource): TiledMap {
   }
   if (width > 64 || height > 64) throw new MapCompileError(id, `size exceeds 64x64`);
 
+  const { x: ex, y: ey } = src.meta.entrance;
+  if (!Number.isInteger(ex) || !Number.isInteger(ey) || ex < 0 || ey < 0) {
+    throw new MapCompileError(id, `invalid entrance (${ex}, ${ey})`);
+  }
+  if (ex >= width || ey >= height) {
+    throw new MapCompileError(id, `entrance (${ex}, ${ey}) is outside the map`);
+  }
+
   const legend = new Map<string, LegendEntry>();
   for (const [ch, entry] of Object.entries(src.legend)) {
     if (ch.length !== 1) throw new MapCompileError(id, `legend key must be one char: "${ch}"`);
@@ -40,20 +48,19 @@ export function compileMap(src: MapSource): TiledMap {
     legend.set(ch, norm);
   }
 
-  const ground = new Array<number>(width * height).fill(0);
-  const deco = new Array<number>(width * height).fill(0);
-  const above = new Array<number>(width * height).fill(0);
-  const collision = new Array<number>(width * height).fill(0);
+  const cells = width * height;
+  const ground = new Array<number>(cells).fill(0);
+  const deco = new Array<number>(cells).fill(0);
+  const above = new Array<number>(cells).fill(0);
+  /** Per-cell `solid` override; the last legend entry placed on a cell that declares one wins. */
+  const solidOverride = new Array<boolean | undefined>(cells).fill(undefined);
 
   const place = (entry: LegendEntry, i: number, requireGround: boolean): void => {
     if (entry.ground !== undefined) ground[i] = tileGid(entry.ground);
     else if (requireGround) throw new MapCompileError(id, `base legend entry without ground tile`);
     if (entry.deco !== undefined) deco[i] = tileGid(entry.deco);
     if (entry.above !== undefined) above[i] = tileGid(entry.above);
-    const solid =
-      entry.solid ??
-      [entry.ground, entry.deco, entry.above].some((n) => n !== undefined && tileDef(n).solid);
-    if (solid) collision[i] = COLLISION_GID;
+    if (entry.solid !== undefined) solidOverride[i] = entry.solid;
   };
 
   checkGrid(id, 'tiles', src.tiles, width, height);
@@ -72,13 +79,19 @@ export function compileMap(src: MapSource): TiledMap {
         if (ch === OVERLAY_EMPTY) return;
         const entry = legend.get(ch);
         if (!entry) throw new MapCompileError(id, `unknown overlay char "${ch}" at (${x}, ${y})`);
-        const i = y * width + x;
-        // An overlay entry with only `solid: false` clears blocking (e.g. a bridge over water).
-        if (entry.solid === false) collision[i] = 0;
-        place(entry, i, false);
+        place(entry, y * width + x, false);
       });
     });
   }
+
+  // Collision is derived from the final tiles of each cell, i.e. after the overlay has replaced
+  // whatever the base grid put there: a path drawn over water becomes walkable, a rock dropped
+  // on grass blocks. A legend `solid` overrides the tiles' flags; `blocked` is applied last.
+  const collision = ground.map((g, i) => {
+    const solid =
+      solidOverride[i] ?? (isSolidGid(g) || isSolidGid(deco[i] ?? 0) || isSolidGid(above[i] ?? 0));
+    return solid ? COLLISION_GID : 0;
+  });
 
   if (src.blocked) {
     checkGrid(id, 'blocked', src.blocked, width, height);
@@ -150,13 +163,21 @@ export function compileMap(src: MapSource): TiledMap {
     properties: [
       prop('bgm', src.meta.bgmKey),
       prop('display_name', src.meta.displayName),
-      prop('entrance_x', src.meta.entrance.x),
-      prop('entrance_y', src.meta.entrance.y),
+      prop('entrance_x', ex),
+      prop('entrance_y', ey),
       prop('battle_bg', src.meta.battleBgKey),
     ],
     nextlayerid: 6,
     nextobjectid: objects.length + 1,
   };
+}
+
+/** Whether the placeholder tile a gid refers to blocks movement (gid 0 is the empty cell). */
+function isSolidGid(gid: number): boolean {
+  if (gid === 0) return false;
+  const def = PLACEHOLDER_TILES[gid - 1];
+  if (!def) throw new Error(`unknown placeholder gid: ${gid}`);
+  return def.solid;
 }
 
 function checkGrid(id: string, name: string, rows: string[], width: number, height: number): void {
@@ -172,7 +193,14 @@ function checkGrid(id: string, name: string, rows: string[], width: number, heig
 }
 
 function prop(name: string, value: string | number | boolean): TiledProperty {
-  const type = typeof value === 'string' ? 'string' : typeof value === 'boolean' ? 'bool' : 'int';
+  const type =
+    typeof value === 'string'
+      ? 'string'
+      : typeof value === 'boolean'
+        ? 'bool'
+        : Number.isInteger(value)
+          ? 'int'
+          : 'float';
   return { name, type, value };
 }
 
@@ -197,6 +225,10 @@ function compileObject(
     if (key === 'w' || key === 'h' || value === undefined) continue;
     if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
       throw new MapCompileError(mapId, `${type} #${id} property ${key} has unsupported type`);
+    }
+    // §9.3 types every numeric object property as int, so a fractional value is an authoring error.
+    if (typeof value === 'number' && !Number.isInteger(value)) {
+      throw new MapCompileError(mapId, `${type} #${id} property ${key} must be an integer`);
     }
     props.push(prop(key, value));
   }

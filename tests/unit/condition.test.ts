@@ -28,6 +28,30 @@ describe('evaluateCondition', () => {
     expect(evaluateCondition('main.chapter!=2', flags)).toBe(false);
     expect(evaluateCondition('fragments.count>=1', flags)).toBe(false);
     expect(evaluateCondition('fragments.count<1', flags)).toBe(true);
+    expect(evaluateCondition('fragments.count<=0', flags)).toBe(true);
+    expect(evaluateCondition('fragments.count==0', flags)).toBe(true);
+    expect(evaluateCondition('fragments.count!=0', flags)).toBe(false);
+    expect(evaluateCondition('fragments.count==1', flags)).toBe(false);
+    expect(evaluateCondition('fragments.count!=1', flags)).toBe(true);
+  });
+
+  it('reads never-set numeric flags as 0 on a fresh save (§2.3 get(key, 0))', () => {
+    const fresh = new Flags({});
+    expect(evaluateCondition('sq.necklace==0', fresh)).toBe(true);
+    expect(evaluateCondition('sq.necklace!=0', fresh)).toBe(false);
+    expect(evaluateCondition('sq.necklace==1', fresh)).toBe(false);
+    expect(evaluateCondition('main.chapter==0', fresh)).toBe(true);
+    expect(evaluateCondition('fragments.count>=0', fresh)).toBe(true);
+    expect(evaluateCondition('fragments.count<1', fresh)).toBe(true);
+  });
+
+  it('does not coerce a string or boolean flag when compared to a number', () => {
+    expect(evaluateCondition('ruins.tide==0', flags)).toBe(false);
+    expect(evaluateCondition('ruins.tide!=0', flags)).toBe(true);
+    expect(evaluateCondition('ruins.tide>=0', flags)).toBe(false);
+    expect(evaluateCondition('ruins.tide<1', flags)).toBe(false);
+    expect(evaluateCondition('minato.intro_done==1', flags)).toBe(false);
+    expect(evaluateCondition('minato.intro_done!=1', flags)).toBe(true);
   });
 
   it('compares strings and booleans', () => {
@@ -36,6 +60,14 @@ describe('evaluateCondition', () => {
     expect(evaluateCondition("ruins.tide!='high'", flags)).toBe(true);
     expect(evaluateCondition('minato.intro_done==true', flags)).toBe(true);
     expect(evaluateCondition('minato.intro_done==false', flags)).toBe(false);
+  });
+
+  it('keeps string and boolean comparisons strict for unset flags', () => {
+    expect(evaluateCondition("hagane.unknown=='x'", flags)).toBe(false);
+    expect(evaluateCondition("hagane.unknown!='x'", flags)).toBe(true);
+    expect(evaluateCondition('hagane.unknown==false', flags)).toBe(false);
+    expect(evaluateCondition('hagane.unknown!=false', flags)).toBe(true);
+    expect(evaluateCondition('hagane.unknown==true', flags)).toBe(false);
   });
 
   it('rejects malformed conditions', () => {
