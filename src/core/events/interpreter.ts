@@ -28,6 +28,13 @@ export interface EventHost {
   showChapter(title: string): Promise<void>;
   spawnNpc(id: string): void;
   removeNpc(id: string): void;
+  /**
+   * Runs a battle and resolves with its result. On a loss with
+   * `lose: 'gameover'` the host owns the GameOverScene transition
+   * (docs/GAME_DESIGN.md §5.11); the interpreter then stops the script
+   * without running any further command. With `lose: 'continue'` the script
+   * goes on after a loss (`win_event` is skipped).
+   */
   battle(group: string, lose: 'gameover' | 'continue'): Promise<'win' | 'lose'>;
   endGame(): void;
   /** Display name for pickup messages. */
@@ -41,13 +48,21 @@ export class EventError extends Error {
   }
 }
 
+/**
+ * How a script ended: `'done'` after its last command, `'stopped'` when a
+ * `battle` was lost with `lose: 'gameover'` and the remaining commands were
+ * skipped (the host is moving to the game-over flow).
+ */
+export type EventOutcome = 'done' | 'stopped';
+
 const MAX_DEPTH = 8;
 
 /**
  * Runs `ev_*` scripts: one command after another, awaiting the host. `move`
  * with `wait: false` runs alongside the following commands and is awaited
  * before the script ends. Branching lives in dialogs and triggers, so scripts
- * stay linear.
+ * stay linear. A `battle` lost with `lose: 'gameover'` stops the script, and
+ * the stop propagates out of nested `win_event` runs.
  */
 export class EventInterpreter {
   private depth = 0;
@@ -62,17 +77,21 @@ export class EventInterpreter {
     return this.depth > 0;
   }
 
-  async run(eventId: string): Promise<void> {
+  async run(eventId: string): Promise<EventOutcome> {
     const commands = this.events[eventId];
     if (!commands) throw new EventError(`unknown event ${eventId}`);
-    await this.runCommands(commands);
+    return this.runCommands(commands);
   }
 
-  async runCommands(commands: readonly EventCommand[]): Promise<void> {
+  async runCommands(commands: readonly EventCommand[]): Promise<EventOutcome> {
     if (this.depth >= MAX_DEPTH) throw new EventError('event nesting too deep');
     this.depth += 1;
+    let outcome: EventOutcome = 'done';
     try {
-      for (const cmd of commands) await this.execute(cmd);
+      for (const cmd of commands) {
+        outcome = await this.execute(cmd);
+        if (outcome === 'stopped') break;
+      }
       if (this.depth === 1) {
         const pending = this.pending;
         this.pending = [];
@@ -81,85 +100,89 @@ export class EventInterpreter {
     } finally {
       this.depth -= 1;
     }
+    return outcome;
   }
 
-  private async execute(cmd: EventCommand): Promise<void> {
+  private async execute(cmd: EventCommand): Promise<EventOutcome> {
     const host = this.host;
     switch (cmd.cmd) {
       case 'move': {
         const p = host.move(cmd.actor, cmd.path);
         if (cmd.wait === false) this.pending.push(p);
         else await p;
-        return;
+        break;
       }
       case 'face':
         host.face(cmd.actor, cmd.dir);
-        return;
+        break;
       case 'wait':
         await host.wait(cmd.ms);
-        return;
+        break;
       case 'say':
         await host.say(cmd.dialog);
-        return;
+        break;
       case 'choice': {
         const index = await host.choice(cmd.text);
         host.flags.set(cmd.set, index);
-        return;
+        break;
       }
       case 'give_item': {
         const added = host.inventory.add(cmd.item, cmd.qty);
         await host.message(pickupMessage(host.itemName(cmd.item), added, cmd.qty));
-        return;
+        break;
       }
       case 'take_item':
         host.inventory.remove(cmd.item, cmd.qty);
-        return;
+        break;
       case 'set_flag':
         if (cmd.increment !== undefined) host.flags.increment(cmd.key, cmd.increment);
         else host.flags.set(cmd.key, cmd.value ?? true);
-        return;
+        break;
       case 'battle': {
-        const result = await host.battle(cmd.group, cmd.lose ?? 'gameover');
-        if (result === 'win' && cmd.win_event !== undefined) await this.run(cmd.win_event);
-        return;
+        const lose = cmd.lose ?? 'gameover';
+        const result = await host.battle(cmd.group, lose);
+        if (result === 'lose') return lose === 'gameover' ? 'stopped' : 'done';
+        if (cmd.win_event !== undefined) return this.run(cmd.win_event);
+        return 'done';
       }
       case 'warp':
         await host.warp(cmd.map, cmd.x, cmd.y, cmd.facing);
-        return;
+        break;
       case 'fade':
         await host.fade(cmd.dir, cmd.ms, cmd.color ?? 'black');
-        return;
+        break;
       case 'shake':
         await host.shake(cmd.ms, cmd.intensity);
-        return;
+        break;
       case 'play_bgm':
         host.playBgm(cmd.key, cmd.fade_ms ?? 0);
-        return;
+        break;
       case 'play_se':
         host.playSe(cmd.key);
-        return;
+        break;
       case 'heal_party':
         host.healParty();
-        return;
+        break;
       case 'add_member':
         host.addMember(cmd.id);
-        return;
+        break;
       case 'show_chapter':
         await host.showChapter(cmd.title);
-        return;
+        break;
       case 'spawn_npc':
         host.spawnNpc(cmd.id);
-        return;
+        break;
       case 'remove_npc':
         host.removeNpc(cmd.id);
-        return;
+        break;
       case 'flash':
         await host.flash(cmd.ms, cmd.color ?? 'white');
-        return;
+        break;
       case 'end_game':
         host.endGame();
-        return;
+        break;
     }
+    return 'done';
   }
 }
 

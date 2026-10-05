@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 type WorldProbe = {
   gameState: {
@@ -15,7 +16,9 @@ type WorldProbe = {
   playerTile: { x: number; y: number; facing: string };
 };
 
-test('new game: opening event, leave the house, read the village sign', async ({ page }) => {
+test('new game: opening, village sign, chest, menu, save, continue from the title', async ({
+  page,
+}) => {
   const errors: string[] = [];
   page.on('pageerror', (err) => errors.push(err.message));
   page.on('console', (msg) => {
@@ -36,6 +39,7 @@ test('new game: opening event, leave the house, read the village sign', async ({
         location: w.gameState.save.location,
         flags: w.gameState.save.flags,
         lampOil: w.gameState.inventory.count('it_lamp_oil'),
+        herb: w.gameState.inventory.count('it_herb'),
         dialog: w.isDialogOpen,
         event: w.isEventRunning,
         tile: w.playerTile,
@@ -132,6 +136,35 @@ test('new game: opening event, leave the house, read the village sign', async ({
   }
   expect((await world()).dialog).toBe(false);
 
+  // The chest at (36,2): up column 21 to row 2, then right along row 2 (plain grass).
+  // The chest blocks its tile, so the walk stops at (35,2) facing it; Z opens it once.
+  await walkTo('ArrowUp', 21, 2);
+  await walkTo('ArrowRight', 35, 2);
+  expect((await world()).tile).toMatchObject({ x: 35, y: 2, facing: 'right' });
+  expect((await world()).herb).toBe(0);
+  await page.keyboard.press('z');
+  await page.waitForTimeout(300);
+  const opened = await world();
+  expect(opened.dialog).toBe(true);
+  expect(opened.herb).toBe(2);
+  expect(opened.flags['chest.minato_01']).toBe(true);
+  for (let i = 0; i < 6 && (await world()).dialog; i += 1) {
+    await page.keyboard.press('z');
+    await page.waitForTimeout(400);
+  }
+  expect((await world()).dialog).toBe(false);
+  // An opened chest only says からっぽだ: nothing is granted a second time.
+  await page.keyboard.press('z');
+  await page.waitForTimeout(300);
+  const reopened = await world();
+  expect(reopened.dialog).toBe(true);
+  expect(reopened.herb).toBe(2);
+  for (let i = 0; i < 6 && (await world()).dialog; i += 1) {
+    await page.keyboard.press('z');
+    await page.waitForTimeout(400);
+  }
+  expect((await world()).dialog).toBe(false);
+
   // X opens the pause menu over the paused field; the item tab lists the lamp oil.
   await page.keyboard.press('x');
   await page.waitForFunction(
@@ -170,35 +203,520 @@ test('new game: opening event, leave the house, read the village sign', async ({
   await page.waitForTimeout(150);
   expect(await menuMode()).toBe('root');
 
-  // Settings (root index 4): text speed → はやい, persisted on close.
-  const rootIndex = await page.evaluate(() => {
+  // Save to slot 1 (root index 3) from the village: a town allows saving anywhere.
+  const rootIndex = () =>
+    page.evaluate(() => {
+      const game = window.__starfall?.game as {
+        scene: { getScene: (k: string) => { rootMenu: { selectedIndex: number } } };
+      };
+      return game.scene.getScene('Menu').rootMenu.selectedIndex;
+    });
+  const moveRootTo = async (target: number) => {
+    for (let i = await rootIndex(); i < target; i += 1) {
+      await page.keyboard.press('ArrowDown');
+      await page.waitForTimeout(120);
+    }
+  };
+  await moveRootTo(3);
+  await page.keyboard.press('z');
+  await page.waitForTimeout(200);
+  expect(await menuMode()).toBe('save');
+  await page.keyboard.press('z');
+  await page.waitForTimeout(200);
+  // Every save is confirmed first (§11.4), even into an empty slot; はい is index 0.
+  expect(await menuMode()).toBe('save_confirm');
+  await page.keyboard.press('z');
+  await page.waitForTimeout(300);
+  const slot1 = await page.evaluate(() => window.localStorage.getItem('starfall.save.0'));
+  expect(slot1).toContain('"schemaVersion":2');
+  expect(slot1).toContain('"it_lamp_oil"');
+  expect(slot1).toContain('"chest.minato_01"');
+  expect(await menuMode()).toBe('save');
+  // The slot list (names + detail lines with the saved date) stays inside the right panel.
+  const slotList = await page.evaluate(() => {
+    type Bounded = { text?: string; getBounds: () => { right: number } };
     const game = window.__starfall?.game as {
-      scene: { getScene: (k: string) => { rootMenu: { selectedIndex: number } } };
+      scene: {
+        getScene: (k: string) => { panelMenu?: { list: Bounded[] }; slotDetails: Bounded[] };
+      };
     };
-    return game.scene.getScene('Menu').rootMenu.selectedIndex;
+    const menu = game.scene.getScene('Menu');
+    const objects = [...(menu.panelMenu?.list ?? []), ...menu.slotDetails];
+    return {
+      rightEdges: objects.map((o) => o.getBounds().right),
+      details: menu.slotDetails.map((o) => o.text ?? ''),
+    };
   });
-  for (let i = rootIndex; i < 4; i += 1) {
-    await page.keyboard.press('ArrowDown');
-    await page.waitForTimeout(120);
-  }
+  expect(slotList.rightEdges.length).toBeGreaterThan(0);
+  expect(Math.max(...slotList.rightEdges)).toBeLessThanOrEqual(616);
+  expect(slotList.details[0]).toMatch(
+    /序章\u3000灯台の夜 {2}ミナト村\n.*Lv1 {2}\d+:\d{2}:\d{2} {2}\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}$/,
+  );
+  await page.keyboard.press('x');
+  await page.waitForTimeout(150);
+
+  // Settings (root index 4): text speed → はやい, then back to the title.
+  await moveRootTo(4);
   await page.keyboard.press('z');
   await page.waitForTimeout(200);
   expect(await menuMode()).toBe('settings');
   await page.keyboard.press('ArrowRight');
   await page.waitForTimeout(150);
-  await page.keyboard.press('x');
-  await page.waitForTimeout(150);
-  await page.keyboard.press('x');
-  await page.waitForFunction(
-    () => {
-      const game = window.__starfall?.game as { scene: { isActive: (k: string) => boolean } };
-      return game.scene.isActive('World') && !game.scene.isActive('Menu');
-    },
-    undefined,
-    { timeout: 5_000 },
-  );
+  for (let i = 0; i < 5; i += 1) {
+    await page.keyboard.press('ArrowDown');
+    await page.waitForTimeout(100);
+  }
+  await page.keyboard.press('z');
+  await page.waitForTimeout(200);
+  expect(await menuMode()).toBe('title_confirm');
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(120);
+  await page.keyboard.press('z');
+  await page.waitForFunction(() => window.__starfall?.scene === 'Title', undefined, {
+    timeout: 10_000,
+  });
   const stored = await page.evaluate(() => window.localStorage.getItem('starfall.settings'));
   expect(stored).toContain('"textSpeed":"fast"');
 
+  // つづきから → slot 1 → back on the field at the saved spot with the lamp oil.
+  await page.waitForTimeout(400);
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(150);
+  await page.keyboard.press('z');
+  await page.waitForTimeout(300);
+  const titleMode = await page.evaluate(() => {
+    const game = window.__starfall?.game as {
+      scene: { getScene: (k: string) => { currentMode: string } };
+    };
+    return game.scene.getScene('Title').currentMode;
+  });
+  expect(titleMode).toBe('slots');
+  await page.keyboard.press('z');
+  await page.waitForFunction(() => window.__starfall?.scene === 'World', undefined, {
+    timeout: 10_000,
+  });
+  await page.waitForTimeout(500);
+  const loaded = await world();
+  expect(loaded.location).toMatchObject({ map: 'map_minato_village', x: 35, y: 2 });
+  expect(loaded.lampOil).toBe(1);
+  expect(loaded.herb).toBe(2);
+  expect(loaded.flags['chest.minato_01']).toBe(true);
+  expect(loaded.flags['minato.intro_done']).toBe(true);
+  expect(loaded.event).toBe(false);
+
   expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
+});
+
+// ---- field probes (Phase 2 WorldScene) ----------------------------------------
+
+/**
+ * Field probes for the Phase 2 WorldScene: a trigger entered mid-walk, scripted
+ * player steps, X while walking, a script that warps, a key door, heal_party /
+ * add_member and a healing save point. They drive the real scene through
+ * window.__starfall and reach private members at runtime on purpose; keep
+ * FieldProbe in step with src/scenes/WorldScene.ts.
+ */
+type Member = {
+  id: string;
+  exp: number;
+  hp: number;
+  mp: number;
+  ko: boolean;
+  statuses: string[];
+  equipment: { weapon: string | null };
+};
+
+type FieldProbe = {
+  gameState: {
+    save: {
+      location: { map: string; x: number; y: number; facing: string };
+      flags: Record<string, unknown>;
+    };
+    flags: { clear: (key: string) => void };
+    party: Member[];
+  };
+  isDialogOpen: boolean;
+  isEventRunning: boolean;
+  isMoving: boolean;
+  playerTile: { x: number; y: number; facing: string };
+  /** Private in TypeScript, plain properties at runtime. */
+  player: { x: number; y: number };
+  objects: object[];
+  collision: { isBlocked: (x: number, y: number) => boolean };
+  interpreter: { runCommands: (commands: object[]) => Promise<unknown> };
+  runner: { host: { applyEffect: (cmd: object) => void } };
+  rebuildCollision: () => void;
+};
+
+type MenuProbe = { currentMode: string };
+
+type Game = {
+  scene: { getScene: <T>(key: string) => T; isActive: (key: string) => boolean };
+};
+
+/** Tile centre in pixels (src/config.ts: TILE_SIZE = 32). */
+const TILE = 32;
+const centre = (tile: number): number => tile * TILE + TILE / 2;
+
+const fieldWorld = (page: Page) =>
+  page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<FieldProbe>('World');
+    return {
+      location: w.gameState.save.location,
+      flags: w.gameState.save.flags,
+      dialog: w.isDialogOpen,
+      event: w.isEventRunning,
+      moving: w.isMoving,
+      tile: w.playerTile,
+    };
+  });
+
+const waitForField = (
+  page: Page,
+  key: 'isDialogOpen' | 'isEventRunning' | 'isMoving',
+  value: boolean,
+) =>
+  page.waitForFunction(
+    ([k, v]) => (window.__starfall?.game as Game).scene.getScene<FieldProbe>('World')[k] === v,
+    [key, value] as const,
+    { timeout: 10_000 },
+  );
+
+const waitForFieldMap = (page: Page, map: string) =>
+  page.waitForFunction(
+    (target) =>
+      (window.__starfall?.game as Game).scene.getScene<FieldProbe>('World').gameState.save.location
+        .map === target,
+    map,
+    { timeout: 10_000 },
+  );
+
+const waitForMenu = (page: Page) =>
+  page.waitForFunction(() => (window.__starfall?.game as Game).scene.isActive('Menu'), undefined, {
+    timeout: 5_000,
+  });
+
+const menuMode = (page: Page) =>
+  page.evaluate(
+    () => (window.__starfall?.game as Game).scene.getScene<MenuProbe>('Menu').currentMode,
+  );
+
+/** Presses Z until the dialog (or the whole event) is over. */
+async function pressThrough(page: Page, until: 'dialog' | 'event'): Promise<void> {
+  for (let i = 0; i < 60; i += 1) {
+    const s = await fieldWorld(page);
+    if (until === 'dialog' ? !s.dialog : !s.event) return;
+    await page.keyboard.press('z');
+    await page.waitForTimeout(400);
+  }
+  throw new Error(`${until} still running`);
+}
+
+/** Holds a direction key until the step destination is the target tile, then stops. */
+async function walkField(page: Page, key: string, x: number, y: number): Promise<void> {
+  await page.keyboard.down(key);
+  await page.waitForFunction(
+    ([tx, ty]) => {
+      const tile = (window.__starfall?.game as Game).scene.getScene<FieldProbe>('World').playerTile;
+      return tile.x === tx && tile.y === ty;
+    },
+    [x, y] as const,
+    { timeout: 10_000 },
+  );
+  await page.keyboard.up(key);
+  await waitForField(page, 'isMoving', false);
+}
+
+async function tapKey(page: Page, key: string): Promise<void> {
+  await page.keyboard.down(key);
+  await page.waitForTimeout(50);
+  await page.keyboard.up(key);
+  await page.waitForTimeout(100);
+}
+
+/** はじめから, then through the opening: the player stands on (7,7) in Luka's house. */
+async function startNewGame(page: Page): Promise<string[]> {
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(err.message));
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') errors.push(msg.text());
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => window.__starfall?.ready === true, undefined, {
+    timeout: 20_000,
+  });
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => window.__starfall?.scene === 'World', undefined, {
+    timeout: 10_000,
+  });
+  await page.waitForTimeout(300);
+  await pressThrough(page, 'event');
+  const s = await fieldWorld(page);
+  expect(s.dialog).toBe(false);
+  expect(s.location).toMatchObject({ map: 'map_minato_luka_house', x: 7, y: 7 });
+  return errors;
+}
+
+test('a trigger stepped on while walking fires with the player on its tile', async ({ page }) => {
+  const errors = await startNewGame(page);
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<FieldProbe>('World');
+    w.gameState.flags.clear('ev.ev_opening');
+  });
+  await walkField(page, 'ArrowUp', 7, 5);
+
+  // Hold Down through the trigger at (7,7): the chained step must be cancelled.
+  await page.keyboard.down('ArrowDown');
+  await waitForField(page, 'isEventRunning', true);
+  const atStart = await fieldWorld(page);
+  await page.keyboard.up('ArrowDown');
+  expect(atStart.moving).toBe(false);
+  expect(atStart.tile).toMatchObject({ x: 7, y: 7 });
+  expect(atStart.location).toMatchObject({ x: 7, y: 7 });
+
+  await waitForField(page, 'isDialogOpen', true);
+  const during = await fieldWorld(page);
+  expect(during.moving).toBe(false);
+  expect(during.tile).toMatchObject({ x: 7, y: 7 });
+
+  await pressThrough(page, 'event');
+  const after = await fieldWorld(page);
+  expect(after.tile).toMatchObject({ x: 7, y: 7 });
+  expect(after.location).toMatchObject({ map: 'map_minato_luka_house', x: 7, y: 7 });
+  expect(errors).toEqual([]);
+});
+
+test('a scripted player move slides the sprite between the tiles', async ({ page }) => {
+  const errors = await startNewGame(page);
+  const xs = await page.evaluate(async () => {
+    const w = (window.__starfall?.game as Game).scene.getScene<FieldProbe>('World');
+    const samples: number[] = [];
+    let done = false;
+    void w.interpreter.runCommands([{ cmd: 'move', actor: 'player', path: ['left'] }]).then(() => {
+      done = true;
+    });
+    for (let i = 0; i < 600 && !done; i += 1) {
+      samples.push(w.player.x);
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    }
+    return samples;
+  });
+  const from = centre(7);
+  const to = centre(6);
+  expect(xs[0]).toBe(from);
+  expect(xs.filter((x) => x > to && x < from).length).toBeGreaterThanOrEqual(2);
+  const s = await fieldWorld(page);
+  expect(s.tile).toMatchObject({ x: 6, y: 7, facing: 'left' });
+  expect(s.location).toMatchObject({ x: 6, y: 7, facing: 'left' });
+  expect(errors).toEqual([]);
+});
+
+test('X pressed during a step opens the menu once the step ends', async ({ page }) => {
+  const errors = await startNewGame(page);
+  await page.keyboard.down('ArrowLeft');
+  await waitForField(page, 'isMoving', true);
+  await page.keyboard.down('x');
+  await page.waitForTimeout(40);
+  await page.keyboard.up('x');
+  await page.keyboard.up('ArrowLeft');
+  await waitForMenu(page);
+  expect(await menuMode(page)).toBe('root');
+  const s = await fieldWorld(page);
+  expect(s.moving).toBe(false);
+  expect(s.tile).toMatchObject({ x: s.location.x, y: s.location.y });
+  expect(errors).toEqual([]);
+});
+
+test('a script continues after warp on the new map with input locked', async ({ page }) => {
+  const errors = await startNewGame(page);
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<FieldProbe>('World');
+    const probe = window as unknown as { __probeDone?: boolean };
+    probe.__probeDone = false;
+    void w.interpreter
+      .runCommands([
+        { cmd: 'set_flag', key: 'probe.before_warp' },
+        { cmd: 'warp', map: 'map_minato_village', x: 10, y: 7, facing: 'down' },
+        { cmd: 'wait', ms: 50 },
+        { cmd: 'set_flag', key: 'probe.after_wait' },
+        { cmd: 'say', dialog: 'dlg_sign_minato' },
+        { cmd: 'set_flag', key: 'probe.after_say' },
+      ])
+      .then(() => {
+        probe.__probeDone = true;
+      });
+  });
+  await waitForFieldMap(page, 'map_minato_village');
+  await waitForField(page, 'isDialogOpen', true);
+  const inDialog = await fieldWorld(page);
+  expect(inDialog.event).toBe(true);
+  expect(inDialog.flags['probe.before_warp']).toBe(true);
+  expect(inDialog.flags['probe.after_wait']).toBe(true);
+  expect(inDialog.flags['probe.after_say']).toBeUndefined();
+  expect(inDialog.tile).toMatchObject({ x: 10, y: 7 });
+
+  // The field is locked while the script's dialog is up.
+  await page.keyboard.down('ArrowDown');
+  await page.waitForTimeout(400);
+  await page.keyboard.up('ArrowDown');
+  expect((await fieldWorld(page)).tile).toMatchObject({ x: 10, y: 7 });
+
+  await pressThrough(page, 'dialog');
+  await page.waitForFunction(
+    () => (window as unknown as { __probeDone?: boolean }).__probeDone === true,
+    undefined,
+    { timeout: 5_000 },
+  );
+  const after = await fieldWorld(page);
+  expect(after.flags['probe.after_say']).toBe(true);
+  expect(after.event).toBe(false);
+  expect(after.location).toMatchObject({ map: 'map_minato_village', x: 10, y: 7 });
+  expect(errors).toEqual([]);
+});
+
+test('a key door opens with its item and stays open through its door flag', async ({ page }) => {
+  const errors = await startNewGame(page);
+  // A locked exit above the player without door_flag: §9.2 names its flag door.<map>_<n>.
+  const blocked = await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<FieldProbe>('World');
+    w.objects.push({
+      kind: 'warp',
+      tx: 7,
+      ty: 6,
+      tw: 1,
+      th: 1,
+      targetMap: 'map_minato_village',
+      targetX: 10,
+      targetY: 7,
+      facing: 'down',
+      requiredItem: 'it_lamp_oil',
+    });
+    w.rebuildCollision();
+    return w.collision.isBlocked(7, 6);
+  });
+  expect(blocked).toBe(true);
+
+  await tapKey(page, 'ArrowUp');
+  expect((await fieldWorld(page)).tile).toMatchObject({ x: 7, y: 7, facing: 'up' });
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog');
+  const after = await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<FieldProbe>('World');
+    return {
+      flag: w.gameState.save.flags['door.minato_luka_house_01'],
+      blocked: w.collision.isBlocked(7, 6),
+    };
+  });
+  expect(after).toEqual({ flag: true, blocked: false });
+
+  await page.keyboard.down('ArrowUp');
+  await waitForFieldMap(page, 'map_minato_village');
+  await page.keyboard.up('ArrowUp');
+  expect(errors).toEqual([]);
+});
+
+test('heal_party, add_member and a healing save point act on the live party', async ({ page }) => {
+  const errors = await startNewGame(page);
+  const result = await page.evaluate(async () => {
+    const w = (window.__starfall?.game as Game).scene.getScene<FieldProbe>('World');
+    const [luka] = w.gameState.party;
+    if (!luka) throw new Error('no leader');
+    Object.assign(luka, { hp: 1, mp: 0, ko: true, statuses: ['poison'] });
+    await w.interpreter.runCommands([
+      { cmd: 'heal_party' },
+      { cmd: 'add_member', id: 'ch_mio' },
+      { cmd: 'add_member', id: 'ch_mio' },
+      { cmd: 'add_member', id: 'ch_goro' },
+    ]);
+    const afterScript = w.gameState.party.map((m) => ({
+      id: m.id,
+      exp: m.exp,
+      hp: m.hp,
+      mp: m.mp,
+      ko: m.ko,
+      statuses: [...m.statuses],
+      weapon: m.equipment.weapon,
+    }));
+    luka.hp = 1;
+    w.runner.host.applyEffect({ cmd: 'heal_party' });
+    return { afterScript, hpAfterEffect: luka.hp };
+  });
+  expect(result.afterScript).toHaveLength(3);
+  expect(result.afterScript[0]).toEqual({
+    id: 'ch_luka',
+    exp: 0,
+    hp: 42,
+    mp: 12,
+    ko: false,
+    statuses: [],
+    weapon: 'eq_wp_luka_1',
+  });
+  // ミオ joins at the leader's EXP (§4.1); ゴロー is floored at Lv7 = 991 EXP.
+  expect(result.afterScript[1]).toMatchObject({ id: 'ch_mio', exp: 0, hp: 36, mp: 14 });
+  expect(result.afterScript[2]).toMatchObject({ id: 'ch_goro', exp: 991, weapon: 'eq_wp_goro_1' });
+  expect(result.hpAfterEffect).toBe(42);
+
+  // A heal:true save point (§9.3) restores the party once, then opens the save list.
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<FieldProbe>('World');
+    const [luka] = w.gameState.party;
+    if (!luka) throw new Error('no leader');
+    luka.hp = 1;
+    luka.mp = 0;
+    w.objects.push({
+      kind: 'save_point',
+      tx: 7,
+      ty: 6,
+      tw: 1,
+      th: 1,
+      heal: true,
+      onceFlag: 'ev.probe_spring',
+    });
+    w.rebuildCollision();
+  });
+  await tapKey(page, 'ArrowUp');
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  const healed = await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<FieldProbe>('World');
+    const [luka] = w.gameState.party;
+    return { hp: luka?.hp, mp: luka?.mp, flag: w.gameState.save.flags['ev.probe_spring'] };
+  });
+  expect(healed).toEqual({ hp: 42, mp: 12, flag: true });
+  await pressThrough(page, 'dialog');
+  await waitForMenu(page);
+  expect(await menuMode(page)).toBe('save');
+  expect(errors).toEqual([]);
+});
+
+test('a held X keeps the menu open: keyboard auto-repeat is not a press', async ({ page }) => {
+  const errors = await startNewGame(page);
+  // Each further keyboard.down() while the key is held is a keydown with repeat=true,
+  // like the browser's own auto-repeat. The Menu scene never saw the first keydown,
+  // so its Key would otherwise treat the repeat as a fresh cancel and close itself.
+  await page.keyboard.down('x');
+  await waitForMenu(page);
+  expect(await menuMode(page)).toBe('root');
+  for (let i = 0; i < 3; i += 1) {
+    await page.keyboard.down('x');
+    await page.waitForTimeout(400);
+    expect(
+      await page.evaluate(() => (window.__starfall?.game as Game).scene.isActive('Menu')),
+    ).toBe(true);
+    expect(await menuMode(page)).toBe('root');
+  }
+  await page.keyboard.up('x');
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => (window.__starfall?.game as Game).scene.isActive('Menu'))).toBe(
+    true,
+  );
+  // A real release and re-press still closes it.
+  await tapKey(page, 'x');
+  await page.waitForFunction(
+    () => !(window.__starfall?.game as Game).scene.isActive('Menu'),
+    undefined,
+    { timeout: 5_000 },
+  );
+  expect(errors).toEqual([]);
 });

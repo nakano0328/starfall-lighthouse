@@ -14,7 +14,7 @@
 - `npm run dev` — 開発サーバー (http://localhost:5173、ポート固定)
 - `npm run check` — lint → format:check → typecheck → test → build。PR 前に必ず通す
 - `npm run test` / `npm run test:coverage` — Vitest（`tests/unit/**/*.test.ts`）
-- `npm run e2e` — Playwright スモーク。build → preview (4173) を自動起動する
+- `npm run e2e` — Playwright スモーク。build → preview を自動起動する（ポートは `E2E_PORT`、既定 4173。複数 checkout で同時に回すときは別ポートを指定）
   - サンドボックスでは `PW_CHROMIUM_PATH=/opt/pw-browsers/chromium npm run e2e`（`playwright install` は実行しない）
 - `BASE_PATH=/starfall-lighthouse/ npm run build` — GitHub Pages 向けビルド（deploy.yml が設定。ローカルでは未設定で `/`）
 - ファイルを書いたら `npx prettier --write <files>`。format:check は `*.md` / `*.yml` / `*.json` を含むリポジトリ全体が対象

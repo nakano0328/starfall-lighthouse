@@ -8,10 +8,18 @@ import type { InputBindings } from './InputBindings';
 import { ListMenu } from './ListMenu';
 import { Window } from './Window';
 
-/** Layout from docs/GAME_DESIGN.md §11.1. */
+/**
+ * Layout from docs/GAME_DESIGN.md §11.1. A page that sets `portrait` reserves
+ * the 96×96 slot at (24, 248) (frame only until the art lands) and starts the
+ * body at x136 (wrap 464px). A page without `portrait` (narration, signs,
+ * villagers) draws no slot and starts the body at x32 (wrap 568px). Both lay
+ * out 3 lines at a 24px line height.
+ */
 const BOX = { x: 16, y: 248, w: 608, h: 96 } as const;
 const PORTRAIT = { x: 24, y: 248, size: 96 } as const;
+/** Body x when the page reserves the portrait slot. */
 const TEXT_X_WITH_PORTRAIT = 136;
+/** Body x for the no-portrait variant of §11.1. */
 const TEXT_X_PLAIN = 32;
 const LINE_HEIGHT = 24;
 const FONT_SIZE = 16;

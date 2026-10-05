@@ -116,7 +116,17 @@ describe('party member', () => {
     expect(m.statuses).toEqual([]);
     m.ko = true;
     m.hp = 0;
+    m.mp = 0;
     expect(useItemOnMember(getItem('it_herb'), def, m)).toEqual({ ok: false, reason: 'no_effect' });
+    expect(useItemOnMember(getItem('it_star_drop'), def, m)).toEqual({
+      ok: false,
+      reason: 'no_effect',
+    });
+    expect(m.mp).toBe(0);
+    // Curing a KO member is allowed (the spec does not forbid it); pinned as current behaviour.
+    m.statuses = ['poison'];
+    expect(useItemOnMember(getItem('it_antidote'), def, m).ok).toBe(true);
+    expect(m.statuses).toEqual([]);
     expect(useItemOnMember(getItem('it_star_feather'), def, m)).toEqual({
       ok: true,
       message: 'ルカは 目を覚ました！',
@@ -127,6 +137,20 @@ describe('party member', () => {
       reason: 'not_usable',
     });
     expect(useItemOnMember(getItem('it_fire_stone'), def, m)).toEqual({
+      ok: false,
+      reason: 'not_usable',
+    });
+  });
+
+  it('refuses it_return_feather in the menu until escape_dungeon is implemented (Phase 4)', () => {
+    // The item is usableInField per §7.1, so the menu enables つかう, but the field
+    // helper has no dungeon `entrance` to return to yet. When escape_dungeon is
+    // wired up this expectation must change.
+    const def = CHARACTERS.ch_luka;
+    const feather = getItem('it_return_feather');
+    expect(feather.usableInField).toBe(true);
+    expect(feather.effect.type).toBe('escape_dungeon');
+    expect(useItemOnMember(feather, def, createMember(def))).toEqual({
       ok: false,
       reason: 'not_usable',
     });
