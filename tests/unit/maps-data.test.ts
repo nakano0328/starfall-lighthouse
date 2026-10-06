@@ -24,8 +24,11 @@ interface Cell {
 /** Tile rectangle of a parsed map object. */
 type Rect = Pick<MapObject, 'tx' | 'ty' | 'tw' | 'th'>;
 
-/** Objects with a sprite the player cannot walk through; WorldScene adds them to the grid. */
-type Blocker = Extract<MapObject, { kind: 'npc' | 'chest' | 'sign' | 'save_point' }>;
+/**
+ * Objects the player cannot walk through; WorldScene adds them to the grid (sprites, and
+ * examine-triggers such as the tide steles, §3.2).
+ */
+type Blocker = Extract<MapObject, { kind: 'npc' | 'chest' | 'sign' | 'save_point' | 'trigger' }>;
 
 const FACING_DELTA: Record<Facing, Cell> = {
   up: { x: 0, y: -1 },
@@ -63,7 +66,11 @@ const objectsOf = (id: string): MapObject[] => objects[id] ?? [];
 const warpsOf = (id: string): WarpObject[] =>
   objectsOf(id).filter((o): o is WarpObject => o.kind === 'warp');
 const isBlocker = (o: MapObject): o is Blocker =>
-  o.kind === 'npc' || o.kind === 'chest' || o.kind === 'sign' || o.kind === 'save_point';
+  o.kind === 'npc' ||
+  o.kind === 'chest' ||
+  o.kind === 'sign' ||
+  o.kind === 'save_point' ||
+  (o.kind === 'trigger' && o.interact);
 const blockersOf = (id: string): Blocker[] => objectsOf(id).filter(isBlocker);
 /** NPCs gated by hidden_if / condition are absent for part of the game. */
 const isGated = (o: Blocker): boolean =>

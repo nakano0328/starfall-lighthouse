@@ -70,6 +70,7 @@ function makeHost(battleResult: 'win' | 'lose' = 'win'): TestHost {
     removeNpc: (id) => {
       log.push(`remove ${id}`);
     },
+    setTide: (tide) => timed(`tide ${tide}`),
     battle: (group, lose) => {
       log.push(`battle ${group} ${lose}`);
       return Promise.resolve(battleResult);
@@ -201,6 +202,35 @@ describe('EventInterpreter', () => {
       'flash 3 white:start',
       'flash 3 white:end',
       'end',
+    ]);
+  });
+
+  it('sets the tide flag before asking the host to play the switch (§3.2)', async () => {
+    const host = makeHost();
+    const it = new EventInterpreter(host, {
+      ev_toggle: [{ cmd: 'set_tide', value: 'toggle' }],
+      ev_low: [{ cmd: 'set_tide', value: 'low' }],
+    });
+    // Unset means high tide, so the first toggle drains the ruins.
+    let done = expect(it.run('ev_toggle')).resolves.toBe('done');
+    await drain(host);
+    await done;
+    expect(host.flags.peek('ruins.tide')).toBe('low');
+    done = expect(it.run('ev_toggle')).resolves.toBe('done');
+    await drain(host);
+    await done;
+    expect(host.flags.peek('ruins.tide')).toBe('high');
+    done = expect(it.run('ev_low')).resolves.toBe('done');
+    await drain(host);
+    await done;
+    expect(host.flags.peek('ruins.tide')).toBe('low');
+    expect(host.log).toEqual([
+      'tide low:start',
+      'tide low:end',
+      'tide high:start',
+      'tide high:end',
+      'tide low:start',
+      'tide low:end',
     ]);
   });
 

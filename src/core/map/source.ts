@@ -95,6 +95,8 @@ export interface TriggerSource extends ObjectBase {
   event_id: string;
   once: boolean;
   condition?: string;
+  /** Fires when examined (Z facing it) instead of when stepped on; such a trigger blocks movement. */
+  interact?: boolean;
 }
 
 export type MapObjectSource =
@@ -111,8 +113,23 @@ export interface MapSource {
   overlay?: string[];
   /** Optional extra blocking: 'X' marks a blocked cell, anything else is ignored. */
   blocked?: string[];
+  /**
+   * Tide overlays (docs/GAME_DESIGN.md §3.2): one grid per tide level, read like `overlay`,
+   * whose cells exist only while the tide stands at that level. Entries may set `deco` and
+   * `solid` (no ground/above): the deco goes to `deco_water_<tide>`, the blocking to
+   * `collision_<tide>`. Requires `meta.tideAware`.
+   */
+  tide?: TideGrids;
   objects: MapObjectSource[];
 }
+
+export interface TideGrids {
+  high: string[];
+  low: string[];
+}
+
+export const TIDE_LEVELS = ['high', 'low'] as const;
+export type TideLevel = (typeof TIDE_LEVELS)[number];
 
 /** Overlay cell that places nothing. */
 export const OVERLAY_EMPTY = ' ';

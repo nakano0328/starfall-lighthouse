@@ -1,8 +1,8 @@
 import { TILE_SIZE } from '@/config';
 import { PLACEHOLDER_TILES, TILE_COLUMNS, TILE_ROWS, tileDef, tileGid } from '@data/tiles';
 
-import type { LegendEntry, MapObjectSource, MapSource } from './source';
-import { OVERLAY_EMPTY, normalizeLegendEntry } from './source';
+import type { LegendEntry, MapObjectSource, MapSource, TideLevel } from './source';
+import { OVERLAY_EMPTY, TIDE_LEVELS, normalizeLegendEntry } from './source';
 import type { TiledMap, TiledObject, TiledProperty, TiledTileLayer } from './tiled';
 
 export const PLACEHOLDER_TILESET_NAME = 'ts_placeholder';
@@ -17,8 +17,10 @@ export class MapCompileError extends Error {
 
 /**
  * Compiles an ASCII map source into a Tiled-format map with the layer conventions
- * of docs/GAME_DESIGN.md §9.3 (ground / deco / above / collision / events).
- * Throws MapCompileError on any inconsistency so broken maps fail in tests.
+ * of docs/GAME_DESIGN.md §9.3 (ground / deco / above / collision / events). A tide-aware
+ * map (§3.2) also gets `deco_water_high` / `deco_water_low` and `collision_high` /
+ * `collision_low` from its `tide` grids. Throws MapCompileError on any inconsistency so
+ * broken maps fail in tests.
  */
 export function compileMap(src: MapSource): TiledMap {
   const id = src.meta.id;
@@ -104,6 +106,8 @@ export function compileMap(src: MapSource): TiledMap {
 
   const objects = src.objects.map((o, i) => compileObject(id, o, i + 1, width, height));
 
+  const tideLayers = compileTide(src, legend);
+
   const layer = (lid: number, name: string, data: number[], visible = true): TiledTileLayer => ({
     type: 'tilelayer',
     id: lid,
@@ -133,6 +137,14 @@ export function compileMap(src: MapSource): TiledMap {
       layer(2, 'deco', deco),
       layer(3, 'above', above),
       layer(4, 'collision', collision, false),
+      ...(tideLayers
+        ? [
+            layer(6, 'deco_water_high', tideLayers.high.deco),
+            layer(7, 'deco_water_low', tideLayers.low.deco, false),
+            layer(8, 'collision_high', tideLayers.high.collision, false),
+            layer(9, 'collision_low', tideLayers.low.collision, false),
+          ]
+        : []),
       {
         type: 'objectgroup',
         id: 5,
@@ -167,9 +179,59 @@ export function compileMap(src: MapSource): TiledMap {
       prop('entrance_y', ey),
       prop('battle_bg', src.meta.battleBgKey),
     ],
-    nextlayerid: 6,
+    nextlayerid: tideLayers ? 10 : 6,
     nextobjectid: objects.length + 1,
   };
+}
+
+interface TideLayerData {
+  deco: number[];
+  collision: number[];
+}
+
+/**
+ * Reads the `tide` grids into per-level deco/collision data. Tide cells draw in the
+ * `deco_water_<tide>` layer and block in `collision_<tide>` when their tile is solid (or the
+ * legend says `solid`); the common layers never see them.
+ */
+function compileTide(
+  src: MapSource,
+  legend: ReadonlyMap<string, LegendEntry>,
+): Record<TideLevel, TideLayerData> | undefined {
+  const id = src.meta.id;
+  if (!src.tide) {
+    if (src.meta.tideAware) throw new MapCompileError(id, 'tideAware map needs tide grids');
+    return undefined;
+  }
+  if (!src.meta.tideAware) throw new MapCompileError(id, 'tide grids need meta.tideAware');
+  const { width, height } = src;
+  const cells = width * height;
+  const out = {} as Record<TideLevel, TideLayerData>;
+  for (const level of TIDE_LEVELS) {
+    const rows = src.tide[level];
+    checkGrid(id, `tide.${level}`, rows, width, height);
+    const data: TideLayerData = {
+      deco: new Array<number>(cells).fill(0),
+      collision: new Array<number>(cells).fill(0),
+    };
+    rows.forEach((row, y) => {
+      [...row].forEach((ch, x) => {
+        if (ch === OVERLAY_EMPTY) return;
+        const entry = legend.get(ch);
+        if (!entry) throw new MapCompileError(id, `unknown tide char "${ch}" at (${x}, ${y})`);
+        if (entry.ground !== undefined || entry.above !== undefined) {
+          throw new MapCompileError(id, `tide entry "${ch}" may only set deco and solid`);
+        }
+        const i = y * width + x;
+        const decoGid = entry.deco === undefined ? 0 : tileGid(entry.deco);
+        data.deco[i] = decoGid;
+        const solid = entry.solid ?? isSolidGid(decoGid);
+        data.collision[i] = solid ? COLLISION_GID : 0;
+      });
+    });
+    out[level] = data;
+  }
+  return out;
 }
 
 /** Whether the placeholder tile a gid refers to blocks movement (gid 0 is the empty cell). */
