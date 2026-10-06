@@ -1037,6 +1037,11 @@ const chapter = (page: Page) =>
       ore: w.gameState.inventory.count('it_shining_ore'),
       hammer: w.gameState.inventory.count('eq_wp_goro_4'),
       fragment2: w.gameState.inventory.count('it_fragment_2'),
+      fragment3: w.gameState.inventory.count('it_fragment_3'),
+      tideRune: w.gameState.inventory.count('it_tide_rune'),
+      chart: w.gameState.inventory.count('it_old_chart'),
+      pendant: w.gameState.inventory.count('eq_acc_lantern_pendant'),
+      fang: w.gameState.inventory.count('eq_wp_mio_4'),
       lunch: w.gameState.inventory.count('it_mio_lunch'),
       oil: w.gameState.inventory.count('it_lamp_oil'),
       herbs: w.gameState.inventory.count('it_herb'),
@@ -1343,5 +1348,198 @@ test('chapter 2: ゴロー joins, the mine opens, the vein and the smith, 岩の
   await warpTo(page, 'map_hagane_town', 18, 23, 'down');
   await walkField(page, 'ArrowDown', 18, 25);
   expect((await fieldWorld(page)).tile).toMatchObject({ x: 18, y: 25 });
+  expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
+});
+
+/** Where the party stands to talk to the camp NPCs (map_ruins_camp), facing them. */
+const CAMP = {
+  scholar: { x: 12, y: 6, facing: 'up' }, // npc_ruins_scholar stands at (12,5)
+  assistant: { x: 3, y: 6, facing: 'up' }, // npc_camp_assistant stands at (3,5)
+} as const;
+
+/** Talks to the NPC in front of the player and plays the whole conversation. */
+async function talk(page: Page): Promise<void> {
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog');
+}
+
+test('chapter 3: the scholar, the tide steles, the sunken chart and 遺跡の番人, then ノクス', async ({
+  page,
+}) => {
+  test.setTimeout(420_000);
+  const errors = await startNewGame(page);
+  await page.evaluate(() => {
+    if (window.__starfall) window.__starfall.encounters = false;
+    const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+    const f = w.gameState.flags;
+    f.set('minato.mio_joined', true);
+    f.set('main.core_shattered', true);
+    f.set('minato.talked_to_grandpa', true);
+    f.set('forest.boss_defeated', true);
+    f.set('hagane.arrived', true);
+    f.set('hagane.goro_joined', true);
+    f.set('mine.boss_defeated', true);
+    f.set('shop.hagane_tier3', true);
+    f.set('fragments.count', 2);
+    f.set('main.chapter', 3);
+    void w.interpreter.runCommands([
+      { cmd: 'add_member', id: 'ch_mio' },
+      { cmd: 'add_member', id: 'ch_goro' },
+    ]);
+  });
+  await waitForField(page, 'isEventRunning', false);
+  expect((await chapter(page)).party).toEqual(['ch_luka', 'ch_mio', 'ch_goro']);
+
+  // The south gate of ハガネ now opens onto 磯の道, and the road ends at the camp.
+  await warpTo(page, 'map_hagane_town', 18, 24, 'down');
+  await page.keyboard.down('ArrowDown');
+  await waitForFieldMap(page, 'map_shore_path');
+  await page.keyboard.up('ArrowDown');
+  await page.waitForTimeout(500);
+  expect((await fieldWorld(page)).tile).toMatchObject({ x: 19, y: 1 });
+  await warpTo(page, 'map_shore_path', 20, 17, 'down');
+  await page.keyboard.down('ArrowDown');
+  await waitForFieldMap(page, 'map_ruins_camp');
+  await page.keyboard.up('ArrowDown');
+  await page.waitForTimeout(500);
+  expect((await fieldWorld(page)).tile).toMatchObject({ x: 10, y: 1 });
+
+  // First meeting with the scholar opens the camp.
+  await warpTo(page, 'map_ruins_camp', CAMP.scholar.x, CAMP.scholar.y, CAMP.scholar.facing);
+  await talk(page);
+  let s = await chapter(page);
+  expect(s.flags['ruins.scholar_met']).toBe(true);
+  expect(s.flags['ruins.tide_learned']).toBeUndefined();
+
+  // Without the rune the stele is just unreadable stone, and the tide stays high.
+  await warpTo(page, 'map_sunken_ruins_1f', 20, 4, 'up');
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'event');
+  s = await chapter(page);
+  expect(s.flags['ruins.tide']).toBeUndefined();
+  // The hall is under water: walking down the vestibule throat stops short of it.
+  await warpTo(page, 'map_sunken_ruins_1f', 22, 6, 'down');
+  await walkField(page, 'ArrowDown', 22, 8);
+  await page.keyboard.down('ArrowDown');
+  await page.waitForTimeout(600);
+  await page.keyboard.up('ArrowDown');
+  await waitForField(page, 'isMoving', false);
+  expect((await fieldWorld(page)).tile).toMatchObject({ x: 22, y: 8 });
+
+  // The second talk hands over 潮のしるべ; the third offers the chart quest.
+  await warpTo(page, 'map_ruins_camp', CAMP.scholar.x, CAMP.scholar.y, CAMP.scholar.facing);
+  await talk(page);
+  s = await chapter(page);
+  expect(s.flags['ruins.tide_learned']).toBe(true);
+  expect(s.tideRune).toBe(1);
+  await talk(page); // offer → ひきうける (first choice)
+  expect((await chapter(page)).flags['sq.chart']).toBe(1);
+
+  // Now the stele answers: the tide goes out and the hall can be crossed to the east stairs.
+  await warpTo(page, 'map_sunken_ruins_1f', 20, 4, 'up');
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'event');
+  expect((await chapter(page)).flags['ruins.tide']).toBe('low');
+  await warpTo(page, 'map_sunken_ruins_1f', 22, 6, 'down');
+  await walkField(page, 'ArrowDown', 22, 20);
+  await walkField(page, 'ArrowRight', 40, 20);
+  await walkField(page, 'ArrowDown', 40, 31);
+  await page.keyboard.down('ArrowRight');
+  await waitForFieldMap(page, 'map_sunken_ruins_b1');
+  await page.keyboard.up('ArrowRight');
+  await page.waitForTimeout(500);
+  expect((await fieldWorld(page)).tile).toMatchObject({ x: 42, y: 31 });
+
+  // The chest room holds ふるい海図 and うしおのきば, dry only at low tide.
+  await walkField(page, 'ArrowLeft', 37, 31);
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog');
+  await walkField(page, 'ArrowUp', 37, 30);
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog');
+  s = await chapter(page);
+  expect(s.chart).toBe(1);
+  expect(s.fang).toBe(1);
+
+  // Handing the chart over earns ランタンのペンダント.
+  await warpTo(page, 'map_ruins_camp', CAMP.scholar.x, CAMP.scholar.y, CAMP.scholar.facing);
+  await talk(page);
+  s = await chapter(page);
+  expect(s.flags['sq.chart']).toBe(2);
+  expect(s.chart).toBe(0);
+  expect(s.pendant).toBe(1);
+
+  // The tent costs 60G and leads to the save screen.
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+    w.gameState.gold = 100;
+  });
+  await warpTo(page, 'map_ruins_camp', CAMP.assistant.x, CAMP.assistant.y, CAMP.assistant.facing);
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog'); // talk → inn offer → はい
+  await page.waitForTimeout(1500); // the night fades out and in
+  await waitForField(page, 'isDialogOpen', true); // ぐっすり 眠った
+  await pressThrough(page, 'dialog');
+  await waitForMenuMode(page, 'save');
+  expect((await chapter(page)).gold).toBe(40);
+  await page.keyboard.press('x'); // save → root
+  await waitForMenuMode(page, 'root');
+  await page.keyboard.press('x'); // root → field
+  await page.waitForFunction(
+    () => !(window.__starfall?.game as Game).scene.isActive('Menu'),
+    undefined,
+    { timeout: 5_000 },
+  );
+
+  // The guardian's doorway talk, then a seeded Lv20 win with plain attacks and the chapter event.
+  await warpTo(page, 'map_sunken_ruins_b1', 6, 21, 'down');
+  await walkField(page, 'ArrowDown', 6, 24);
+  await pressThrough(page, 'event');
+  expect((await chapter(page)).flags['ev.ev_ruins_boss_intro']).toBe(true);
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+    for (const m of w.gameState.party) {
+      m.exp = 17366; // Lv20 (§6.1 curve); plain attacks need it against 遺跡の番人
+      m.hp = 999;
+      m.mp = 999;
+    }
+    void w.startBattle('grp_boss_guardian', { seed: 1 });
+  });
+  await page.waitForFunction(
+    () => (window.__starfall?.game as Game).scene.isActive('Battle'),
+    undefined,
+    { timeout: 10_000 },
+  );
+  await fightWithAttacks(page, 200);
+  await page.waitForFunction(
+    () => {
+      const game = window.__starfall?.game as Game;
+      return game.scene.isActive('World') && !game.scene.isActive('Battle');
+    },
+    undefined,
+    { timeout: 10_000 },
+  );
+  await page.waitForTimeout(500);
+  await pressThrough(page, 'event');
+  s = await chapter(page);
+  expect(s.flags['ruins.boss_defeated']).toBe(true);
+  expect(s.flags['fragments.count']).toBe(3);
+  expect(s.flags['main.chapter']).toBe(4);
+  expect(s.fragment3).toBe(1);
+
+  // Leaving the chamber, ノクス bars the way and names the lighthouse.
+  await walkField(page, 'ArrowDown', 6, 25);
+  await walkField(page, 'ArrowUp', 6, 24);
+  await waitForField(page, 'isEventRunning', true);
+  await pressThrough(page, 'event');
+  s = await chapter(page);
+  expect(s.flags['ev.ev_nox_appear']).toBe(true);
+  expect(s.flags['ruins.nox_on_stage']).toBe(false);
   expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
 });
