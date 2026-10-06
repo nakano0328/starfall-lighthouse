@@ -31,7 +31,8 @@ import type {
   SavePointObject,
   TriggerObject,
   WarpObject,
- CollisionGrid} from '@core/map/objects';
+  CollisionGrid,
+} from '@core/map/objects';
 import { markerTextFor, objectsAt, parseMapObjects } from '@core/map/objects';
 import type { TideLevel } from '@core/map/source';
 import { collisionForTide, currentTide, tideAllows } from '@core/map/tide';
