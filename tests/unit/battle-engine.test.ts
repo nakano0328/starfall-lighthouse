@@ -14,12 +14,12 @@ import { CHARACTERS } from '@data/characters';
 import { getEncounter } from '@data/encounters';
 import { getEnemy } from '@data/enemies';
 import { findEquip } from '@data/equipment';
-import { getItem } from '@data/items';
+import { findItem } from '@data/items';
 import { getSkill } from '@data/skills';
 import type { CharacterId } from '@data/types';
 
-const data: BattleData = { skill: getSkill, item: getItem };
-const maxQtyOf = (id: string): number => getItem(id).maxQty;
+const data: BattleData = { skill: getSkill, item: findItem };
+const maxQtyOf = (id: string): number => findItem(id)?.maxQty ?? 99;
 
 function member(id: CharacterId, level = 1): PartyMember {
   return createMember(CHARACTERS[id], expForLevel(level));
@@ -165,6 +165,7 @@ describe('BattleEngine basics', () => {
     const inventory = new Inventory(maxQtyOf, [
       { itemId: 'it_herb', qty: 2 },
       { itemId: 'it_key_shrine', qty: 1 },
+      { itemId: 'eq_wp_luka_2', qty: 1 }, // spare equipment shares the bag and is not usable
     ]);
     const engine = engineWith({
       party: partyOf(member('ch_luka', 3), member('ch_mio')),
@@ -180,6 +181,16 @@ describe('BattleEngine basics', () => {
     expect(engine.canEscape).toBe(true);
     expect(engine.find('e0')?.id).toBe('en_lost_star_slime');
     expect(engine.find('zz')).toBeUndefined();
+  });
+
+  it('ignores an item command whose id is not a consumable item', () => {
+    const inventory = new Inventory(maxQtyOf, [{ itemId: 'eq_wp_luka_2', qty: 1 }]);
+    const engine = engineWith({ inventory });
+    const events = engine.resolveRound(
+      commands({ p0: { type: 'item', itemId: 'eq_wp_luka_2', target: 'p0' } }),
+    );
+    expect(events.filter((e) => e.type === 'action').map((e) => e.actor)).toEqual(['e0']);
+    expect(inventory.count('eq_wp_luka_2')).toBe(1);
   });
 });
 
