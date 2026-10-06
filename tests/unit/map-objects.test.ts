@@ -12,6 +12,7 @@ import {
 import type { MapObject } from '@core/map/objects';
 import type { MapSource } from '@core/map/source';
 import type { TiledMap, TiledProperty, TiledPropertyValue } from '@core/map/tiled';
+import { findTileLayer } from '@core/map/tiled';
 
 const src: MapSource = {
   meta: {
@@ -398,9 +399,7 @@ describe('CollisionGrid', () => {
           name: 'collision_low',
           width: map.width,
           height: map.height,
-          data: map.layers
-            .find((l) => l.name === 'collision')!
-            .data.map((_g, i) => (i === 0 ? 1 : 0)),
+          data: findTileLayer(map, 'collision')!.data.map((_g, i) => (i === 0 ? 1 : 0)),
           visible: false,
           opacity: 1,
           x: 0,

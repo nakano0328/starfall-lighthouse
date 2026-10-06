@@ -1,0 +1,234 @@
+{
+  "dlg_sign_shore": {
+    "pages": ["磯の道\n北：鉱山町ハガネ\n南：学者のキャンプ"]
+  },
+  "dlg_sign_camp": {
+    "pages": ["学者のキャンプ\n北：磯の道　南：沈んだ遺跡\nテントで 休めます（60G）"]
+  },
+  "dlg_sign_ruins_entrance": {
+    "pages": [
+      "沈んだ遺跡\n「石碑の 文字は 潮を 動かす」\nと 刻まれている。",
+      "その下に 新しい 字で\n「読めない人は 学者に 聞け」\nと 書き足してある。"
+    ]
+  },
+  "dlg_sign_ruins_b1": {
+    "pages": [
+      "沈んだ遺跡 下層\n「番人は 土を 嫌う。\n大潮は 防御で 耐えよ」",
+      "古い 文字の 下で、\n何かが 眠っている 気配がする。"
+    ]
+  },
+  "dlg_ruins_scholar": {
+    "pages": [],
+    "branches": [
+      { "if": "sq.chart==2", "next": "dlg_scholar_thanks" },
+      { "if": "item.it_old_chart>=1", "next": "dlg_scholar_handover" },
+      { "if": "sq.chart==1", "next": "dlg_scholar_searching" },
+      { "if": "ruins.tide_learned", "next": "dlg_scholar_offer" },
+      { "if": "ruins.scholar_met", "next": "dlg_scholar_03" },
+      { "next": "dlg_scholar_01" }
+    ]
+  },
+  "dlg_scholar_01": {
+    "speaker": "学者リーネ",
+    "pages": [
+      "おや、こんな ところに\n子どもが…… いえ、旅人さん？\nわたしは リーネ。学者です。",
+      "南の 海に 沈んだ 遺跡を\n調べに 来たのですが、\n妙な ことが あって。",
+      "星が 落ちた夜、光る 何かが\n遺跡の 奥へ 飛びこんだの。\nそれから 潮が 荒れっぱなし。"
+    ],
+    "next": "dlg_scholar_01_luka"
+  },
+  "dlg_scholar_01_luka": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_neutral",
+    "pages": ["光る 何か……\nそれ、星の欠片だ！\nぼくたち、それを 探してて。"],
+    "next": "dlg_scholar_01_end"
+  },
+  "dlg_scholar_01_end": {
+    "speaker": "学者リーネ",
+    "pages": [
+      "星の欠片…… 灯台の 石ね。\nなるほど、潮が 荒れるのも\nそのせい かしら。",
+      "手伝いましょう。でも その前に\n長旅で 疲れた 顔よ。\n商人と テントを 使って。",
+      "休んだら また 声を かけて。\n石碑の 話を するわ。"
+    ],
+    "effects": [{ "cmd": "set_flag", "key": "ruins.scholar_met", "value": true }]
+  },
+  "dlg_scholar_03": {
+    "speaker": "学者リーネ",
+    "pages": [
+      "遺跡には 潮の石碑が あるの。\n文字を 読むと 潮が 動く。\n満ちたり、引いたり。",
+      "でも 文字は 古い 星の言葉。\nこれが ないと 読めないわ。\n潮のしるべ、持っていって。",
+      "満潮なら 北の 通路、\n干潮なら 広間と 東の 水路。\n潮を 読んで 奥へ 進んで。"
+    ],
+    "effects": [
+      { "cmd": "give_item", "item": "it_tide_rune", "qty": 1 },
+      { "cmd": "play_se", "key": "se_item" },
+      { "cmd": "set_flag", "key": "ruins.tide_learned", "value": true }
+    ],
+    "next": "dlg_scholar_03_mio"
+  },
+  "dlg_scholar_03_mio": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_smile",
+    "pages": ["潮を 動かせるなんて\nすごい 石碑だね！\nルカ、行ってみよう！"]
+  },
+  "dlg_scholar_offer": {
+    "speaker": "学者リーネ",
+    "pages": [
+      "ひとつ 頼みが あるの。\n下層に、干潮の ときだけ\n入れる 小部屋が あるわ。",
+      "そこに ふるい海図が\n眠っているはず。\n取ってきて もらえない？"
+    ],
+    "choices": [
+      {
+        "text": "ひきうける",
+        "next": "dlg_scholar_accept",
+        "effects": [{ "cmd": "set_flag", "key": "sq.chart", "value": 1 }]
+      },
+      { "text": "あとで", "next": "dlg_scholar_decline" }
+    ]
+  },
+  "dlg_scholar_accept": {
+    "speaker": "学者リーネ",
+    "pages": ["ありがとう！\n干潮に したら 東の 水路から\n下層へ 降りられるわ。"]
+  },
+  "dlg_scholar_decline": {
+    "speaker": "学者リーネ",
+    "pages": ["そう。気が 向いたら 頼むわ。\n潮には 気をつけて。"]
+  },
+  "dlg_scholar_searching": {
+    "speaker": "学者リーネ",
+    "pages": ["海図は 見つかった？\n下層の 小部屋は 干潮の間だけ。\n潮が 満ちる前に 戻ってね。"]
+  },
+  "dlg_scholar_handover": {
+    "speaker": "学者リーネ",
+    "pages": [
+      "それ…… ふるい海図！\nやっぱり ここに あったのね。\nありがとう。",
+      "お礼に、これを。\nランタンのペンダント。\n暗闇を はらってくれるわ。"
+    ],
+    "effects": [
+      { "cmd": "take_item", "item": "it_old_chart", "qty": 1 },
+      { "cmd": "give_item", "item": "eq_acc_lantern_pendant", "qty": 1 },
+      { "cmd": "play_se", "key": "se_item" },
+      { "cmd": "set_flag", "key": "sq.chart", "value": 2 }
+    ],
+    "next": "dlg_scholar_handover_lore"
+  },
+  "dlg_scholar_handover_lore": {
+    "speaker": "学者リーネ",
+    "pages": [
+      "この海図には 昔の 灯台守が\n書き残した 話が あるの。",
+      "「昔、帰れなかった 星がいた。\n灯台の 光が 届かず、\n星は 海の底で 影に なった」",
+      "ただの 言い伝え だと\n思っていたけれど……\n遺跡の 奥、気をつけてね。"
+    ],
+    "next": "dlg_scholar_handover_luka"
+  },
+  "dlg_scholar_handover_luka": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_neutral",
+    "pages": ["帰れなかった 星……。\n灯台が、帰せなかった 星。"]
+  },
+  "dlg_scholar_thanks": {
+    "speaker": "学者リーネ",
+    "pages": ["海図、本当に ありがとう。\n「帰れなかった 星」の 話、\n忘れないでね。"]
+  },
+  "dlg_camp_merchant": {
+    "speaker": "商人",
+    "pages": ["いらっしゃい。\nこんな 浜辺でも 商いは 商い。\n見ていってくれ。"]
+  },
+  "dlg_camp_assistant": {
+    "speaker": "助手",
+    "pages": ["テントで 休んでいく？\nひと晩 60G で ぐっすりだよ。"]
+  },
+  "dlg_nox_idle": {
+    "speaker": "ノクス",
+    "portrait": "portrait_nox_neutral",
+    "pages": ["……。"]
+  },
+  "dlg_stele_unreadable": {
+    "pages": ["潮の石碑。\n見たことのない 文字が\n刻まれているが、読めない。"]
+  },
+  "dlg_stele_glow": {
+    "pages": ["潮のしるべを かざす。\n石碑の 文字が 青く 光る……\n潮が 動きはじめた。"]
+  },
+  "dlg_ruins_boss_intro": {
+    "pages": [
+      "最奥の 祭壇で、石の 巨体が\nゆっくりと 起き上がった。",
+      "三叉の 槍の 先で、\n星の欠片が 淡く 光っている。"
+    ],
+    "next": "dlg_ruins_boss_intro_goro"
+  },
+  "dlg_ruins_boss_intro_goro": {
+    "speaker": "ゴロー",
+    "portrait": "portrait_goro_stern",
+    "pages": [
+      "……遺跡の 番人か。\n廃坑の 守り手と 同じ 目だ。",
+      "石の 体なら 土の わざで\n崩せる。俺の 出番だな。"
+    ],
+    "next": "dlg_ruins_boss_intro_mio"
+  },
+  "dlg_ruins_boss_intro_mio": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_neutral",
+    "pages": ["海が うなったら 大波が 来る。\nそのときは みんな 防御だよ！"],
+    "next": "dlg_ruins_boss_intro_luka"
+  },
+  "dlg_ruins_boss_intro_luka": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_neutral",
+    "pages": ["最後の 欠片だ。\n取り戻して、灯台へ 帰ろう！"]
+  },
+  "dlg_ruins_boss_win": {
+    "pages": [
+      "番人は 槍を 置き、\n静かに 祭壇へ 沈んでいった。",
+      "最後の 欠片が\n手の中で あたたかく 光る。"
+    ],
+    "next": "dlg_ruins_boss_win_luka"
+  },
+  "dlg_ruins_boss_win_luka": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_smile",
+    "pages": ["三つめ……。\nこれで 全部 そろった。"],
+    "next": "dlg_ruins_boss_win_mio"
+  },
+  "dlg_ruins_boss_win_mio": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_smile",
+    "pages": ["やったね、ルカ！\n灯台に 戻れば、灯りが……"],
+    "next": "dlg_ruins_boss_win_goro"
+  },
+  "dlg_ruins_boss_win_goro": {
+    "speaker": "ゴロー",
+    "portrait": "portrait_goro_smile",
+    "pages": ["ふん、よく やったな。\n帰るぞ。じいさんが 待ってる。"]
+  },
+  "dlg_nox_appear": {
+    "pages": ["広間の 水面に、影が 立っていた。\n仮面の 下から、声が 響く。"],
+    "next": "dlg_nox_appear_nox"
+  },
+  "dlg_nox_appear_nox": {
+    "speaker": "ノクス",
+    "portrait": "portrait_nox_neutral",
+    "pages": [
+      "……三つ、そろえたか。\n星の欠片。わたしの 星心。",
+      "よく 集めてくれた。\nだが それは わたしの 物だ。\n灯台も、光も、すべて。",
+      "誰も 帰る場所を くれなかった。\nだから、自分で 集める。\n欠片も、灯台も。",
+      "……灯台で 待つ。\n欠片を 持って 来い、灯台守。"
+    ]
+  },
+  "dlg_nox_gone": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_neutral",
+    "pages": ["今の…… 人？\n影みたいに 消えちゃった……"],
+    "next": "dlg_nox_gone_goro"
+  },
+  "dlg_nox_gone_goro": {
+    "speaker": "ゴロー",
+    "portrait": "portrait_goro_stern",
+    "pages": ["欠片を ねらってやがる。\n……嫌な 目を してたな。"],
+    "next": "dlg_nox_gone_luka"
+  },
+  "dlg_nox_gone_luka": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_neutral",
+    "pages": ["灯台で 待つ……。\nじいちゃんに 知らせて、\n灯台へ 行こう。"]
+  }
+}

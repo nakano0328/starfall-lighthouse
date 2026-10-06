@@ -5,6 +5,7 @@ import forest from './forest.json';
 import hagane from './hagane.json';
 import minato from './minato.json';
 import mine from './mine.json';
+import ruins from './ruins.json';
 
 /** Node shape as written in the JSON files: the id is the object key. */
 export type DialogNodeJson = Omit<DialogNode, 'id'>;
@@ -15,6 +16,7 @@ const FILES: Readonly<Record<string, Readonly<Record<string, DialogNodeJson>>>> 
   hagane: hagane as Record<string, DialogNodeJson>,
   minato: minato as Record<string, DialogNodeJson>,
   mine: mine as Record<string, DialogNodeJson>,
+  ruins: ruins as Record<string, DialogNodeJson>,
 };
 
 function build(): Readonly<Record<string, DialogNode>> {
