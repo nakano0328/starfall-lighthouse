@@ -300,7 +300,11 @@ describe('authored maps', () => {
       for (const o of blockersOf(id)) {
         const label = `${id} ${o.kind} at (${o.tx}, ${o.ty})`;
         const other = taken.get(cellKey(cellOf(o)));
-        expect(other, `${label} shares its tile with ${other}`).toBeUndefined();
+        // Examine-triggers stack on one tile as a branch (the tide steles, §3.2); a sprite
+        // never shares its tile with anything.
+        if (!(o.kind === 'trigger' && other === 'trigger')) {
+          expect(other, `${label} shares its tile with ${other}`).toBeUndefined();
+        }
         taken.set(cellKey(cellOf(o)), o.kind === 'npc' ? o.id : o.kind);
         expect(
           warpsOf(id).some((w) => inRect(w, cellOf(o))),
