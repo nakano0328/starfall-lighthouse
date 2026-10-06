@@ -412,7 +412,19 @@ async function pressThrough(page: Page, until: 'dialog' | 'event'): Promise<void
   throw new Error(`${until} still running`);
 }
 
-/** Holds a direction key until the step destination is the target tile, then stops. */
+const FACING_OF_KEY: Record<string, string> = {
+  ArrowUp: 'up',
+  ArrowDown: 'down',
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+};
+
+/**
+ * Holds a direction key until the step destination is the target tile, then stops.
+ * When the release reaches the game late (a busy frame), the mover's input lead
+ * chains one more step; the party is then put back on the leg's end by a script
+ * warp, so every leg ends exactly where the route says.
+ */
 async function walkField(page: Page, key: string, x: number, y: number): Promise<void> {
   await page.keyboard.down(key);
   await page.waitForFunction(
@@ -425,6 +437,10 @@ async function walkField(page: Page, key: string, x: number, y: number): Promise
   );
   await page.keyboard.up(key);
   await waitForField(page, 'isMoving', false);
+  const w = await fieldWorld(page);
+  if (w.tile.x !== x || w.tile.y !== y) {
+    await warpTo(page, w.location.map, x, y, FACING_OF_KEY[key] ?? w.tile.facing);
+  }
 }
 
 async function tapKey(page: Page, key: string): Promise<void> {
@@ -727,6 +743,7 @@ type BattleProbe = {
   round: number;
   log: string[];
   enemyHp: number[];
+  weakenEnemies: () => void;
 };
 
 type BattleStarter = {
@@ -1042,6 +1059,8 @@ const chapter = (page: Page) =>
       chart: w.gameState.inventory.count('it_old_chart'),
       pendant: w.gameState.inventory.count('eq_acc_lantern_pendant'),
       fang: w.gameState.inventory.count('eq_wp_mio_4'),
+      lighthouseKey: w.gameState.inventory.count('it_key_lighthouse'),
+      letter: w.gameState.inventory.count('it_grandpa_letter'),
       lunch: w.gameState.inventory.count('it_mio_lunch'),
       oil: w.gameState.inventory.count('it_lamp_oil'),
       herbs: w.gameState.inventory.count('it_herb'),
@@ -1618,5 +1637,256 @@ test('ending: end_game rewinds the save to 5F, rolls the credits and stars the t
   const s = await chapter(page);
   expect(s.flags['main.ending_seen']).toBe(true);
   expect((await fieldWorld(page)).tile).toMatchObject({ x: 21, y: 3 });
+  expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
+});
+
+/** Straight-segment routes through the tower (filled from the floor maps). */
+const TOWER = {
+  // 3F–5F: landing (2,22) → the tile below the up-stairs column, as waypoints of straight legs.
+  f3: [
+    [3, 22],
+    [3, 5],
+    [6, 5],
+    [6, 3],
+    [17, 3],
+    [17, 4],
+    [21, 4],
+  ] as [number, number][],
+  f4: [
+    [3, 22],
+    [3, 5],
+    [10, 5],
+    [10, 3],
+    [18, 3],
+    [18, 4],
+    [21, 4],
+  ] as [number, number][],
+  // The pedestal (12,15) is examined from (12,16) facing up.
+  f5ToPedestal: [
+    [3, 22],
+    [3, 16],
+    [12, 16],
+  ] as [number, number][],
+  pedestalFacing: 'up' as 'up' | 'down' | 'left' | 'right',
+  // Through the gate gap (11,14) to the fountain (11,11), used from (11,12) facing up.
+  f5ToFountain: [
+    [11, 16],
+    [11, 12],
+  ] as [number, number][],
+  fountainFacing: 'up' as 'up' | 'down' | 'left' | 'right',
+  f5ToStairs: [
+    [11, 16],
+    [21, 16],
+    [21, 4],
+  ] as [number, number][],
+};
+
+/** Walks straight legs between consecutive waypoints, starting from the player's tile. */
+async function walkRoute(page: Page, points: readonly [number, number][]): Promise<void> {
+  let { x, y } = (await fieldWorld(page)).tile;
+  for (const [tx, ty] of points) {
+    if (tx !== x && ty !== y)
+      throw new Error(`route leg (${x},${y})→(${tx},${ty}) is not straight`);
+    const key = tx > x ? 'ArrowRight' : tx < x ? 'ArrowLeft' : ty > y ? 'ArrowDown' : 'ArrowUp';
+    if (tx !== x || ty !== y) await walkField(page, key, tx, ty);
+    x = tx;
+    y = ty;
+  }
+}
+
+/** Steps onto the stairs in the given direction and waits for the next floor to load. */
+async function takeStairs(page: Page, key: string, map: string): Promise<void> {
+  await page.keyboard.down(key);
+  await waitForFieldMap(page, map);
+  await page.keyboard.up(key);
+  await page.waitForTimeout(400);
+}
+
+/** The floor's shadow voice fires on arrival; plays it and checks the floor flag. */
+async function arriveOnFloor(page: Page, floor: number): Promise<void> {
+  await waitForField(page, 'isEventRunning', true);
+  await pressThrough(page, 'event');
+  expect((await chapter(page)).flags['lighthouse.floor']).toBe(floor);
+}
+
+/** Presses Z through an event's dialog until its `battle` command has opened the battle. */
+async function pressUntilBattle(page: Page): Promise<void> {
+  for (let i = 0; i < 60; i += 1) {
+    const active = await page.evaluate(() =>
+      (window.__starfall?.game as Game).scene.isActive('Battle'),
+    );
+    if (active) return;
+    await page.keyboard.press('z');
+    await page.waitForTimeout(400);
+  }
+  throw new Error('battle did not start');
+}
+
+/** Plays たたかう with every live enemy dropped to 1 HP first, so each form falls to one blow. */
+async function fightWeakened(page: Page, maxTurns = 12): Promise<void> {
+  for (let i = 0; i < maxTurns; i += 1) {
+    await waitForCommandOrEnd(page);
+    if ((await battlePhase(page)) === 'inactive') return;
+    await page.evaluate(() =>
+      (window.__starfall?.game as Game).scene.getScene<BattleProbe>('Battle').weakenEnemies(),
+    );
+    await page.keyboard.press('z'); // たたかう
+    await page.waitForFunction(
+      () =>
+        (window.__starfall?.game as Game).scene.getScene<BattleProbe>('Battle').phaseName ===
+        'target',
+      undefined,
+      { timeout: 5_000 },
+    );
+    await page.keyboard.press('z');
+    await page.waitForTimeout(200);
+  }
+  throw new Error('battle did not end');
+}
+
+test('final chapter: the key, the tower floors, the fountain and ノクス at the top', async ({
+  page,
+}) => {
+  test.setTimeout(480_000);
+  const errors = await startNewGame(page);
+  await page.evaluate(() => {
+    if (window.__starfall) window.__starfall.encounters = false;
+    const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+    const f = w.gameState.flags;
+    for (const key of [
+      'minato.mio_joined',
+      'main.core_shattered',
+      'ev.ev_core_shatter',
+      'minato.talked_to_grandpa',
+      'forest.boss_defeated',
+      'hagane.arrived',
+      'hagane.goro_joined',
+      'mine.boss_defeated',
+      'ruins.scholar_met',
+      'ruins.tide_learned',
+      'ruins.boss_defeated',
+    ]) {
+      f.set(key, true);
+    }
+    f.set('fragments.count', 3);
+    f.set('main.chapter', 4);
+    void w.interpreter.runCommands([
+      { cmd: 'add_member', id: 'ch_mio' },
+      { cmd: 'add_member', id: 'ch_goro' },
+    ]);
+  });
+  await waitForField(page, 'isEventRunning', false);
+
+  // With three fragments grandpa hands over the key, the letter and two feathers.
+  await warpTo(page, 'map_minato_luka_house', 7, 4, 'up');
+  await talk(page);
+  let s = await chapter(page);
+  expect(s.flags['minato.lighthouse_unlocked']).toBe(true);
+  expect(s.lighthouseKey).toBe(1);
+  expect(s.letter).toBe(1);
+
+  // The lighthouse door opens with the key and leads into 1F, where the shadow speaks.
+  await warpTo(page, 'map_lighthouse_path', 15, 3, 'up');
+  await walkField(page, 'ArrowUp', 15, 2);
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog');
+  expect((await chapter(page)).flags['door.lighthouse_01']).toBe(true);
+  await takeStairs(page, 'ArrowUp', 'map_lighthouse_1f');
+  await arriveOnFloor(page, 1);
+  await walkRoute(page, [
+    [12, 5],
+    [21, 5],
+  ]);
+  await takeStairs(page, 'ArrowUp', 'map_lighthouse_2f');
+  await arriveOnFloor(page, 2);
+
+  // 2F: the gates fall as the levers are pulled, then the stairs open.
+  await walkRoute(page, [
+    [3, 22],
+    [3, 13],
+    [2, 13],
+  ]);
+  await page.keyboard.press('z'); // lever A, facing left
+  await waitForField(page, 'isEventRunning', true);
+  await pressThrough(page, 'event');
+  expect((await chapter(page)).flags['lighthouse.lever_a']).toBe(true);
+  await walkRoute(page, [
+    [8, 13],
+    [8, 5],
+    [4, 5],
+  ]);
+  await page.keyboard.press('z'); // lever B, facing left
+  await waitForField(page, 'isEventRunning', true);
+  await pressThrough(page, 'event');
+  expect((await chapter(page)).flags['lighthouse.lever_b']).toBe(true);
+  await walkRoute(page, [
+    [21, 5],
+    [21, 3],
+  ]);
+  await takeStairs(page, 'ArrowUp', 'map_lighthouse_3f');
+  await arriveOnFloor(page, 3);
+  await walkRoute(page, TOWER.f3);
+  await takeStairs(page, 'ArrowUp', 'map_lighthouse_4f');
+  await arriveOnFloor(page, 4);
+  await walkRoute(page, TOWER.f4);
+  await takeStairs(page, 'ArrowUp', 'map_lighthouse_5f');
+  await arriveOnFloor(page, 5);
+
+  // 5F: the letter wakes the fountain, which heals once, then the last stairs.
+  await walkRoute(page, TOWER.f5ToPedestal);
+  await page.keyboard.press(
+    `Arrow${TOWER.pedestalFacing[0]!.toUpperCase()}${TOWER.pedestalFacing.slice(1)}`,
+  );
+  await page.waitForTimeout(150);
+  await page.keyboard.press('z');
+  await waitForField(page, 'isEventRunning', true);
+  await pressThrough(page, 'event');
+  expect((await chapter(page)).flags['lighthouse.fountain_awake']).toBe(true);
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+    for (const m of w.gameState.party) m.hp = 1;
+  });
+  await walkRoute(page, TOWER.f5ToFountain);
+  await page.keyboard.press(
+    `Arrow${TOWER.fountainFacing[0]!.toUpperCase()}${TOWER.fountainFacing.slice(1)}`,
+  );
+  await page.waitForTimeout(150);
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog');
+  await waitForMenuMode(page, 'save');
+  s = await chapter(page);
+  expect(s.flags['lighthouse.fountain_used']).toBe(true);
+  expect(s.hp.every((hp) => hp > 1)).toBe(true);
+  await page.keyboard.press('x');
+  await waitForMenuMode(page, 'root');
+  await page.keyboard.press('x');
+  await page.waitForFunction(
+    () => !(window.__starfall?.game as Game).scene.isActive('Menu'),
+    undefined,
+    { timeout: 5_000 },
+  );
+  await walkRoute(page, TOWER.f5ToStairs);
+  await takeStairs(page, 'ArrowUp', 'map_lighthouse_top');
+
+  // The top: ノクス bars the lamp; both of his forms fall and the lighthouse is relit.
+  await walkField(page, 'ArrowUp', 10, 8);
+  await waitForField(page, 'isEventRunning', true);
+  await pressUntilBattle(page);
+  await fightWeakened(page);
+  await page.waitForFunction(
+    () => {
+      const game = window.__starfall?.game as Game;
+      return game.scene.isActive('World') && !game.scene.isActive('Battle');
+    },
+    undefined,
+    { timeout: 10_000 },
+  );
+  await page.waitForTimeout(500);
+  await pressThrough(page, 'event');
+  s = await chapter(page);
+  expect(s.flags['main.nox_defeated']).toBe(true);
+  expect(s.flags['main.chapter']).toBe(5);
   expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
 });

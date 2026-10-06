@@ -158,6 +158,8 @@ export interface EnemyDef {
   imageKey: string;
   scale?: number;
   phaseNext?: string;
+  /** Lines shown when this form falls and `phaseNext` takes over (§8.4 形態移行). */
+  phaseText?: string[];
   onDefeatEvent?: string;
 }
 

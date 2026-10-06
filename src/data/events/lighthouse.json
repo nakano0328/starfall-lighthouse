@@ -1,0 +1,49 @@
+{
+  "ev_tower_voice_1": [
+    { "cmd": "set_flag", "key": "lighthouse.floor", "value": 1 },
+    { "cmd": "say", "dialog": "dlg_tower_voice_1" }
+  ],
+  "ev_tower_voice_2": [
+    { "cmd": "set_flag", "key": "lighthouse.floor", "value": 2 },
+    { "cmd": "say", "dialog": "dlg_tower_voice_2" }
+  ],
+  "ev_tower_voice_3": [
+    { "cmd": "set_flag", "key": "lighthouse.floor", "value": 3 },
+    { "cmd": "say", "dialog": "dlg_tower_voice_3" }
+  ],
+  "ev_tower_voice_4": [
+    { "cmd": "set_flag", "key": "lighthouse.floor", "value": 4 },
+    { "cmd": "say", "dialog": "dlg_tower_voice_4" }
+  ],
+  "ev_tower_voice_5": [
+    { "cmd": "set_flag", "key": "lighthouse.floor", "value": 5 },
+    { "cmd": "say", "dialog": "dlg_tower_voice_5" }
+  ],
+  "ev_tower_lever_a": [
+    { "cmd": "say", "dialog": "dlg_tower_lever" },
+    { "cmd": "set_flag", "key": "lighthouse.lever_a", "value": true }
+  ],
+  "ev_tower_lever_b": [
+    { "cmd": "say", "dialog": "dlg_tower_lever" },
+    { "cmd": "set_flag", "key": "lighthouse.lever_b", "value": true }
+  ],
+  "ev_tower_fountain_sealed": [{ "cmd": "say", "dialog": "dlg_tower_fountain_sealed" }],
+  "ev_tower_fountain_wake": [
+    { "cmd": "say", "dialog": "dlg_tower_fountain_wake" },
+    { "cmd": "play_se", "key": "se_item" },
+    { "cmd": "set_flag", "key": "lighthouse.fountain_awake", "value": true }
+  ],
+  "ev_lighthouse_top": [
+    { "cmd": "say", "dialog": "dlg_lighthouse_top" },
+    { "cmd": "battle", "group": "grp_boss_nox", "win_event": "ev_nox_win", "lose": "gameover" }
+  ],
+  "ev_nox_win": [
+    { "cmd": "say", "dialog": "dlg_nox_win" },
+    { "cmd": "flash", "ms": 400, "color": "white" },
+    { "cmd": "say", "dialog": "dlg_nox_win_relight" },
+    { "cmd": "remove_npc", "id": "npc_nox_top" },
+    { "cmd": "set_flag", "key": "main.nox_defeated", "value": true },
+    { "cmd": "set_flag", "key": "main.chapter", "value": 5 },
+    { "cmd": "end_game" }
+  ]
+}

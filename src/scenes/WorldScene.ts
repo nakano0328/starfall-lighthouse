@@ -73,6 +73,9 @@ export interface WorldSceneData {
 const DEPTH = { ground: 0, deco: 1, actors: 10, above: 20, fade: 50, hud: 100 } as const;
 
 /** Map transition fade (docs/GAME_DESIGN.md §9.2) and post-warp invulnerability. */
+/** NPC `sprite` keys that name a facing-less object texture (obj_gate) instead of the NPC sheet. */
+const isObjectSprite = (sprite: string): boolean => sprite.startsWith('obj_');
+
 const WARP_FADE_MS = 250;
 const WARP_SAFE_MS = 1000;
 /** The tide switch (§3.2): a 600 ms blue-white fade, the map relayered at its darkest. */
@@ -458,7 +461,11 @@ export class WorldScene extends Phaser.Scene {
         case 'npc':
           this.npcs.set(o.id, {
             obj: o,
-            image: this.add.image(x, y, 'sprite_npc', o.facing).setDepth(depth),
+            // An `obj_*` sprite is a facing-less object (a gate, §9.3); people share the NPC sheet.
+            image: (isObjectSprite(o.sprite)
+              ? this.add.image(x, y, o.sprite)
+              : this.add.image(x, y, 'sprite_npc', o.facing)
+            ).setDepth(depth),
             marker: this.add
               .text(x, y - NPC_MARKER_OFFSET_Y, '', {
                 fontFamily: 'sans-serif',
@@ -605,7 +612,7 @@ export class WorldScene extends Phaser.Scene {
       npc.marker.setPosition(px, py - NPC_MARKER_OFFSET_Y);
       if (now < state.stepEnd) {
         npc.facing = facingOf(state);
-        npc.image.setFrame(npc.facing);
+        this.faceNpc(npc, npc.facing);
       }
     }
   }
@@ -780,6 +787,12 @@ export class WorldScene extends Phaser.Scene {
     return `door.${this.mapId.replace(/^map_/, '')}_${String(n).padStart(2, '0')}`;
   }
 
+  /** Turns an NPC; object sprites (gates) have no facing frames. */
+  private faceNpc(npc: NpcRuntime, dir: Facing): void {
+    npc.facing = dir;
+    if (!isObjectSprite(npc.obj.sprite)) npc.image.setFrame(dir);
+  }
+
   private npcAt(x: number, y: number): NpcRuntime | undefined {
     for (const npc of this.npcs.values()) {
       if (npc.image.visible && npc.tx === x && npc.ty === y) return npc;
@@ -832,7 +845,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private talkTo(npc: NpcRuntime, playerFacing: Facing): void {
-    npc.image.setFrame(opposite(playerFacing));
+    this.faceNpc(npc, opposite(playerFacing));
     this.talkingTo = npc;
     this.startDialog(npc.obj.dialog);
   }
@@ -1090,8 +1103,7 @@ export class WorldScene extends Phaser.Scene {
         }
         const npc = this.npcs.get(actor);
         if (npc) {
-          npc.facing = dir;
-          npc.image.setFrame(dir);
+          this.faceNpc(npc, dir);
         }
       },
       wait: (ms) => new Promise<void>((resolve) => this.time.delayedCall(ms, resolve)),
@@ -1218,8 +1230,7 @@ export class WorldScene extends Phaser.Scene {
       } else {
         const npc = this.npcs.get(actor);
         if (!npc) continue;
-        npc.facing = dir;
-        npc.image.setFrame(dir);
+        this.faceNpc(npc, dir);
         const nx = npc.tx + dx;
         const ny = npc.ty + dy;
         if (!(await this.tweenTo(npc.image, nx, ny))) return;
