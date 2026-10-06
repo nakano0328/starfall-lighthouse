@@ -398,24 +398,27 @@ describe('鉱山町ハガネ gates', () => {
       if (x !== 18) expect(town.grid.isBlocked(x, 0), `(${x}, 0)`).toBe(true);
   });
 
-  it('south gate: (18, 27) bounces back to (18, 26) facing away until 磯の道 exists', () => {
-    // TODO(Phase 4c): map_shore_path — then target its north edge facing 'down'.
+  // 磯の道 (not authored here; tests/unit/maps-chapter3-shore.test.ts checks both sides)
+  // has its entrance at (19, 1) under a north edge warp on (19-20, 0) that lands back
+  // on (18, 26), the tile in front of this gate.
+  it('south gate: (18, 27) → 磯の道 (19, 1) facing down', () => {
     expect(southGate).toMatchObject({
       tx: 18,
       ty: 27,
       tw: 1,
       th: 1,
-      targetMap: TOWN,
-      targetX: 18,
-      targetY: 26,
-      facing: 'up',
+      targetMap: 'map_shore_path',
+      targetX: 19,
+      targetY: 1,
+      facing: 'down',
     });
+    expect(southGate!.requiredItem).toBeUndefined();
     expect(town.grid.isBlocked(18, 26)).toBe(false);
     expect(town.grid.isBlocked(18, 27)).toBe(false);
-    // Facing away from the warp: the tile behind the landing is the warp itself.
-    const d = FACING_DELTA[southGate!.facing];
-    expect(inRect(southGate!, { x: 18 - d.x, y: 26 - d.y })).toBe(true);
-    // No blocker on the landing or the warp.
+    // The rest of the south edge is trees, so the gate is the only way off the map there.
+    for (let x = 0; x < map_hagane_town.width; x++)
+      if (x !== 18) expect(town.grid.isBlocked(x, 27), `(${x}, 27)`).toBe(true);
+    // No blocker on the landing (where the road's return warp drops the player) or the gate.
     expect(blockersOf(TOWN).some((o) => o.ty >= 26)).toBe(false);
   });
 

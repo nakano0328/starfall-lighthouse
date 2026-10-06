@@ -98,19 +98,17 @@ export const map_hagane_town: MapSource = {
       locked_text_id: 'dlg_mine_door_locked',
       door_flag: 'door.hagane_mine_01',
     },
-    // South gate → 磯の道.
-    // TODO(Phase 4c): map_shore_path — retarget to its north edge facing 'down' once it
-    // exists. Until then the exit bounces the player back onto the tile before it, facing
-    // away from the warp so the next step does not warp again (as the forest's north-east
-    // exit does). npc_hagane_south_guard seals the gap in front of it until §13 #10.
+    // South gate → 磯の道. Lands on the road's entrance (19,1), the tile under its north
+    // edge warp (19-20, 0), which returns to (18,26) in front of this gate.
+    // npc_hagane_south_guard seals the gap in front of it until §13 #10.
     {
       type: 'warp',
       x: 18,
       y: 27,
-      target_map: 'map_hagane_town',
-      target_x: 18,
-      target_y: 26,
-      facing: 'up',
+      target_map: 'map_shore_path',
+      target_x: 19,
+      target_y: 1,
+      facing: 'down',
     },
     // ---- doors ---------------------------------------------------------------
     {
