@@ -1,0 +1,5 @@
+chapter,exp_per_battle,spec_exp_per_battle,battles,boss_exp,exp_gain,spec_exp_gain,exp_total,level,target,ok
+海岸街道・森（1 章）,30,30,12,120,480,380,480,5,5〜6,true
+山道・廃坑（2 章）,133,130,14,450,2312,2300,2792,10,10,true
+磯の道・遺跡（3 章）,409,400,14,1200,6926,6900,9718,16,16,true
+灯台（終章）,609,800,16,3000,12744,12800,22462,22,22〜25,true

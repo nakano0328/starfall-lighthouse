@@ -20,7 +20,13 @@ export default defineConfig([
     languageOptions: { globals: { ...globals.browser } },
   },
   {
-    files: ['tests/**/*.ts', 'scripts/**/*.ts', '*.config.ts', 'eslint.config.js'],
+    files: [
+      'tests/**/*.ts',
+      'scripts/**/*.ts',
+      'scripts/**/*.mjs',
+      '*.config.ts',
+      'eslint.config.js',
+    ],
     languageOptions: { globals: { ...globals.node } },
   },
   {

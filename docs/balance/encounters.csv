@@ -1,0 +1,24 @@
+id,enemies,avg_level,exp,gold,can_escape,battle_bg
+grp_coast_a,en_lost_star_slime×2,1,14,10,true,bg_coast
+grp_coast_b,en_lost_star_slime×3,1,21,15,true,bg_coast
+grp_forest_a,en_whisper_bat×2 en_mushroom_kid×1,2.3,32,22,true,bg_forest
+grp_forest_b,en_forest_wolf×1 en_whisper_bat×1,3,25,17,true,bg_forest
+grp_forest_c,en_thorn_vine×1 en_mushroom_kid×2,3.7,40,28,true,bg_forest
+grp_forest_d,en_forest_wolf×2 en_thorn_vine×1,4.3,46,32,true,bg_forest
+grp_mine_a,en_mine_rat×2 en_glow_bug×1,6.3,140,56,true,bg_mine
+grp_mine_b,en_ore_spider×2,8,110,44,true,bg_mine
+grp_mine_c,en_minecart_ghost×1 en_mine_rat×1,7.5,110,44,true,bg_mine
+grp_mine_d,en_minecart_ghost×1 en_ore_spider×1 en_glow_bug×1,8,170,68,true,bg_mine
+grp_ruins_a,en_tidepool_crab×2,11,340,96,true,bg_ruins
+grp_ruins_b,en_ruin_statue×1 en_hollow_shell×1,13.5,375,108,true,bg_ruins
+grp_ruins_c,en_hollow_shell×2 en_tidepool_crab×1,12.3,530,152,true,bg_ruins
+grp_ruins_d,en_ruin_statue×2,14,390,112,true,bg_ruins
+grp_tower_a,en_shadow_hand×2,18,520,180,true,bg_lighthouse
+grp_tower_b,en_false_light×2 en_shadow_hand×1,19.3,820,280,true,bg_lighthouse
+grp_tower_c,en_false_light×1 en_lost_star_slime×2,7.3,294,105,true,bg_lighthouse
+grp_tower_d,en_shadow_hand×2 en_false_light×1,18.7,800,275,true,bg_lighthouse
+grp_boss_tree,bo_old_tree_hollow×1,5,120,150,false,bg_forest
+grp_boss_golem,bo_rock_golem×1,10,450,600,false,bg_mine
+grp_boss_guardian,bo_ruin_guardian×1,16,1200,1500,false,bg_ruins
+grp_boss_nox,bo_nox_phase1×1,24,0,0,false,bg_lighthouse_top
+grp_boss_nox2,bo_nox_phase2×1,24,3000,0,false,bg_lighthouse_top
