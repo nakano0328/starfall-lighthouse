@@ -280,6 +280,32 @@ function isSaveData(value: Record<string, unknown>): value is Record<string, unk
  * Finds which slots hold a loadable save. `read` abstracts localStorage so this
  * stays pure (and testable); it returns the raw string for a key or null.
  */
+/** Reads and migrates one stored save (a slot key or SAVE_KEY_AUTO); null when absent or broken. */
+export function readSave(
+  read: (key: string) => string | null,
+  key: string,
+  ctx: MigrationContext,
+): SaveData | null {
+  const raw = read(key);
+  return raw === null ? null : deserialize(raw, ctx);
+}
+
+/** Every stored save: the numbered slots in order, then the auto backup (§5.11 / §13 #20). */
+export function allSaveKeys(): string[] {
+  const keys: string[] = [];
+  for (let slot = 0; slot < SAVE_SLOT_COUNT; slot += 1) keys.push(slotKey(slot));
+  keys.push(SAVE_KEY_AUTO);
+  return keys;
+}
+
+/** Whether any stored save has seen the ending (the title's star, §11.5). */
+export function anySaveCleared(
+  read: (key: string) => string | null,
+  ctx: MigrationContext,
+): boolean {
+  return allSaveKeys().some((key) => readSave(read, key, ctx)?.flags['main.ending_seen'] === true);
+}
+
 export function findSlotsWithSaves(
   read: (key: string) => string | null,
   ctx: MigrationContext,

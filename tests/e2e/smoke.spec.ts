@@ -1543,3 +1543,80 @@ test('chapter 3: the scholar, the tide steles, the sunken chart and 遺跡の番
   expect(s.flags['ruins.nox_on_stage']).toBe(false);
   expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
 });
+
+type EndingProbe = { phaseName: string; rollLineCount: number };
+type TitleProbe = { currentMode: string; hasCleared: boolean; slotLabels: string[] };
+
+test('ending: end_game rewinds the save to 5F, rolls the credits and stars the title', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const errors = await startNewGame(page);
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+    w.gameState.flags.set('main.chapter', 5);
+    void w.interpreter.runCommands([{ cmd: 'end_game' }]);
+  });
+  await page.waitForFunction(() => window.__starfall?.scene === 'Ending', undefined, {
+    timeout: 10_000,
+  });
+  const ending = () =>
+    page.evaluate(() => {
+      const e = (window.__starfall?.game as Game).scene.getScene<EndingProbe>('Ending');
+      return { phase: e.phaseName, lines: e.rollLineCount };
+    });
+  expect((await ending()).phase).toBe('visual');
+  await page.keyboard.press('z');
+  await page.waitForFunction(
+    () =>
+      (window.__starfall?.game as Game).scene.getScene<EndingProbe>('Ending').phaseName === 'roll',
+    undefined,
+    { timeout: 5_000 },
+  );
+  expect((await ending()).lines).toBeGreaterThan(8);
+  // Z held fast-forwards the roll.
+  await page.keyboard.down('z');
+  await page.waitForFunction(
+    () =>
+      (window.__starfall?.game as Game).scene.getScene<EndingProbe>('Ending').phaseName === 'end',
+    undefined,
+    { timeout: 60_000 },
+  );
+  await page.keyboard.up('z');
+  await page.waitForTimeout(300);
+  await page.keyboard.press('z');
+  await page.waitForFunction(() => window.__starfall?.scene === 'Title', undefined, {
+    timeout: 10_000,
+  });
+  await page.waitForTimeout(500);
+  const title = () =>
+    page.evaluate(() => {
+      const t = (window.__starfall?.game as Game).scene.getScene<TitleProbe>('Title');
+      return { mode: t.currentMode, cleared: t.hasCleared, slots: t.slotLabels };
+    });
+  expect((await title()).cleared).toBe(true);
+  // つづきから lists the auto save, which continues from the 5F save point.
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(200);
+  await page.keyboard.press('z');
+  await page.waitForFunction(
+    () =>
+      (window.__starfall?.game as Game).scene.getScene<TitleProbe>('Title').currentMode === 'slots',
+    undefined,
+    { timeout: 5_000 },
+  );
+  const slots = (await title()).slots;
+  expect(slots.some((l) => l.startsWith('オート') && !l.includes('----'))).toBe(true);
+  // The three empty slots are disabled, so the cursor already rests on オート.
+  await page.keyboard.press('z');
+  await page.waitForFunction(() => window.__starfall?.scene === 'World', undefined, {
+    timeout: 10_000,
+  });
+  await waitForFieldMap(page, 'map_lighthouse_5f');
+  await waitForField(page, 'isMoving', false);
+  await page.waitForTimeout(500);
+  const s = await chapter(page);
+  expect(s.flags['main.ending_seen']).toBe(true);
+  expect((await fieldWorld(page)).tile).toMatchObject({ x: 21, y: 3 });
+  expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
+});

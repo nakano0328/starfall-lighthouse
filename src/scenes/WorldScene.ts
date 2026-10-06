@@ -42,10 +42,13 @@ import { createMember, memberStats } from '@core/party/member';
 import type { Settings } from '@core/settings';
 import { innPrice, payInn } from '@core/shop';
 import { SETTINGS_KEY, TEXT_SPEED_MS, parseSettings } from '@core/settings';
+import { SAVE_KEY_AUTO, serialize } from '@core/save';
 import type { GameState } from '@core/state';
+import { toSaveData } from '@core/state';
 import { CHARACTERS } from '@data/characters';
 import { DIALOGS } from '@data/dialogs';
 import { getEncounter } from '@data/encounters';
+import { ENDING_REWIND } from '@data/ending';
 import { getEnemy } from '@data/enemies';
 import { EVENTS } from '@data/events';
 import { findEquip } from '@data/equipment';
@@ -692,6 +695,22 @@ export class WorldScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * `end_game` (§11.5 / §13 #20): marks the clear, rewinds the party to the 5F save
+   * point and writes that as the auto save, then plays the ending.
+   */
+  private finishGame(): void {
+    this.flags.set('main.ending_seen', true);
+    this.save.location = { ...ENDING_REWIND };
+    this.healParty();
+    writeStorage(SAVE_KEY_AUTO, serialize(toSaveData(this.state, Date.now())));
+    this.transitioning = true;
+    this.input2.flush();
+    void this.fade('out', WARP_FADE_MS * 2, 'black').then(() => {
+      this.scene.start(SceneKey.Ending);
+    });
+  }
+
   /** Leaves the field for the defeat screen (§5.11). */
   private gameOver(): void {
     this.transitioning = true;
@@ -1128,7 +1147,7 @@ export class WorldScene extends Phaser.Scene {
         if (lose === 'gameover') this.gameOver();
         return 'lose';
       },
-      endGame: () => undefined, // ending lands in Phase 5
+      endGame: () => this.finishGame(),
     };
   }
 
@@ -1323,6 +1342,15 @@ function opposite(facing: Facing): Facing {
       return 'right';
     case 'right':
       return 'left';
+  }
+}
+
+function writeStorage(key: string, value: string): boolean {
+  try {
+    window.localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
   }
 }
 

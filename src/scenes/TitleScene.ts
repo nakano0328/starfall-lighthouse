@@ -2,7 +2,16 @@ import Phaser from 'phaser';
 
 import { COLORS, GAME_HEIGHT, GAME_TITLE, GAME_TITLE_EN, GAME_VERSION, GAME_WIDTH } from '@/config';
 import type { SaveData } from '@core/save';
-import { SAVE_SLOT_COUNT, deserialize, findSlotsWithSaves, slotKey, slotSummary } from '@core/save';
+import {
+  SAVE_KEY_AUTO,
+  SAVE_SLOT_COUNT,
+  anySaveCleared,
+  deserialize,
+  findSlotsWithSaves,
+  readSave,
+  slotKey,
+  slotSummary,
+} from '@core/save';
 import { levelFromExp } from '@core/party/exp';
 import { CHARACTERS } from '@data/characters';
 import { MIGRATION_CONTEXT, loadGameState, newGameState, placeName } from '@data/saveContext';
@@ -25,6 +34,7 @@ export class TitleScene extends Phaser.Scene {
   private slotWindow: Window | undefined;
   private mode: 'main' | 'slots' = 'main';
   private starting = false;
+  private cleared = false;
 
   constructor() {
     super(SceneKey.Title);
@@ -67,7 +77,22 @@ export class TitleScene extends Phaser.Scene {
       })
       .setOrigin(1, 1);
 
-    const hasSave = findSlotsWithSaves(readStorage, MIGRATION_CONTEXT).length > 0;
+    const hasSave =
+      findSlotsWithSaves(readStorage, MIGRATION_CONTEXT).length > 0 ||
+      readSave(readStorage, SAVE_KEY_AUTO, MIGRATION_CONTEXT) !== null;
+    // A star once any save has seen the ending (§11.5).
+    this.cleared = anySaveCleared(readStorage, MIGRATION_CONTEXT);
+    if (this.cleared) {
+      this.add
+        .text(GAME_WIDTH / 2 + 150, 70, '★', {
+          fontFamily: 'sans-serif',
+          fontSize: '28px',
+          color: COLORS.textAccent,
+          stroke: '#000000',
+          strokeThickness: 3,
+        })
+        .setOrigin(0.5);
+    }
     this.input2 = new InputBindings(this);
     this.menu = new ListMenu(this, {
       x: GAME_WIDTH / 2 - 80,
@@ -99,6 +124,16 @@ export class TitleScene extends Phaser.Scene {
     return this.mode;
   }
 
+  /** e2e/debug: whether the clear star is shown. */
+  get hasCleared(): boolean {
+    return this.cleared;
+  }
+
+  /** e2e/debug: the slot list labels (つづきから). */
+  get slotLabels(): string[] {
+    return this.slotMenu?.itemLabels ?? [];
+  }
+
   private onConfirm(index: number): void {
     if (index === 0) this.startGame(newGameState(Date.now()));
     else if (index === 1) this.showSlots();
@@ -122,8 +157,20 @@ export class TitleScene extends Phaser.Scene {
         label: `スロット ${slot + 1}   ${s.chapter}  ${s.place}  ${leader} Lv${levelFromExp(s.leaderExp)}  ${s.playTime}`,
       });
     }
+    // The auto backup (ボス前 / クリア後の巻き戻し, §5.11 / §13 #20) continues like a slot.
+    const auto = readSave(readStorage, SAVE_KEY_AUTO, MIGRATION_CONTEXT);
+    saves.push(auto);
+    if (auto) {
+      const s = slotSummary(auto, placeName);
+      const leader = CHARACTERS[s.leaderId].name;
+      items.push({
+        label: `オート      ${s.chapter}  ${s.place}  ${leader} Lv${levelFromExp(s.leaderExp)}  ${s.playTime}`,
+      });
+    } else {
+      items.push({ label: 'オート      ----', disabled: true });
+    }
     items.push({ label: 'もどる' });
-    this.slotWindow = new Window(this, 40, 176, GAME_WIDTH - 80, 150);
+    this.slotWindow = new Window(this, 40, 176, GAME_WIDTH - 80, 178);
     this.menu.setVisible(false);
     this.slotMenu = new ListMenu(this, {
       x: 56,
@@ -133,7 +180,7 @@ export class TitleScene extends Phaser.Scene {
       items,
       onConfirm: (index) => {
         const data = saves[index];
-        if (index < SAVE_SLOT_COUNT && data) this.startGame(loadGameState(data));
+        if (index < saves.length && data) this.startGame(loadGameState(data));
         else this.hideSlots();
       },
       onCancel: () => this.hideSlots(),
