@@ -1,0 +1,297 @@
+{
+  "dlg_sign_mountain_entrance": {
+    "pages": ["山道\n西：ささやきの森　東：鉱山町ハガネ"]
+  },
+  "dlg_sign_mountain_mine": {
+    "pages": [
+      "古びた 立て札。\n「星が 落ちた夜から、\n山の 廃坑は 封じられた。",
+      "かぎは 元鉱夫の ゴローが\n預かっている。\n無断で 入るべからず」"
+    ]
+  },
+  "dlg_sign_hagane": {
+    "pages": ["鉱山町ハガネ\n北：廃坑　南：磯の道\n西：山道"]
+  },
+  "dlg_mine_door_locked": {
+    "pages": ["廃坑の 扉は 鎖で\n固く 封じられている。\n廃坑のかぎが 要りそうだ。"]
+  },
+  "dlg_hagane_south_guard": {
+    "pages": [],
+    "branches": [
+      { "if": "mine.boss_defeated", "next": "dlg_hagane_south_guard_open" },
+      { "next": "dlg_hagane_south_guard_closed" }
+    ]
+  },
+  "dlg_hagane_south_guard_closed": {
+    "speaker": "門番",
+    "pages": [
+      "この先は 磯の道だ。\n廃坑の 騒ぎが 片づくまで\n南門は 閉めておく。",
+      "海へ 行きたいなら\n廃坑を どうにかしてくれ。"
+    ]
+  },
+  "dlg_hagane_south_guard_open": {
+    "speaker": "門番",
+    "pages": [
+      "廃坑の 騒ぎを 片づけたのは\nお前さんたちか。\n南門は 開けてある。",
+      "磯の道を 下れば 海だ。\n潮には 気をつけろよ。"
+    ]
+  },
+  "dlg_hagane_elder": {
+    "pages": [],
+    "branches": [
+      { "if": "mine.boss_defeated", "next": "dlg_hagane_elder_ch3" },
+      { "if": "hagane.goro_joined", "next": "dlg_hagane_elder_mine" },
+      { "next": "dlg_hagane_elder_01" }
+    ]
+  },
+  "dlg_hagane_elder_01": {
+    "speaker": "長老",
+    "pages": [
+      "よく 来たな、旅の子ら。\nここは 鉱山町ハガネじゃ。",
+      "北の 廃坑は 星が 落ちた夜に\n封じた。かぎは ゴローが\n持っておる。",
+      "ゴローは 元鉱夫でな。\n口は 悪いが、話は 聞く。\n会ってみるがよい。"
+    ]
+  },
+  "dlg_hagane_elder_mine": {
+    "speaker": "長老",
+    "pages": [
+      "ゴローが 腰を 上げたか。\nあの男が 一緒なら 心強い。",
+      "廃坑の 底には 昔から\n守り手が おるという。\n気をつけて 行け。"
+    ]
+  },
+  "dlg_hagane_elder_ch3": {
+    "speaker": "長老",
+    "pages": [
+      "廃坑の 守り手を 鎮めたか。\nよう やった。\n南門は 開けさせた。",
+      "南の 磯の道を 下れば\n沈んだ遺跡じゃ。\n学者が キャンプを 張っておる。"
+    ]
+  },
+  "dlg_hagane_miner_a": {
+    "pages": [],
+    "branches": [
+      { "if": "mine.boss_defeated", "next": "dlg_hagane_miner_a_ch3" },
+      { "if": "hagane.goro_joined", "next": "dlg_hagane_miner_a_mine" },
+      { "next": "dlg_hagane_miner_a_01" }
+    ]
+  },
+  "dlg_hagane_miner_a_01": {
+    "speaker": "鉱夫",
+    "pages": [
+      "廃坑が 封じられて 仕事が ねえ。\n毎日 ひまで しかたねえ。",
+      "かぎは ゴローが 持ってる。\n頼んでも 首を\n縦に 振らねえがな。"
+    ]
+  },
+  "dlg_hagane_miner_a_mine": {
+    "speaker": "鉱夫",
+    "pages": ["ゴローと 廃坑に 行くのか。\n下の 坑道は 水が たまってる。\n足元に 気をつけな。"]
+  },
+  "dlg_hagane_miner_a_ch3": {
+    "speaker": "鉱夫",
+    "pages": [
+      "廃坑が また 使えるって\nほんとか！ 仕事が 戻るぜ！",
+      "南の 磯の道も 通れるように\nなったとよ。\n海まで 一本道だ。"
+    ]
+  },
+  "dlg_hagane_miner_b": {
+    "pages": [],
+    "branches": [
+      { "if": "mine.boss_defeated", "next": "dlg_hagane_miner_b_ch3" },
+      { "if": "hagane.goro_joined", "next": "dlg_hagane_miner_b_mine" },
+      { "next": "dlg_hagane_miner_b_01" }
+    ]
+  },
+  "dlg_hagane_miner_b_01": {
+    "speaker": "鉱夫",
+    "pages": [
+      "星が 落ちた夜、廃坑の 奥で\n地鳴りが したんだ。",
+      "それから 長老が 坑道を 封じて、\nかぎを ゴローに 預けた。"
+    ]
+  },
+  "dlg_hagane_miner_b_mine": {
+    "speaker": "鉱夫",
+    "pages": ["鉱石クモには 気をつけろ。\n毒を 持ってる。\nどくけしを 持っていけ。"]
+  },
+  "dlg_hagane_miner_b_ch3": {
+    "speaker": "鉱夫",
+    "pages": [
+      "廃坑の 奥に 岩のゴーレムが\nいたなんてな……。\n守り手の 話は 本当だった。",
+      "磯の道の 先の 遺跡に\n学者が 来てるらしい。\n変わり者だって 噂だ。"
+    ]
+  },
+  "dlg_hagane_child": {
+    "pages": [],
+    "branches": [
+      { "if": "mine.boss_defeated", "next": "dlg_hagane_child_ch3" },
+      { "if": "hagane.goro_joined", "next": "dlg_hagane_child_mine" },
+      { "next": "dlg_hagane_child_01" }
+    ]
+  },
+  "dlg_hagane_child_01": {
+    "speaker": "子ども",
+    "pages": [
+      "ゴローの おじさん、\nいつも こわい 顔してるんだ。\nでも パンを くれたよ。",
+      "廃坑は かぎが ないと\n入れないんだって。"
+    ]
+  },
+  "dlg_hagane_child_mine": {
+    "speaker": "子ども",
+    "pages": ["ゴローの おじさんと\n廃坑に 行くの？\nおみやげ 持ってきてね！"]
+  },
+  "dlg_hagane_child_ch3": {
+    "speaker": "子ども",
+    "pages": ["南の 門が 開いたよ！\n海が 見えるんだって。\nぼくも 行ってみたいなあ。"]
+  },
+  "dlg_hagane_woman": {
+    "pages": [],
+    "branches": [
+      { "if": "mine.boss_defeated", "next": "dlg_hagane_woman_ch3" },
+      { "if": "hagane.goro_joined", "next": "dlg_hagane_woman_mine" },
+      { "next": "dlg_hagane_woman_01" }
+    ]
+  },
+  "dlg_hagane_woman_01": {
+    "speaker": "女の人",
+    "pages": [
+      "ようこそ、ハガネへ。\n宿屋「つるはし」なら\nゆっくり 休めるよ。",
+      "廃坑は 封じられてるから\n近づいちゃ だめよ。\nかぎは ゴローが 持ってるの。"
+    ]
+  },
+  "dlg_hagane_woman_mine": {
+    "speaker": "女の人",
+    "pages": [
+      "ゴローが 廃坑へ 戻るなんてね。\nあの人、昔は 一番の 鉱夫\nだったのよ。",
+      "けがを したら 宿で 休んでね。\n一泊 40G よ。"
+    ]
+  },
+  "dlg_hagane_woman_ch3": {
+    "speaker": "女の人",
+    "pages": [
+      "南の 磯の道は 海沿いよ。\n潮だまりが きれいなの。",
+      "沈んだ遺跡には 近づかないって\n決まりだったけど……\n学者さんは 気にしないみたい。"
+    ]
+  },
+  "dlg_hagane_innkeeper": {
+    "speaker": "宿の主人",
+    "pages": ["いらっしゃい、宿屋「つるはし」だ。\nひと晩 40G。\nゆっくり 休んでいきな。"]
+  },
+  "dlg_hagane_clerk": {
+    "pages": [],
+    "branches": [
+      { "if": "mine.boss_defeated", "next": "dlg_hagane_clerk_ch3" },
+      { "next": "dlg_hagane_clerk_01" }
+    ]
+  },
+  "dlg_hagane_clerk_01": {
+    "speaker": "店番",
+    "pages": ["道具は こっちの カウンターだ。\n廃坑へ 行くなら\nどくけしは 多めにな。"]
+  },
+  "dlg_hagane_clerk_ch3": {
+    "speaker": "店番",
+    "pages": ["廃坑が 開いて 荷が 届いた。\n上等な 薬も 並べたよ。\n見ていってくれ。"]
+  },
+  "dlg_hagane_smith": {
+    "pages": [],
+    "branches": [
+      { "if": "sq.ore==2", "next": "dlg_hagane_smith_thanks" },
+      { "if": "sq.ore==1", "next": "dlg_hagane_smith_check" },
+      { "if": "hagane.goro_joined", "next": "dlg_hagane_smith_offer" },
+      { "next": "dlg_hagane_smith_01" }
+    ]
+  },
+  "dlg_hagane_smith_01": {
+    "speaker": "かじや",
+    "pages": [
+      "かじやへ ようこそ。\n炉の 火は 絶やしちゃいない。",
+      "武具は 左の カウンター、\n道具は 右だ。見ていきな。"
+    ]
+  },
+  "dlg_hagane_smith_offer": {
+    "speaker": "かじや",
+    "pages": [
+      "ゴローを 連れ出したのは\nお前さんか。なら 頼みがある。",
+      "廃坑で かがやき鉱石を\n三つ 集めてきてくれ。\n大槌を 打ち直してやる。"
+    ],
+    "choices": [
+      {
+        "text": "ひきうける",
+        "next": "dlg_hagane_smith_accept",
+        "effects": [{ "cmd": "set_flag", "key": "sq.ore", "value": 1 }]
+      },
+      { "text": "また今度", "next": "dlg_hagane_smith_decline" }
+    ]
+  },
+  "dlg_hagane_smith_accept": {
+    "speaker": "かじや",
+    "pages": ["よし。鉱石クモが 持ってる。\n坑道の 壁にも 光ってるはずだ。"]
+  },
+  "dlg_hagane_smith_decline": {
+    "speaker": "かじや",
+    "pages": ["そうか。気が 向いたら 頼む。\n炉は いつでも 燃えてるぞ。"]
+  },
+  "dlg_hagane_smith_check": {
+    "pages": [],
+    "branches": [
+      { "if": "item.it_shining_ore>=3", "next": "dlg_hagane_smith_handover" },
+      { "next": "dlg_hagane_smith_searching" }
+    ]
+  },
+  "dlg_hagane_smith_searching": {
+    "speaker": "かじや",
+    "pages": ["かがやき鉱石は どうだ？\nまだ 3 つ そろっていないな。\nあせらず 集めてきな。"]
+  },
+  "dlg_hagane_smith_handover": {
+    "speaker": "かじや",
+    "pages": [
+      "おお、三つ そろったな！\n……いい 光だ。",
+      "待ってな。……よし、できた。\nやまわりの大槌だ。\nゴローに 持たせてやれ。"
+    ],
+    "effects": [
+      { "cmd": "take_item", "item": "it_shining_ore", "qty": 3 },
+      { "cmd": "give_item", "item": "eq_wp_goro_4", "qty": 1 },
+      { "cmd": "play_se", "key": "se_item" },
+      { "cmd": "set_flag", "key": "sq.ore", "value": 2 }
+    ]
+  },
+  "dlg_hagane_smith_thanks": {
+    "speaker": "かじや",
+    "pages": ["やまわりの大槌は どうだ？\nゴローの 腕なら\n岩でも 砕けるだろうよ。"]
+  },
+  "dlg_goro_home": {
+    "speaker": "ゴロー",
+    "portrait": "portrait_goro_neutral",
+    "pages": ["……なんだ？"]
+  },
+  "dlg_goro_join_01": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_neutral",
+    "pages": [
+      "ゴローさん ですか？\n灯台の 星心が 砕けて、\n欠片が 廃坑に 落ちたんです。",
+      "廃坑の かぎを\n貸して もらえませんか。"
+    ],
+    "next": "dlg_goro_join_02"
+  },
+  "dlg_goro_join_02": {
+    "speaker": "ゴロー",
+    "portrait": "portrait_goro_stern",
+    "pages": [
+      "……星の欠片だと？\nあの夜の 地鳴りは それか。",
+      "ふん。子どもに 廃坑は\n無理だ。帰んな。",
+      "……と 言いたいところだが、\n坑道は 俺が 一番 知ってる。",
+      "俺が 案内してやる。\nほら、廃坑のかぎだ。\n……なくすんじゃねえぞ。"
+    ],
+    "next": "dlg_goro_join_03"
+  },
+  "dlg_goro_join_03": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_smile",
+    "pages": [
+      "ふふ、こわい 顔して\nほんとは やさしいんだ？",
+      "……にらまないでよ。\nほら、行こう、ルカ！"
+    ]
+  },
+  "dlg_hagane_arrive": {
+    "pages": [
+      "鉱山町ハガネ。\n町じゅうに トロッコの レールが\n走っている。",
+      "町の 北には 廃坑の 門。\n鎖で 固く 封じられていた。"
+    ]
+  }
+}

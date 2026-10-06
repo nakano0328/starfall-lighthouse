@@ -1,0 +1,53 @@
+{
+  "dlg_sign_mine_b1": {
+    "pages": ["廃坑 B1\n南：鉱山町ハガネ\n奥の はしごで B2 へ"]
+  },
+  "dlg_sign_mine_b2": {
+    "pages": ["廃坑 B2\n「この先の 坑道は 水没。\n立ち入り 禁止」"]
+  },
+  "dlg_sign_mine_b3": {
+    "pages": ["廃坑 B3\n「この先 最深部。\n守り手 眠る。起こすな」"]
+  },
+  "dlg_mine_vein": {
+    "pages": ["壁の 奥で 何かが 光っている。\nかがやき鉱石の 鉱脈だ。"],
+    "next": "dlg_mine_vein_goro"
+  },
+  "dlg_mine_vein_goro": {
+    "speaker": "ゴロー",
+    "portrait": "portrait_goro_smile",
+    "pages": ["ここは 俺が 掘る。\n下がってな。", "……ほら、いい 石だ。\n持っていけ。"]
+  },
+  "dlg_mine_boss_intro": {
+    "pages": ["最深部の 岩が、音を 立てて\n起き上がった。\n胸の 奥で 欠片が 光っている。"],
+    "next": "dlg_mine_boss_intro_goro"
+  },
+  "dlg_mine_boss_intro_goro": {
+    "speaker": "ゴロー",
+    "portrait": "portrait_goro_stern",
+    "pages": [
+      "……こいつは 廃坑の 守り手だ。\n昔、坑夫を 守っていた。",
+      "欠片に 当てられて\n狂っちまったか。"
+    ],
+    "next": "dlg_mine_boss_intro_luka"
+  },
+  "dlg_mine_boss_intro_luka": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_neutral",
+    "pages": ["欠片を 取り戻せば\n元に 戻るはず。\nゴローさん、ミオ、行くよ！"]
+  },
+  "dlg_mine_boss_win": {
+    "pages": [
+      "ゴーレムは 静かに 膝を つき、\n岩の 胸から 欠片が こぼれ落ちた。",
+      "欠片は 手の中で\nあたたかく 光っている。"
+    ],
+    "next": "dlg_mine_boss_win_goro"
+  },
+  "dlg_mine_boss_win_goro": {
+    "speaker": "ゴロー",
+    "portrait": "portrait_goro_smile",
+    "pages": [
+      "……守り手も、これで 眠れる。\nよく やったな、お前ら。",
+      "ふたつめだ。\n次は 海だったな。\n南門は 俺が 開けさせる。"
+    ]
+  }
+}

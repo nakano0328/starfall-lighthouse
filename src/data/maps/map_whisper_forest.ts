@@ -11,9 +11,9 @@ import { OUTDOOR_LEGEND } from './legends';
  * - North clearing (x18-32, y4-10): the shrine façade (walls y2-3, door at (25,3))
  *   with the save point, the hint sign and the fire-stone chest; the door warp needs
  *   `it_key_shrine` (§13 #6).
- * - North-east trail (y5-9, x33-49): ends at the east edge (49,6); `npc_forest_vine`
- *   stands on the single-tile trail at (48,6) and seals it until `fragments.count>=1`
- *   (§13 #7). The warp there is a placeholder until 山道 exists.
+ * - North-east trail (y5-9, x33-49): ends at the east edge (49,6), which leads on to
+ *   山道; `npc_forest_vine` stands on the single-tile trail at (48,6) and seals it until
+ *   `fragments.count>=1` (§13 #7).
  * - East clearing (x32-42, y17-25) with the gold chest; a dead-end trail from its
  *   south side leads to the shrine-key chest (46,33) (§7.1 `chest.forest_02`).
  * - South-west glade (x4-12, y27-34): the necklace chest sits in a one-tile notch at
@@ -103,17 +103,16 @@ export const map_whisper_forest: MapSource = {
       locked_text_id: 'dlg_shrine_door_locked',
       door_flag: 'door.forest_shrine_01',
     },
-    // North-east exit at the end of the vine trail → 山道.
-    // TODO(Phase 4b): map_mountain_road — until it exists the exit bounces the player
-    // back onto the trail; npc_forest_vine seals that tile until the first fragment.
+    // North-east exit at the end of the vine trail → 山道 west end (its edge tile x0 holds
+    // the return warp); npc_forest_vine seals the trail tile until the first fragment.
     {
       type: 'warp',
       x: 49,
       y: 6,
-      target_map: 'map_whisper_forest',
-      target_x: 48,
-      target_y: 6,
-      facing: 'left',
+      target_map: 'map_mountain_road',
+      target_x: 1,
+      target_y: 17,
+      facing: 'right',
     },
     // The thorn vine on the single-tile trail before the north-east exit (§13 #7).
     {
