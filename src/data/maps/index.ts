@@ -21,6 +21,12 @@ import { map_shore_path } from './map_shore_path';
 import { map_ruins_camp } from './map_ruins_camp';
 import { map_sunken_ruins_1f } from './map_sunken_ruins_1f';
 import { map_sunken_ruins_b1 } from './map_sunken_ruins_b1';
+import { map_lighthouse_1f } from './map_lighthouse_1f';
+import { map_lighthouse_2f } from './map_lighthouse_2f';
+import { map_lighthouse_3f } from './map_lighthouse_3f';
+import { map_lighthouse_4f } from './map_lighthouse_4f';
+import { map_lighthouse_5f } from './map_lighthouse_5f';
+import { map_lighthouse_top } from './map_lighthouse_top';
 
 /** Every authored map, keyed by map id. Add new maps here (docs/GAME_DESIGN.md §3.1). */
 export const MAP_SOURCES: Readonly<Record<string, MapSource>> = Object.freeze({
@@ -44,6 +50,12 @@ export const MAP_SOURCES: Readonly<Record<string, MapSource>> = Object.freeze({
   [map_ruins_camp.meta.id]: map_ruins_camp,
   [map_sunken_ruins_1f.meta.id]: map_sunken_ruins_1f,
   [map_sunken_ruins_b1.meta.id]: map_sunken_ruins_b1,
+  [map_lighthouse_1f.meta.id]: map_lighthouse_1f,
+  [map_lighthouse_2f.meta.id]: map_lighthouse_2f,
+  [map_lighthouse_3f.meta.id]: map_lighthouse_3f,
+  [map_lighthouse_4f.meta.id]: map_lighthouse_4f,
+  [map_lighthouse_5f.meta.id]: map_lighthouse_5f,
+  [map_lighthouse_top.meta.id]: map_lighthouse_top,
 });
 
 export const MAP_IDS: readonly string[] = Object.keys(MAP_SOURCES);
