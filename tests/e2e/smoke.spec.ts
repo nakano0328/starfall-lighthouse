@@ -1033,7 +1033,10 @@ const chapter = (page: Page) =>
       gold: w.gameState.gold,
       party: w.gameState.party.map((m) => m.id),
       hp: w.gameState.party.map((m) => m.hp),
-      count: (id: string) => w.gameState.inventory.count(id),
+      mineKey: w.gameState.inventory.count('it_key_mine'),
+      ore: w.gameState.inventory.count('it_shining_ore'),
+      hammer: w.gameState.inventory.count('eq_wp_goro_4'),
+      fragment2: w.gameState.inventory.count('it_fragment_2'),
       lunch: w.gameState.inventory.count('it_mio_lunch'),
       oil: w.gameState.inventory.count('it_lamp_oil'),
       herbs: w.gameState.inventory.count('it_herb'),
@@ -1191,5 +1194,154 @@ test('chapter 1: Mio joins, the core shatters, the forest shrine falls and the n
   expect(s.gold).toBe(300);
   expect(s.ring).toBe(1);
   expect(s.necklace).toBe(0);
+  expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
+});
+
+test('chapter 2: ゴロー joins, the mine opens, the vein and the smith, 岩のゴーレム falls', async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  const errors = await startNewGame(page);
+  await page.evaluate(() => {
+    if (window.__starfall) window.__starfall.encounters = false;
+    const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+    const f = w.gameState.flags;
+    f.set('minato.mio_joined', true);
+    f.set('main.core_shattered', true);
+    f.set('minato.talked_to_grandpa', true);
+    f.set('forest.boss_defeated', true);
+    f.set('fragments.count', 1);
+    f.set('main.chapter', 2);
+    void w.interpreter.runCommands([{ cmd: 'add_member', id: 'ch_mio' }]);
+  });
+  await waitForField(page, 'isEventRunning', false);
+  // Arriving in ハガネ through the mountain road's east exit fires the town narration.
+  await warpTo(page, 'map_mountain_road', 38, 4, 'right');
+  await page.keyboard.down('ArrowRight');
+  await waitForFieldMap(page, 'map_hagane_town');
+  await page.keyboard.up('ArrowRight');
+  await waitForField(page, 'isEventRunning', true);
+  await pressThrough(page, 'event');
+  let s = await chapter(page);
+  expect(s.flags['hagane.arrived']).toBe(true);
+  expect(s.party).toEqual(['ch_luka', 'ch_mio']);
+
+  // ゴロー joins at his table and hands over the mine key.
+  await warpTo(page, 'map_hagane_goro_house', 5, 7, 'up');
+  await walkField(page, 'ArrowUp', 5, 6);
+  await pressThrough(page, 'event');
+  s = await chapter(page);
+  expect(s.flags['hagane.goro_joined']).toBe(true);
+  expect(s.party).toEqual(['ch_luka', 'ch_mio', 'ch_goro']);
+  expect(s.mineKey).toBe(1);
+
+  // The mine gate opens with the key; ladders lead down to B3.
+  await warpTo(page, 'map_hagane_town', 18, 2, 'up');
+  await walkField(page, 'ArrowUp', 18, 1);
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog');
+  expect((await chapter(page)).flags['door.hagane_mine_01']).toBe(true);
+  await page.keyboard.down('ArrowUp');
+  await waitForFieldMap(page, 'map_mine_b1');
+  await page.keyboard.up('ArrowUp');
+  await page.waitForTimeout(500);
+  await warpTo(page, 'map_mine_b1', 36, 6, 'up');
+  await page.keyboard.down('ArrowUp');
+  await waitForFieldMap(page, 'map_mine_b2');
+  await page.keyboard.up('ArrowUp');
+  await page.waitForTimeout(500);
+  await warpTo(page, 'map_mine_b2', 4, 28, 'down');
+  await page.keyboard.down('ArrowDown');
+  await waitForFieldMap(page, 'map_mine_b3');
+  await page.keyboard.up('ArrowDown');
+  await page.waitForTimeout(500);
+
+  // The glittering vein yields an ore.
+  await warpTo(page, 'map_mine_b3', 4, 16, 'up');
+  await walkField(page, 'ArrowUp', 4, 15);
+  await pressThrough(page, 'event');
+  expect((await chapter(page)).ore).toBe(1);
+
+  // かじやの頼み: accept, then hand over three ores for やまわりの大槌.
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+    w.gameState.inventory.add('it_shining_ore', 2);
+  });
+  await warpTo(page, 'map_hagane_shop', 4, 1, 'left');
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog'); // offer → ひきうける, then the arms counter opens
+  await waitForShopMode(page, 'root');
+  await page.keyboard.press('x');
+  await page.waitForFunction(
+    () => {
+      const game = window.__starfall?.game as Game;
+      return game.scene.isActive('World') && !game.scene.isActive('Shop');
+    },
+    undefined,
+    { timeout: 5_000 },
+  );
+  expect((await chapter(page)).flags['sq.ore']).toBe(1);
+  await page.waitForTimeout(300);
+  await page.keyboard.press('z');
+  await waitForField(page, 'isDialogOpen', true);
+  await pressThrough(page, 'dialog'); // hand-over, then the counter again
+  await waitForShopMode(page, 'root');
+  await page.keyboard.press('x');
+  await page.waitForFunction(
+    () => {
+      const game = window.__starfall?.game as Game;
+      return game.scene.isActive('World') && !game.scene.isActive('Shop');
+    },
+    undefined,
+    { timeout: 5_000 },
+  );
+  s = await chapter(page);
+  expect(s.flags['sq.ore']).toBe(2);
+  expect(s.ore).toBe(0);
+  expect(s.hammer).toBe(1);
+
+  // The golem's doorway talk, then a seeded Lv12 win with plain attacks and the chapter event.
+  await warpTo(page, 'map_mine_b3', 30, 9, 'up');
+  await walkField(page, 'ArrowUp', 30, 7);
+  await pressThrough(page, 'event');
+  expect((await chapter(page)).flags['ev.ev_mine_boss_intro']).toBe(true);
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+    for (const m of w.gameState.party) {
+      m.exp = 4500; // Lv12 (§6.1 curve: 4392 ≤ exp < 5457)
+      m.hp = 999;
+      m.mp = 999;
+    }
+    void w.startBattle('grp_boss_golem', { seed: 1 });
+  });
+  await page.waitForFunction(
+    () => (window.__starfall?.game as Game).scene.isActive('Battle'),
+    undefined,
+    { timeout: 10_000 },
+  );
+  await fightWithAttacks(page, 160);
+  await page.waitForFunction(
+    () => {
+      const game = window.__starfall?.game as Game;
+      return game.scene.isActive('World') && !game.scene.isActive('Battle');
+    },
+    undefined,
+    { timeout: 10_000 },
+  );
+  await page.waitForTimeout(500);
+  await pressThrough(page, 'event');
+  s = await chapter(page);
+  expect(s.flags['mine.boss_defeated']).toBe(true);
+  expect(s.flags['fragments.count']).toBe(2);
+  expect(s.flags['main.chapter']).toBe(3);
+  expect(s.flags['shop.hagane_tier3']).toBe(true);
+  expect(s.fragment2).toBe(1);
+
+  // The south guard has stepped aside.
+  await warpTo(page, 'map_hagane_town', 18, 23, 'down');
+  await walkField(page, 'ArrowDown', 18, 25);
+  expect((await fieldWorld(page)).tile).toMatchObject({ x: 18, y: 25 });
   expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
 });

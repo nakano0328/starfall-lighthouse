@@ -1,0 +1,16 @@
+{
+  "ev_mine_vein": [
+    { "cmd": "say", "dialog": "dlg_mine_vein" },
+    { "cmd": "give_item", "item": "it_shining_ore", "qty": 1 }
+  ],
+  "ev_mine_boss_intro": [{ "cmd": "say", "dialog": "dlg_mine_boss_intro" }],
+  "ev_mine_boss_win": [
+    { "cmd": "say", "dialog": "dlg_mine_boss_win" },
+    { "cmd": "give_item", "item": "it_fragment_2", "qty": 1 },
+    { "cmd": "set_flag", "key": "fragments.count", "value": 2 },
+    { "cmd": "set_flag", "key": "mine.boss_defeated", "value": true },
+    { "cmd": "set_flag", "key": "shop.hagane_tier3", "value": true },
+    { "cmd": "set_flag", "key": "main.chapter", "value": 3 },
+    { "cmd": "show_chapter", "title": "第三章　沈んだ遺跡" }
+  ]
+}

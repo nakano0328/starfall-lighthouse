@@ -181,11 +181,13 @@ describe('authored maps', () => {
     }
   });
 
-  it('put a warp on every door tile, and every warp on a door tile or the map edge', () => {
+  it('put a warp on every door tile, and every warp on a door, stairs or edge tile', () => {
     for (const id of MAP_IDS) {
       const src = getMapSource(id);
       const warps = warpsOf(id);
       const isDoor = (c: Cell): boolean => groundTile(src, c.x, c.y) === 'door';
+      // Ladders between dungeon floors sit on stairs tiles inside the map.
+      const isStairs = (c: Cell): boolean => groundTile(src, c.x, c.y) === 'stairs';
       const isEdge = (c: Cell): boolean =>
         c.x === 0 || c.y === 0 || c.x === src.width - 1 || c.y === src.height - 1;
       for (let y = 0; y < src.height; y++) {
@@ -200,8 +202,8 @@ describe('authored maps', () => {
       // Exits may also be plain tiles on the map edge (§3.1: the 北 / 東 exits of ミナト村).
       for (const w of warps) {
         expect(
-          rectCells(w).some((c) => isDoor(c) || isEdge(c)),
-          `${id} warp at (${w.tx}, ${w.ty}) is neither on a door tile nor on the map edge`,
+          rectCells(w).some((c) => isDoor(c) || isStairs(c) || isEdge(c)),
+          `${id} warp at (${w.tx}, ${w.ty}) is on neither a door/stairs tile nor the map edge`,
         ).toBe(true);
       }
     }
@@ -241,11 +243,13 @@ describe('authored maps', () => {
       ).toBe(false);
       for (const w of warpsOf(id)) {
         expect(compiled[w.targetMap], `${id} warp → ${w.targetMap}`).toBeDefined();
-        // A placeholder exit that bounces back onto its own map (TODO until the next
-        // chapter's map exists) may land on a conditionally hidden blocker.
-        if (w.targetMap === id) continue;
+        // A gated NPC (hidden_if / condition) may stand on a landing: it is gone by the
+        // time the exit it guards becomes usable (e.g. the thorn vine before 山道).
         expect(
-          gridWith(w.targetMap, blockersOf(w.targetMap)).isBlocked(w.targetX, w.targetY),
+          gridWith(
+            w.targetMap,
+            blockersOf(w.targetMap).filter((o) => !isGated(o)),
+          ).isBlocked(w.targetX, w.targetY),
           `${id} warp → ${w.targetMap} (${w.targetX}, ${w.targetY}) is blocked at runtime`,
         ).toBe(false);
       }

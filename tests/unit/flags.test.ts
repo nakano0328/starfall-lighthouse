@@ -61,3 +61,19 @@ describe('Flags', () => {
     expect(f.get('a', 0)).toBe(1);
   });
 });
+
+describe('Flags resolver', () => {
+  it('answers virtual keys from the resolver and still stores ordinary flags', () => {
+    const f = new Flags({ 'item.it_herb': 1 });
+    f.setResolver((key) => (key === 'item.it_herb' ? 3 : undefined));
+    expect(f.peek('item.it_herb')).toBe(3);
+    expect(f.get('item.it_herb', 0)).toBe(3);
+    expect(f.has('item.it_herb')).toBe(true);
+    expect(f.has('item.it_potion_s')).toBe(false);
+    f.set('other.flag', true);
+    expect(f.has('other.flag')).toBe(true);
+    expect(f.toJSON()).toEqual({ 'item.it_herb': 1, 'other.flag': true });
+    f.setResolver(undefined);
+    expect(f.peek('item.it_herb')).toBe(1);
+  });
+});

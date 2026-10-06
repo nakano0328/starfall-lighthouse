@@ -1,0 +1,14 @@
+{
+  "ev_hagane_arrive": [
+    { "cmd": "say", "dialog": "dlg_hagane_arrive" },
+    { "cmd": "set_flag", "key": "hagane.arrived", "value": true }
+  ],
+  "ev_goro_join": [
+    { "cmd": "say", "dialog": "dlg_goro_join_01" },
+    { "cmd": "give_item", "item": "it_key_mine", "qty": 1 },
+    { "cmd": "play_se", "key": "se_item" },
+    { "cmd": "remove_npc", "id": "npc_goro" },
+    { "cmd": "add_member", "id": "ch_goro" },
+    { "cmd": "set_flag", "key": "hagane.goro_joined", "value": true }
+  ]
+}

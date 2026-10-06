@@ -826,7 +826,7 @@ Z（決定）で向いているタイルのオブジェクトに作用する。�
 | `enemy`      | `group_id`(string, カンマ区切り可), `respawn_sec`(int, 既定 60, −1 で復活なし)                 | `sprite`(string), `radius`(int 既定 4), `tide`(high/low/any), `defeated_flag`(string), `condition`(string。成立時のみ出現)                                                                                                                 | ボスは `defeated_flag` 必須                                                                                                 |
 | `trigger`    | `event_id`(string `ev_*`), `once`(bool)                                                        | `condition`(string)                                                                                                                                                                                                                        | `once:true` なら `ev.<event_id>` が立つと以後発火しない                                                                     |
 
-`condition` の文法：`flag.key`（真）、`!flag.key`（偽）、`flag.key>=3` / `==` / `<`（数値）、`flag.key=='low'`（文字列）。1 条件のみ（AND が必要なら事前に合成フラグを立てる）。
+`condition` の文法：`flag.key`（真）、`!flag.key`（偽）、`flag.key>=3` / `==` / `<`（数値）、`flag.key=='low'`（文字列）。`item.<item_id>>=3` は所持数を参照する（保存はされない）。1 条件のみ（AND が必要なら事前に合成フラグを立てる）。
 
 **タイルセット命名**：`public/assets/images/tiles/ts_<area>.png`。`ts_village`, `ts_interior`, `ts_forest`, `ts_mine`, `ts_ruins`, `ts_lighthouse`, `ts_collision`。CC0 素材を取り込む際も同名に揃え、出典は `docs/CREDITS.md` に記載。
 

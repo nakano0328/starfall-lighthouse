@@ -222,12 +222,10 @@ describe('ささやきの森 (map_whisper_forest)', () => {
       ty: 6,
       tw: 1,
       th: 1,
-      // TODO(Phase 4b): retarget to map_mountain_road once that map exists; until then
-      // the exit bounces the player back onto the vine's tile.
-      targetMap: 'map_whisper_forest',
-      targetX: 48,
-      targetY: 6,
-      facing: 'left',
+      targetMap: 'map_mountain_road',
+      targetX: 1,
+      targetY: 17,
+      facing: 'right',
     });
     // The vine stands on the single trail tile right before the warp ...
     expect(manhattan(cellOf(vine!), cellOf(northEastWarp!))).toBe(1);
