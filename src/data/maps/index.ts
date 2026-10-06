@@ -17,6 +17,10 @@ import { map_hagane_goro_house } from './map_hagane_goro_house';
 import { map_mine_b1 } from './map_mine_b1';
 import { map_mine_b2 } from './map_mine_b2';
 import { map_mine_b3 } from './map_mine_b3';
+import { map_shore_path } from './map_shore_path';
+import { map_ruins_camp } from './map_ruins_camp';
+import { map_sunken_ruins_1f } from './map_sunken_ruins_1f';
+import { map_sunken_ruins_b1 } from './map_sunken_ruins_b1';
 
 /** Every authored map, keyed by map id. Add new maps here (docs/GAME_DESIGN.md §3.1). */
 export const MAP_SOURCES: Readonly<Record<string, MapSource>> = Object.freeze({
@@ -36,6 +40,10 @@ export const MAP_SOURCES: Readonly<Record<string, MapSource>> = Object.freeze({
   [map_mine_b1.meta.id]: map_mine_b1,
   [map_mine_b2.meta.id]: map_mine_b2,
   [map_mine_b3.meta.id]: map_mine_b3,
+  [map_shore_path.meta.id]: map_shore_path,
+  [map_ruins_camp.meta.id]: map_ruins_camp,
+  [map_sunken_ruins_1f.meta.id]: map_sunken_ruins_1f,
+  [map_sunken_ruins_b1.meta.id]: map_sunken_ruins_b1,
 });
 
 export const MAP_IDS: readonly string[] = Object.keys(MAP_SOURCES);

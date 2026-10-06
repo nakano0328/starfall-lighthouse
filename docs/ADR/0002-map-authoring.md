@@ -12,6 +12,7 @@
 
 - マップの正本は `src/data/maps/<map_id>.ts` に置く **ASCII 形式**（`MapSource`: `tiles` の文字グリッド、文字→タイルの `legend`、`objects` のリスト、`meta`）とする
 - `src/core/map/compile.ts` の `compileMap()` が、§9.3 の規約どおりの **Tiled 互換 JSON**（`TiledMap`）を生成する。`collision` レイヤーはタイル定義の `solid` から自動生成し、`legend` の `solid` や `blocked` グリッドで上書きできる
+- 潮の干満（§3.2）を持つマップは `meta.tideAware: true` とし、`tide.high` / `tide.low` の 2 グリッド（`overlay` と同じ書式。各文字は `deco` と `solid` だけを持つ legend 項目）で「その潮位のときだけ存在するセル」を書く。`compileMap()` はこれを `deco_water_<tide>` / `collision_<tide>` レイヤーに分け、共通の `collision` には含めない。実行時は `collisionForTide()`（`src/core/map/tide.ts`）が `collision` と現在の潮のレイヤーを合成する
 - `WorldScene` は生成した JSON を Phaser の tilemap キャッシュに登録して読み込む。現時点でローダーが読むのは ASCII ソースとプレースホルダータイルセットのみで、形式に依存しないのは `parseMapObjects` と `CollisionGrid` である。出力が Tiled 形式なので、Tiled でエクスポートした JSON を読む経路（`public/assets/maps/*.json` のロードと `tilesets` に応じたタイルセット選択）は将来追加できる（GUI で描き直す選択肢を残す）
 - オブジェクトの読み取り（`parseMapObjects`）と当たり判定（`CollisionGrid`）は Tiled JSON を入力とし、生成元が ASCII か Tiled かに依存しない
 - `public/assets/maps/` は Tiled 由来の JSON 用に残す（現在は空）。置く場合も手で編集しない

@@ -17,8 +17,16 @@
   "dlg_hagane_south_guard": {
     "pages": [],
     "branches": [
+      { "if": "ruins.boss_defeated", "next": "dlg_hagane_south_guard_ch4" },
       { "if": "mine.boss_defeated", "next": "dlg_hagane_south_guard_open" },
       { "next": "dlg_hagane_south_guard_closed" }
+    ]
+  },
+  "dlg_hagane_south_guard_ch4": {
+    "speaker": "門番",
+    "pages": [
+      "遺跡の 番人を 鎮めたって？\nお前さんたち、大したもんだ。",
+      "海の 向こうの 灯台が\n妙に 暗い。気をつけてな。"
     ]
   },
   "dlg_hagane_south_guard_closed": {
@@ -38,9 +46,17 @@
   "dlg_hagane_elder": {
     "pages": [],
     "branches": [
+      { "if": "ruins.boss_defeated", "next": "dlg_hagane_elder_ch4" },
       { "if": "mine.boss_defeated", "next": "dlg_hagane_elder_ch3" },
       { "if": "hagane.goro_joined", "next": "dlg_hagane_elder_mine" },
       { "next": "dlg_hagane_elder_01" }
+    ]
+  },
+  "dlg_hagane_elder_ch4": {
+    "speaker": "長老",
+    "pages": [
+      "三つめの 欠片も 取り戻したか。\nよう やった、旅の子ら。",
+      "ゆうべ、海の 上に 黒い 影を\n見た者が おる。\n灯台へ 急ぐがよい。"
     ]
   },
   "dlg_hagane_elder_01": {

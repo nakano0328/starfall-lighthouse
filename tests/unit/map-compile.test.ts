@@ -245,6 +245,80 @@ describe('compileMap', () => {
     ).toThrow(/invalid position/);
   });
 
+  it('compiles tide grids into deco_water_* and collision_* layers (§3.2)', () => {
+    const { meta } = base();
+    const tidal = base({
+      meta: { ...meta, tideAware: true },
+      legend: { '.': 'grass', '~': { deco: 'water' }, x: { deco: 'fence' }, p: { deco: 'pier' } },
+      tiles: ['...', '...'],
+      tide: { high: ['~~ ', '   '], low: ['  x', 'p  '] },
+    });
+    const map = compileMap(tidal);
+    expect(map.layers.map((l) => l.name)).toEqual([
+      'ground',
+      'deco',
+      'above',
+      'collision',
+      'deco_water_high',
+      'deco_water_low',
+      'collision_high',
+      'collision_low',
+      'events',
+    ]);
+    const water = tileGid('water');
+    expect(findTileLayer(map, 'deco_water_high')?.data).toEqual([water, water, 0, 0, 0, 0]);
+    expect(findTileLayer(map, 'collision_high')?.data).toEqual([
+      COLLISION_GID,
+      COLLISION_GID,
+      0,
+      0,
+      0,
+      0,
+    ]);
+    // The fence blocks at low tide; the pier plank is deco only and stays walkable.
+    expect(findTileLayer(map, 'deco_water_low')?.data).toEqual([
+      0,
+      0,
+      tileGid('fence'),
+      tileGid('pier'),
+      0,
+      0,
+    ]);
+    expect(findTileLayer(map, 'collision_low')?.data).toEqual([0, 0, COLLISION_GID, 0, 0, 0]);
+    // Tide cells never leak into the common layers.
+    expect(findTileLayer(map, 'collision')?.data).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(findTileLayer(map, 'deco')?.data).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(findTileLayer(map, 'deco_water_high')?.visible).toBe(true);
+    expect(findTileLayer(map, 'deco_water_low')?.visible).toBe(false);
+    // A map without tide grids keeps the plain layer list.
+    expect(compileMap(base()).layers.map((l) => l.name)).toEqual([
+      'ground',
+      'deco',
+      'above',
+      'collision',
+      'events',
+    ]);
+  });
+
+  it('rejects tide grids that disagree with the meta or place ground tiles', () => {
+    const { meta } = base();
+    const grids = { high: ['   ', '   '], low: ['   ', '   '] };
+    expect(() => compileMap(base({ tide: grids }))).toThrow(/need meta.tideAware/);
+    expect(() => compileMap(base({ meta: { ...meta, tideAware: true } }))).toThrow(
+      /needs tide grids/,
+    );
+    const tidal = { meta: { ...meta, tideAware: true }, tiles: ['...', '...'] };
+    expect(() =>
+      compileMap(base({ ...tidal, tide: { high: ['~  ', '   '], low: ['   ', '   '] } })),
+    ).toThrow(/may only set deco and solid/);
+    expect(() =>
+      compileMap(base({ ...tidal, tide: { high: ['Z  ', '   '], low: ['   ', '   '] } })),
+    ).toThrow(/unknown tide char "Z"/);
+    expect(() =>
+      compileMap(base({ ...tidal, tide: { high: ['   '], low: ['   ', '   '] } })),
+    ).toThrow(/tide.high has 1 rows/);
+  });
+
   it('rejects non-integer numeric properties and entrances', () => {
     const npc = {
       type: 'npc' as const,

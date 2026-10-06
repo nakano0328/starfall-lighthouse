@@ -234,6 +234,7 @@ export type EventCommand =
   | { cmd: 'spawn_npc'; id: string }
   | { cmd: 'remove_npc'; id: string }
   | { cmd: 'flash'; ms: number; color?: 'black' | 'white' }
+  | { cmd: 'set_tide'; value: 'high' | 'low' | 'toggle' }
   | { cmd: 'end_game' };
 
 export interface EventScript {

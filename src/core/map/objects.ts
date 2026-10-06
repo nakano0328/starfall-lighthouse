@@ -82,6 +82,8 @@ export interface TriggerObject extends Placed {
   eventId: string;
   once: boolean;
   condition?: string;
+  /** Examined with Z instead of stepped on; blocks movement like a sign (§9.3). */
+  interact: boolean;
 }
 
 export type MapObject =
@@ -294,7 +296,13 @@ function parseObject(map: TiledMap, o: TiledObject): MapObject {
       const once = propertyValue(p, 'once');
       if (typeof once !== 'boolean') throw new MapObjectError(o, 'missing bool property once');
       return withOpt<TriggerObject>(
-        { kind: 'trigger', ...placed, eventId: str('event_id'), once },
+        {
+          kind: 'trigger',
+          ...placed,
+          eventId: str('event_id'),
+          once,
+          interact: optBool('interact', false),
+        },
         { condition: optCond('condition') },
       );
     }
@@ -316,12 +324,17 @@ export class CollisionGrid {
   }
 
   static fromMap(map: TiledMap, layerName = 'collision'): CollisionGrid {
-    const layer = findTileLayer(map, layerName);
+    return CollisionGrid.fromMapLayers(map, [layerName]);
+  }
+
+  /** Union of several collision layers (e.g. `collision` plus `collision_low`, §3.2). */
+  static fromMapLayers(map: TiledMap, layerNames: readonly string[]): CollisionGrid {
     const blocked = new Uint8Array(map.width * map.height);
-    if (layer)
-      layer.data.forEach((gid, i) => {
+    for (const name of layerNames) {
+      findTileLayer(map, name)?.data.forEach((gid, i) => {
         if (gid !== 0) blocked[i] = 1;
       });
+    }
     return new CollisionGrid(map.width, map.height, blocked);
   }
 

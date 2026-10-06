@@ -105,6 +105,7 @@ function scriptHost(initial: FlagMap = {}): ScriptHost {
       return Promise.resolve();
     },
     spawnNpc: () => undefined,
+    setTide: () => Promise.resolve(),
     removeNpc: (id) => {
       host.log.push(`remove ${id}`);
     },

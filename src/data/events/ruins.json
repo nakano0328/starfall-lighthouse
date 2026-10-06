@@ -1,0 +1,29 @@
+{
+  "ev_ruins_stele_unreadable": [{ "cmd": "say", "dialog": "dlg_stele_unreadable" }],
+  "ev_ruins_tide_toggle": [
+    { "cmd": "say", "dialog": "dlg_stele_glow" },
+    { "cmd": "set_tide", "value": "toggle" }
+  ],
+  "ev_ruins_boss_intro": [{ "cmd": "say", "dialog": "dlg_ruins_boss_intro" }],
+  "ev_ruins_boss_win": [
+    { "cmd": "say", "dialog": "dlg_ruins_boss_win" },
+    { "cmd": "give_item", "item": "it_fragment_3", "qty": 1 },
+    { "cmd": "set_flag", "key": "fragments.count", "value": 3 },
+    { "cmd": "set_flag", "key": "ruins.boss_defeated", "value": true },
+    { "cmd": "set_flag", "key": "main.chapter", "value": 4 }
+  ],
+  "ev_nox_appear": [
+    { "cmd": "set_flag", "key": "ruins.nox_on_stage", "value": true },
+    { "cmd": "play_se", "key": "se_fade" },
+    { "cmd": "flash", "ms": 300, "color": "black" },
+    { "cmd": "spawn_npc", "id": "npc_nox" },
+    { "cmd": "wait", "ms": 400 },
+    { "cmd": "say", "dialog": "dlg_nox_appear" },
+    { "cmd": "play_se", "key": "se_fade" },
+    { "cmd": "flash", "ms": 300, "color": "black" },
+    { "cmd": "remove_npc", "id": "npc_nox" },
+    { "cmd": "set_flag", "key": "ruins.nox_on_stage", "value": false },
+    { "cmd": "say", "dialog": "dlg_nox_gone" },
+    { "cmd": "show_chapter", "title": "終章　ほしふる灯台" }
+  ]
+}

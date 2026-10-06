@@ -12,6 +12,7 @@ import {
 import type { MapObject } from '@core/map/objects';
 import type { MapSource } from '@core/map/source';
 import type { TiledMap, TiledProperty, TiledPropertyValue } from '@core/map/tiled';
+import { findTileLayer } from '@core/map/tiled';
 
 const src: MapSource = {
   meta: {
@@ -287,6 +288,32 @@ describe('parseMapObjects', () => {
     expect(() => parseMapObjects(broken)).toThrow(message);
   });
 
+  it('reads interact on triggers, defaulting to a step-on trigger', () => {
+    const [stele] = parseMapObjects(
+      withOnlyObject(
+        map,
+        'trigger',
+        { x: 1, y: 2 },
+        { event_id: 'ev_x', once: false, interact: true },
+      ),
+    );
+    expect(stele).toMatchObject({ kind: 'trigger', eventId: 'ev_x', once: false, interact: true });
+    const [plain] = parseMapObjects(
+      withOnlyObject(map, 'trigger', { x: 1, y: 2 }, { event_id: 'ev_x', once: false }),
+    );
+    expect(plain).toMatchObject({ kind: 'trigger', interact: false });
+    expect(() =>
+      parseMapObjects(
+        withOnlyObject(
+          map,
+          'trigger',
+          { x: 1, y: 2 },
+          { event_id: 'ev_x', once: false, interact: 1 },
+        ),
+      ),
+    ).toThrow(/interact must be a bool/);
+  });
+
   it('applies save_point defaults when no properties are given', () => {
     const [savePoint] = parseMapObjects(withOnlyObject(map, 'save_point', { x: 1, y: 2 }, {}));
     expect(savePoint).toMatchObject({ kind: 'save_point', heal: false });
@@ -311,7 +338,7 @@ describe('objectsAt', () => {
   // Declared in reverse priority so a dropped or source-order sort yields the opposite sequence.
   const stacked: MapObject[] = [
     { kind: 'enemy', ...at, groupIds: ['grp_a'], respawnSec: 60, radius: 4, tide: 'any' },
-    { kind: 'trigger', ...at, eventId: 'ev_x', once: true },
+    { kind: 'trigger', ...at, eventId: 'ev_x', once: true, interact: false },
     { kind: 'warp', ...at, targetMap: 'map_b', targetX: 0, targetY: 0, facing: 'up' },
     { kind: 'save_point', ...at, heal: false },
     { kind: 'sign', ...at, textId: 'dlg_x' },
@@ -358,6 +385,32 @@ describe('CollisionGrid', () => {
     ]);
     expect(withNpc.isBlocked(0, 0)).toBe(true);
     expect(grid.isBlocked(0, 0)).toBe(false);
+  });
+
+  it('unions several layers and ignores missing ones', () => {
+    const map = compileMap(src);
+    const extra = {
+      ...map,
+      layers: [
+        ...map.layers,
+        {
+          type: 'tilelayer' as const,
+          id: 99,
+          name: 'collision_low',
+          width: map.width,
+          height: map.height,
+          data: findTileLayer(map, 'collision')!.data.map((_g, i) => (i === 0 ? 1 : 0)),
+          visible: false,
+          opacity: 1,
+          x: 0,
+          y: 0,
+        },
+      ],
+    };
+    const union = CollisionGrid.fromMapLayers(extra, ['collision', 'collision_low', 'missing']);
+    expect(union.isBlocked(0, 0)).toBe(true);
+    expect(union.isBlocked(1, 1)).toBe(true);
+    expect(CollisionGrid.fromMapLayers(extra, ['collision']).isBlocked(0, 0)).toBe(false);
   });
 });
 

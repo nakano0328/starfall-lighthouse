@@ -2,6 +2,8 @@ import type { CharacterId, EventCommand, Facing } from '@data/types';
 
 import type { Flags } from '../flags';
 import type { Inventory } from '../inventory';
+import type { TideLevel } from '../map/source';
+import { TIDE_FLAG, currentTide, resolveTide } from '../map/tide';
 
 /**
  * What a scene must provide to play event scripts (docs/GAME_DESIGN.md §10.2).
@@ -29,6 +31,11 @@ export interface EventHost {
   showChapter(title: string): Promise<void>;
   spawnNpc(id: string): void;
   removeNpc(id: string): void;
+  /**
+   * The ruins tide has just been set to `tide` (the interpreter updates the flag
+   * first): play the switch (fade, SE) and relayer the map (docs/GAME_DESIGN.md §3.2).
+   */
+  setTide(tide: TideLevel): Promise<void>;
   /**
    * Runs a battle and resolves with its result. On a loss with
    * `lose: 'gameover'` the host owns the GameOverScene transition
@@ -183,6 +190,12 @@ export class EventInterpreter {
       case 'flash':
         await host.flash(cmd.ms, cmd.color ?? 'white');
         break;
+      case 'set_tide': {
+        const tide = resolveTide(currentTide(host.flags), cmd.value);
+        host.flags.set(TIDE_FLAG, tide);
+        await host.setTide(tide);
+        break;
+      }
       case 'end_game':
         host.endGame();
         break;

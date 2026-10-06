@@ -151,6 +151,7 @@
 - 満潮時：中央の広間が水没し北側通路のみ通れる。干潮時：広間が通れる代わりに東側の水路が干上がって下層の宝箱部屋へ降りられるが、北側通路は閉じる（潮位でせり上がる柵）。
 - 敵シンボルは水没タイル上に生成しない（`enemy` オブジェクトに `tide: 'low'|'high'|'any'` プロパティ）。
 - `ruins.tide_learned`（学者から `it_tide_rune` を受け取る）が偽のうちは石碑を調べても「文字が読めない」と表示されるだけで切り替わらない。
+- 実装：`ruins.tide` が未設定なら満潮として扱う（ニューゲーム時に値は書かない）。石碑は `interact: true` の `trigger` を同じタイルに 2 つ重ねる（`!ruins.tide_learned` → `ev_ruins_stele_unreadable`、`ruins.tide_learned` → `ev_ruins_tide_toggle`）。切替は `set_tide` コマンド（§10.2）が行い、`WorldScene` が当たり判定（`collision` ∪ `collision_<tide>`）・水の装飾レイヤー・潮依存の宝箱とシンボルを張り替える。下層にも干潮時だけ通れる水路があるため、潮レイヤーは上層・下層の両方が持つ（§9.3）。
 
 ---
 
@@ -812,7 +813,7 @@ Z（決定）で向いているタイルのオブジェクトに作用する。�
 | `collision` | tile   | 通行不可。`ts_collision` の赤タイル（gid 任意、非空＝不可）。表示しない |
 | `events`    | object | オブジェクトレイヤー（下記）                                            |
 
-遺跡上層のみ `collision_high` / `collision_low` / `deco_water_high` / `deco_water_low` を追加し、`collision` と `deco` は共通部分に使う。
+遺跡の 2 層（上層・下層、`MapMeta.tideAware`）のみ `collision_high` / `collision_low` / `deco_water_high` / `deco_water_low` を追加し、`collision` と `deco` は共通部分に使う。ASCII ソースでは `tide.high` / `tide.low` の 2 グリッド（ADR-0002）で記述する。
 
 **オブジェクト（`events` レイヤー）**：Tiled の「クラス（Type）」にオブジェクト種別、カスタムプロパティに引数。位置はタイルにスナップ（32 の倍数）。
 
@@ -824,7 +825,7 @@ Z（決定）で向いているタイルのオブジェクトに作用する。�
 | `sign`       | `text_id`(string `dlg_*`)                                                                      | —                                                                                                                                                                                                                                          |                                                                                                                             |
 | `save_point` | —                                                                                              | `heal`(bool, 既定 false)                                                                                                                                                                                                                   | 灯台 5F の泉は `heal:true` ＋ `once_flag`                                                                                   |
 | `enemy`      | `group_id`(string, カンマ区切り可), `respawn_sec`(int, 既定 60, −1 で復活なし)                 | `sprite`(string), `radius`(int 既定 4), `tide`(high/low/any), `defeated_flag`(string), `condition`(string。成立時のみ出現)                                                                                                                 | ボスは `defeated_flag` 必須                                                                                                 |
-| `trigger`    | `event_id`(string `ev_*`), `once`(bool)                                                        | `condition`(string)                                                                                                                                                                                                                        | `once:true` なら `ev.<event_id>` が立つと以後発火しない                                                                     |
+| `trigger`    | `event_id`(string `ev_*`), `once`(bool)                                                        | `condition`(string), `interact`(bool 既定 false。真なら踏んだときではなく正面から調べたときに発火し、タイルは通行不可)                                                                                                                     | `once:true` なら `ev.<event_id>` が立つと以後発火しない。同じタイルに重ねた trigger は条件が成立する最初の 1 つだけ発火する |
 
 `condition` の文法：`flag.key`（真）、`!flag.key`（偽）、`flag.key>=3` / `==` / `<`（数値）、`flag.key=='low'`（文字列）。`item.<item_id>>=3` は所持数を参照する（保存はされない）。1 条件のみ（AND が必要なら事前に合成フラグを立てる）。
 
@@ -914,6 +915,7 @@ Z（決定）で向いているタイルのオブジェクトに作用する。�
 | `show_chapter`             | `title`                                                               | 章タイトルを 2.5 秒表示                                                                                                                      |
 | `spawn_npc` / `remove_npc` | `id`                                                                  | イベント専用 NPC の出し入れ                                                                                                                  |
 | `flash`                    | `ms`, `color`                                                         | 画面フラッシュ                                                                                                                               |
+| `set_tide`                 | `value`(`high`/`low`/`toggle`)                                        | 遺跡の潮を切り替える（§3.2）。`ruins.tide` を設定してから青白いフェードで当たり判定と水の装飾を張り替え、「潮が ひいていく……」等を表示する   |
 | `end_game`                 | —                                                                     | エンディングシーンへ                                                                                                                         |
 
 `if` 分岐はスクリプト内に持たず、`trigger` の `condition` と会話ノードの `branches` に寄せる（スクリプトを直線に保つ）。

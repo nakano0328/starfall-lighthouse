@@ -218,11 +218,16 @@
   "dlg_minato_boy": {
     "pages": [],
     "branches": [
+      { "if": "ruins.boss_defeated", "next": "dlg_minato_boy_ch4" },
       { "if": "forest.boss_defeated", "next": "dlg_minato_boy_ch2" },
       { "if": "main.core_shattered", "next": "dlg_minato_boy_shattered" },
       { "if": "minato.intro_done", "next": "dlg_minato_boy_lighthouse" },
       { "next": "dlg_minato_boy_01" }
     ]
+  },
+  "dlg_minato_boy_ch4": {
+    "speaker": "男の子",
+    "pages": ["ゆうべ、灯台の 上に\n黒い 影が 立ってたんだ！\nルカ、見た？"]
   },
   "dlg_minato_boy_01": {
     "speaker": "男の子",
@@ -309,6 +314,18 @@
     ]
   },
   "dlg_minato_innkeeper": {
+    "pages": [],
+    "branches": [
+      { "if": "ruins.boss_defeated", "next": "dlg_minato_innkeeper_ch4" },
+      { "next": "dlg_minato_innkeeper_quest" }
+    ]
+  },
+  "dlg_minato_innkeeper_ch4": {
+    "speaker": "女将",
+    "pages": ["ルカ、海から 帰ったのかい。\n灯台の 方角が 妙に 暗いよ。\n今夜は ゆっくり お休み。"],
+    "next": "dlg_minato_innkeeper_quest"
+  },
+  "dlg_minato_innkeeper_quest": {
     "pages": [],
     "branches": [
       { "if": "sq.necklace==2", "next": "dlg_minato_innkeeper_thanks" },

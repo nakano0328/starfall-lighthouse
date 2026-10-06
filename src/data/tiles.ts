@@ -62,6 +62,7 @@ export const PLACEHOLDER_TILES: readonly TileDef[] = [
   { name: 'ore', color: 0x6a4a8a, solid: true, glyph: 'rock' },
   { name: 'rune_floor', color: 0x4a6a8a, solid: false, glyph: 'star' },
   { name: 'void', color: 0x000000, solid: true },
+  { name: 'stele', color: 0x3a5a7a, solid: true, glyph: 'star' },
   { name: 'collision', color: 0xff0040, solid: true, glyph: 'cross' },
 ];
 

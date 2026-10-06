@@ -31,8 +31,11 @@ import type {
   SavePointObject,
   TriggerObject,
   WarpObject,
+  CollisionGrid,
 } from '@core/map/objects';
-import { CollisionGrid, markerTextFor, objectsAt, parseMapObjects } from '@core/map/objects';
+import { markerTextFor, objectsAt, parseMapObjects } from '@core/map/objects';
+import type { TideLevel } from '@core/map/source';
+import { collisionForTide, currentTide, tideAllows } from '@core/map/tide';
 import type { TiledMap } from '@core/map/tiled';
 import { expForLevel } from '@core/party/exp';
 import { createMember, memberStats } from '@core/party/member';
@@ -69,6 +72,13 @@ const DEPTH = { ground: 0, deco: 1, actors: 10, above: 20, fade: 50, hud: 100 } 
 /** Map transition fade (docs/GAME_DESIGN.md §9.2) and post-warp invulnerability. */
 const WARP_FADE_MS = 250;
 const WARP_SAFE_MS = 1000;
+/** The tide switch (§3.2): a 600 ms blue-white fade, the map relayered at its darkest. */
+const TIDE_FADE_MS = 600;
+const TIDE_FADE_COLOR = 0xcfe8ff;
+const TIDE_TEXT: Record<TideLevel, string> = {
+  low: '潮が ひいていく……',
+  high: '潮が 満ちてくる……',
+};
 /** Scripted actor steps use the walking pace from §9.1. */
 const SCRIPT_STEP_MS = 150;
 /** Chapter title: fade in, hold, fade out = 2.5 s (§11.5). */
@@ -128,6 +138,8 @@ export class WorldScene extends Phaser.Scene {
   private mover!: GridMover;
   private hud!: Phaser.GameObjects.Text;
   private tiled!: TiledMap;
+  /** Water layers of a tide-aware map (§3.2); only the current tide's is visible. */
+  private tideLayers: Partial<Record<TideLevel, Phaser.Tilemaps.TilemapLayer>> = {};
   private baseCollision!: CollisionGrid;
   private collision!: CollisionGrid;
   private objects: MapObject[] = [];
@@ -384,7 +396,8 @@ export class WorldScene extends Phaser.Scene {
     }
     const entry = this.cache.tilemap.get(cacheKey) as { data: TiledMap };
     this.tiled = entry.data;
-    this.baseCollision = CollisionGrid.fromMap(this.tiled);
+    const tide = currentTide(this.flags);
+    this.baseCollision = collisionForTide(this.tiled, tide);
     this.collision = this.baseCollision;
     this.objects = parseMapObjects(this.tiled);
 
@@ -393,9 +406,43 @@ export class WorldScene extends Phaser.Scene {
     if (!tileset) throw new Error(`tileset ${PLACEHOLDER_TILESET_NAME} missing`);
     map.createLayer('ground', tileset, 0, 0)?.setDepth(DEPTH.ground);
     map.createLayer('deco', tileset, 0, 0)?.setDepth(DEPTH.deco);
+    this.tideLayers = {};
+    if (source.meta.tideAware) {
+      for (const level of ['high', 'low'] as const) {
+        const layer = map.createLayer(`deco_water_${level}`, tileset, 0, 0);
+        if (layer) this.tideLayers[level] = layer.setDepth(DEPTH.deco).setVisible(level === tide);
+      }
+    }
     map.createLayer('above', tileset, 0, 0)?.setDepth(DEPTH.above);
     this.mapPixelWidth = map.widthInPixels;
     this.mapPixelHeight = map.heightInPixels;
+  }
+
+  /** Relayers the map for a tide (§3.2): water tiles, blocking, submerged chests and symbols. */
+  private applyTide(tide: TideLevel): void {
+    for (const level of ['high', 'low'] as const) {
+      this.tideLayers[level]?.setVisible(level === tide);
+    }
+    this.baseCollision = collisionForTide(this.tiled, tide);
+    this.rebuildCollision();
+    for (const sym of this.symbols) sym.image.destroy();
+    this.symbols = [];
+    this.spawnSymbols();
+  }
+
+  /**
+   * Plays the tide switch for the `set_tide` command (§3.2): the flag is already set, so
+   * the map is relayered while the screen is washed out, then the water is announced.
+   */
+  private async switchTide(tide: TideLevel): Promise<void> {
+    this.input2.flush();
+    await this.fade('out', TIDE_FADE_MS / 2, TIDE_FADE_COLOR);
+    this.applyTide(tide);
+    await this.fade('in', TIDE_FADE_MS / 2, TIDE_FADE_COLOR);
+    await new Promise<void>((resolve) => {
+      this.dialogDone = resolve;
+      this.showMessage([TIDE_TEXT[tide]]);
+    });
   }
 
   /** Places a sprite for every map object that has one. */
@@ -470,6 +517,7 @@ export class WorldScene extends Phaser.Scene {
       if (o.kind !== 'enemy') return;
       const enemy = o as EnemyObject;
       if (enemy.condition !== undefined && !evaluateCondition(enemy.condition, this.flags)) return;
+      if (!tideAllows(enemy.tide, currentTide(this.flags))) return; // never on flooded tiles (§3.2)
       const spec = symbolSpecFromObject(enemy, `enemy_${index}`);
       if (spec.defeatedFlag !== undefined && this.flags.has(spec.defeatedFlag)) return;
       if (!shouldRespawn(spec, defeatedAt.get(`${this.mapId}:${spec.id}`), Date.now())) return;
@@ -654,11 +702,13 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /**
-   * Applies NPC visibility (hidden_if / condition / remove_npc) and rebuilds the
-   * collision grid: visible NPCs, chests, signs, save points and locked doors
-   * block movement.
+   * Applies NPC visibility (hidden_if / condition / remove_npc) and chest visibility
+   * (a chest with a `tide` is under water at the other tide), then rebuilds the
+   * collision grid: visible NPCs and chests, signs, save points, examine-triggers
+   * and locked doors block movement.
    */
   private rebuildCollision(): void {
+    const tide = currentTide(this.flags);
     const blockers: { x: number; y: number }[] = [];
     for (const npc of this.npcs.values()) {
       const visible = !npc.hidden && this.isNpcVisible(npc.obj);
@@ -669,9 +719,13 @@ export class WorldScene extends Phaser.Scene {
       if (visible && !npc.wander) blockers.push({ x: npc.tx, y: npc.ty });
     }
     for (const o of this.objects) {
-      if (o.kind === 'chest' || o.kind === 'sign' || o.kind === 'save_point') {
+      if (o.kind === 'chest') {
+        const visible = tideAllows(o.tide, tide);
+        this.chests.get(o.flag)?.setVisible(visible);
+        if (visible) blockers.push({ x: o.tx, y: o.ty });
+      } else if (o.kind === 'sign' || o.kind === 'save_point') {
         blockers.push({ x: o.tx, y: o.ty });
-      } else if (o.kind === 'warp' && this.isLocked(o)) {
+      } else if ((o.kind === 'warp' && this.isLocked(o)) || (o.kind === 'trigger' && o.interact)) {
         for (let dy = 0; dy < o.th; dy += 1) {
           for (let dx = 0; dx < o.tw; dx += 1) blockers.push({ x: o.tx + dx, y: o.ty + dy });
         }
@@ -730,6 +784,7 @@ export class WorldScene extends Phaser.Scene {
     for (const target of objectsAt(this.objects, tx, ty)) {
       switch (target.kind) {
         case 'chest':
+          if (!tideAllows(target.tide, currentTide(this.flags))) break; // under water
           this.openChest(target);
           return;
         case 'sign':
@@ -741,6 +796,13 @@ export class WorldScene extends Phaser.Scene {
         case 'warp':
           if (this.isLocked(target)) {
             this.unlockDoor(target);
+            return;
+          }
+          break;
+        case 'trigger':
+          // Examine-triggers (the tide steles, §3.2): the first one whose condition holds.
+          if (target.interact && this.triggerReady(target)) {
+            this.fireTrigger(target);
             return;
           }
           break;
@@ -914,18 +976,15 @@ export class WorldScene extends Phaser.Scene {
     if (warp && !this.isLocked(warp)) this.startWarp(warp);
   }
 
-  /** Fires the trigger under a tile when its condition holds; once-triggers set `ev.<id>`. */
+  /**
+   * Fires the first step-on trigger under a tile whose condition holds (stacked
+   * triggers with complementary conditions act as a branch, §10.2).
+   */
   private checkTrigger(x: number, y: number): boolean {
     const trigger = objectsAt(this.objects, x, y).find(
-      (o): o is TriggerObject => o.kind === 'trigger',
+      (o): o is TriggerObject => o.kind === 'trigger' && !o.interact && this.triggerReady(o),
     );
     if (!trigger) return false;
-    const onceKey = `ev.${trigger.eventId}`;
-    if (trigger.once && this.flags.has(onceKey)) return false;
-    if (trigger.condition !== undefined && !evaluateCondition(trigger.condition, this.flags)) {
-      return false;
-    }
-    if (trigger.once) this.flags.set(onceKey, true);
     // Entered with the direction still held: the mover has already begun the next
     // step. Cancel it so the event finds the player on the trigger tile and the
     // save location (§9.1) matches the sprite.
@@ -933,8 +992,20 @@ export class WorldScene extends Phaser.Scene {
       this.mover.teleport({ x, y, facing: this.mover.position.facing });
       this.syncPlayerSprite();
     }
-    void this.runEvent(trigger.eventId);
+    this.fireTrigger(trigger);
     return true;
+  }
+
+  /** Whether a trigger may fire now: not spent (once) and its condition holds. */
+  private triggerReady(trigger: TriggerObject): boolean {
+    if (trigger.once && this.flags.has(`ev.${trigger.eventId}`)) return false;
+    return trigger.condition === undefined || evaluateCondition(trigger.condition, this.flags);
+  }
+
+  /** Runs a trigger's event; once-triggers set `ev.<id>` first (§9.3). */
+  private fireTrigger(trigger: TriggerObject): void {
+    if (trigger.once) this.flags.set(`ev.${trigger.eventId}`, true);
+    void this.runEvent(trigger.eventId);
   }
 
   private async runEvent(eventId: string): Promise<void> {
@@ -1050,6 +1121,7 @@ export class WorldScene extends Phaser.Scene {
         if (npc) npc.hidden = true;
         this.rebuildCollision();
       },
+      setTide: (tide) => this.switchTide(tide),
       battle: async (group, lose) => {
         const result = await this.startBattle(group, { fromEvent: true });
         if (result === 'win') return 'win';
@@ -1085,9 +1157,10 @@ export class WorldScene extends Phaser.Scene {
     this.state.party.push(createMember(def, Math.max(leaderExp, expForLevel(def.joinMinLevel))));
   }
 
-  private fade(dir: 'in' | 'out', ms: number, color: 'black' | 'white'): Promise<void> {
+  private fade(dir: 'in' | 'out', ms: number, color: 'black' | 'white' | number): Promise<void> {
     this.fadeTween?.stop();
-    this.fadeRect.setFillStyle(color === 'white' ? 0xffffff : 0x000000, 1);
+    const fill = typeof color === 'number' ? color : color === 'white' ? 0xffffff : 0x000000;
+    this.fadeRect.setFillStyle(fill, 1);
     const alpha = dir === 'out' ? 1 : 0;
     if (ms <= 0) {
       this.fadeRect.setAlpha(alpha);
