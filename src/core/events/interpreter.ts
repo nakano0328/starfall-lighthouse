@@ -25,6 +25,7 @@ export interface EventHost {
   playSe(key: string): void;
   healParty(): void;
   addMember(id: CharacterId): void;
+  giveGold(amount: number): void;
   showChapter(title: string): Promise<void>;
   spawnNpc(id: string): void;
   removeNpc(id: string): void;
@@ -162,6 +163,10 @@ export class EventInterpreter {
         break;
       case 'heal_party':
         host.healParty();
+        break;
+      case 'give_gold':
+        host.giveGold(cmd.amount);
+        await host.message(`${cmd.amount}G を 手に入れた！`);
         break;
       case 'add_member':
         host.addMember(cmd.id);

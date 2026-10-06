@@ -32,7 +32,7 @@ import type {
   TriggerObject,
   WarpObject,
 } from '@core/map/objects';
-import { CollisionGrid, objectsAt, parseMapObjects } from '@core/map/objects';
+import { CollisionGrid, markerTextFor, objectsAt, parseMapObjects } from '@core/map/objects';
 import type { TiledMap } from '@core/map/tiled';
 import { expForLevel } from '@core/party/exp';
 import { createMember, memberStats } from '@core/party/member';
@@ -42,7 +42,10 @@ import { SETTINGS_KEY, TEXT_SPEED_MS, parseSettings } from '@core/settings';
 import type { GameState } from '@core/state';
 import { CHARACTERS } from '@data/characters';
 import { DIALOGS } from '@data/dialogs';
+import { getEncounter } from '@data/encounters';
+import { getEnemy } from '@data/enemies';
 import { EVENTS } from '@data/events';
+import { findEquip } from '@data/equipment';
 import { findItem } from '@data/items';
 import { getMapSource } from '@data/maps';
 import { PARTY_NAMES } from '@data/names';
@@ -97,12 +100,20 @@ const defeatedAt = new Map<string, number>();
 interface NpcRuntime {
   obj: NpcObject;
   image: Phaser.GameObjects.Image;
+  /** Quest marker above the head (§14 ！／？); empty text hides it. */
+  marker: Phaser.GameObjects.Text;
   tx: number;
   ty: number;
   facing: Facing;
   /** Removed by remove_npc (or hidden by its condition). */
   hidden: boolean;
+  /** Present for `move: random` NPCs: the same walker the enemy symbols use, minus chasing. */
+  wander: SymbolState | undefined;
 }
+
+/** How far a wandering NPC strays from its spawn tile (§9.3 `move: random`). */
+const NPC_WANDER_RADIUS = 2;
+const NPC_MARKER_OFFSET_Y = 22;
 
 /**
  * Field scene. Compiles the authored map for the save location into Tiled JSON,
@@ -183,6 +194,7 @@ export class WorldScene extends Phaser.Scene {
         if (cmd.cmd === 'give_item') this.state.inventory.add(cmd.item, cmd.qty);
         else if (cmd.cmd === 'take_item') this.state.inventory.remove(cmd.item, cmd.qty);
         else if (cmd.cmd === 'heal_party') this.healParty();
+        else if (cmd.cmd === 'give_gold') this.state.gold += cmd.amount;
         // play_se arrives with audio (Phase 6).
       },
       format: (text) =>
@@ -206,7 +218,10 @@ export class WorldScene extends Phaser.Scene {
     const { x, y, facing } = this.save.location;
     this.mover = new GridMover(
       { x, y, facing },
-      (tx, ty) => this.collision.isBlocked(tx, ty) || this.symbolAt(tx, ty) !== undefined,
+      (tx, ty) =>
+        this.collision.isBlocked(tx, ty) ||
+        this.symbolAt(tx, ty) !== undefined ||
+        this.wanderingNpcAt(tx, ty) !== undefined,
     );
     this.player = this.add.image(0, 0, 'sprite_player', facing);
     this.hud = this.add
@@ -274,6 +289,7 @@ export class WorldScene extends Phaser.Scene {
     this.syncPlayerSprite();
     this.updateCamera();
     this.updateSymbols();
+    this.updateNpcWander();
     if (
       this.menuRequested &&
       !this.transitioning &&
@@ -393,10 +409,36 @@ export class WorldScene extends Phaser.Scene {
           this.npcs.set(o.id, {
             obj: o,
             image: this.add.image(x, y, 'sprite_npc', o.facing).setDepth(depth),
+            marker: this.add
+              .text(x, y - NPC_MARKER_OFFSET_Y, '', {
+                fontFamily: 'sans-serif',
+                fontSize: '14px',
+                color: COLORS.textAccent,
+                stroke: '#000000',
+                strokeThickness: 3,
+              })
+              .setOrigin(0.5, 1)
+              .setDepth(DEPTH.above + 1)
+              .setVisible(false),
             tx: o.tx,
             ty: o.ty,
             facing: o.facing,
             hidden: false,
+            wander:
+              o.move === 'random'
+                ? createSymbol(
+                    {
+                      id: o.id,
+                      homeX: o.tx,
+                      homeY: o.ty,
+                      radius: NPC_WANDER_RADIUS,
+                      groupIds: [],
+                      respawnSec: 0,
+                    },
+                    this.time.now,
+                    mathRng,
+                  )
+                : undefined,
           });
           break;
         case 'chest':
@@ -426,7 +468,9 @@ export class WorldScene extends Phaser.Scene {
     const now = this.time.now;
     this.objects.forEach((o, index) => {
       if (o.kind !== 'enemy') return;
-      const spec = symbolSpecFromObject(o as EnemyObject, `enemy_${index}`);
+      const enemy = o as EnemyObject;
+      if (enemy.condition !== undefined && !evaluateCondition(enemy.condition, this.flags)) return;
+      const spec = symbolSpecFromObject(enemy, `enemy_${index}`);
       if (spec.defeatedFlag !== undefined && this.flags.has(spec.defeatedFlag)) return;
       if (!shouldRespawn(spec, defeatedAt.get(`${this.mapId}:${spec.id}`), Date.now())) return;
       const state = createSymbol(spec, now, mathRng);
@@ -444,6 +488,7 @@ export class WorldScene extends Phaser.Scene {
   /** Moves every symbol and starts a battle on contact (unless the player is safe). */
   private updateSymbols(): void {
     if (this.battleActive || this.transitioning) return;
+    if (window.__starfall?.encounters === false) return;
     const now = this.time.now;
     const player = this.mover.position;
     const playerSafe = this.isSafe || this.interpreter.running || this.dialogBox.isOpen;
@@ -472,6 +517,57 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  private wanderingNpcAt(x: number, y: number): NpcRuntime | undefined {
+    for (const npc of this.npcs.values()) {
+      if (npc.wander && npc.image.visible && npc.tx === x && npc.ty === y) return npc;
+    }
+    return undefined;
+  }
+
+  /** `move: random` NPCs pace around their spawn tile; they never chase or touch the player. */
+  private updateNpcWander(): void {
+    if (this.battleActive || this.transitioning) return;
+    if (this.dialogBox.isOpen || this.interpreter.running) return;
+    const now = this.time.now;
+    const player = this.mover.position;
+    for (const npc of this.npcs.values()) {
+      const state = npc.wander;
+      if (!state || !npc.image.visible || npc === this.talkingTo) continue;
+      const env = {
+        blocked: (x: number, y: number) =>
+          this.collision.isBlocked(x, y) ||
+          (x === player.x && y === player.y) ||
+          this.symbolAt(x, y) !== undefined ||
+          [...this.npcs.values()].some(
+            (o) => o !== npc && o.image.visible && o.tx === x && o.ty === y,
+          ),
+        canSee: () => false,
+        playerSafe: true,
+      };
+      updateSymbol(state, now, player, env, mathRng);
+      npc.tx = state.tx;
+      npc.ty = state.ty;
+      const pos = renderPosition(state, now);
+      const px = pos.x * TILE_SIZE + TILE_SIZE / 2;
+      const py = pos.y * TILE_SIZE + TILE_SIZE / 2;
+      npc.image.setPosition(px, py).setDepth(DEPTH.actors + pos.y / 1000);
+      npc.marker.setPosition(px, py - NPC_MARKER_OFFSET_Y);
+      if (now < state.stepEnd) {
+        npc.facing = facingOf(state);
+        npc.image.setFrame(npc.facing);
+      }
+    }
+  }
+
+  /** The `onDefeatEvent` of the first enemy in the group that declares one (boss wins). */
+  private defeatEventFor(groupId: string): string | undefined {
+    for (const { enemyId } of getEncounter(groupId).enemies) {
+      const ev = getEnemy(enemyId).onDefeatEvent;
+      if (ev !== undefined) return ev;
+    }
+    return undefined;
+  }
+
   /**
    * Runs a battle over the paused field and applies its outcome: a defeated symbol
    * disappears (boss flags are set), an escaped one is stunned and the player gets
@@ -496,6 +592,10 @@ export class WorldScene extends Phaser.Scene {
           this.afterBattle(result, options.source);
           if (result === 'lose' && !options.fromEvent) this.gameOver();
           resolve(result);
+          if (result === 'win' && !options.fromEvent) {
+            const ev = this.defeatEventFor(groupId);
+            if (ev !== undefined) void this.runEvent(ev);
+          }
         },
       };
       void this.flashEncounter().then(() => {
@@ -563,7 +663,10 @@ export class WorldScene extends Phaser.Scene {
     for (const npc of this.npcs.values()) {
       const visible = !npc.hidden && this.isNpcVisible(npc.obj);
       npc.image.setVisible(visible);
-      if (visible) blockers.push({ x: npc.tx, y: npc.ty });
+      const marker = markerTextFor(npc.obj.markers, this.flags);
+      npc.marker.setText(marker).setVisible(visible && marker !== '');
+      // Wanderers block dynamically (see the mover's callback); static NPCs block here.
+      if (visible && !npc.wander) blockers.push({ x: npc.tx, y: npc.ty });
     }
     for (const o of this.objects) {
       if (o.kind === 'chest' || o.kind === 'sign' || o.kind === 'save_point') {
@@ -666,7 +769,7 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     const added = this.state.inventory.add(chest.itemId, chest.qty);
-    const name = findItem(chest.itemId)?.name ?? chest.itemId;
+    const name = findItem(chest.itemId)?.name ?? findEquip(chest.itemId)?.name ?? chest.itemId;
     if (added <= 0) {
       this.showMessage([pickupMessage(name, 0, chest.qty)]);
       return;
@@ -933,6 +1036,9 @@ export class WorldScene extends Phaser.Scene {
       playSe: () => undefined,
       healParty: () => this.healParty(),
       addMember: (id) => this.addMember(id),
+      giveGold: (amount) => {
+        this.state.gold += amount;
+      },
       showChapter: (title) => this.showChapter(title),
       spawnNpc: (id) => {
         const npc = this.npcs.get(id);

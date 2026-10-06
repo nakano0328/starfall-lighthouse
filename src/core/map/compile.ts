@@ -223,6 +223,11 @@ function compileObject(
   const props: TiledProperty[] = [];
   for (const [key, value] of Object.entries(rest)) {
     if (key === 'w' || key === 'h' || value === undefined) continue;
+    if (typeof value === 'object' && value !== null) {
+      // Tiled properties are scalars: structured values (npc markers) travel as JSON text.
+      props.push(prop(key, JSON.stringify(value)));
+      continue;
+    }
     if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
       throw new MapCompileError(mapId, `${type} #${id} property ${key} has unsupported type`);
     }

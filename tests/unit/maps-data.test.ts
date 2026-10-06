@@ -8,6 +8,7 @@ import type { LegendEntry, MapSource } from '@core/map/source';
 import { OVERLAY_EMPTY, normalizeLegendEntry } from '@core/map/source';
 import { createNewSave } from '@core/save';
 import { DIALOGS } from '@data/dialogs';
+import { findEquip } from '@data/equipment';
 import { findItem } from '@data/items';
 import { MAP_IDS, MAP_SOURCES, getMapSource } from '@data/maps';
 import type { Facing } from '@data/types';
@@ -166,9 +167,12 @@ describe('authored maps', () => {
           const label = `${id} chest ${o.flag} (${o.itemId})`;
           expect(o.qty, `${label} qty`).toBeGreaterThanOrEqual(1);
           if (o.itemId !== 'gold') {
+            // §9.3: chests hold it_* consumables/keys or eq_* equipment (one piece at a time).
             const def = findItem(o.itemId);
-            expect(def, label).toBeDefined();
-            expect(o.qty, `${label} qty`).toBeLessThanOrEqual(def!.maxQty);
+            const equip = findEquip(o.itemId);
+            expect(def ?? equip, label).toBeDefined();
+            if (def) expect(o.qty, `${label} qty`).toBeLessThanOrEqual(def.maxQty);
+            else expect(o.qty, `${label} equipment qty`).toBe(1);
           }
         }
         if (o.kind === 'warp' && o.requiredItem !== undefined)
@@ -237,6 +241,9 @@ describe('authored maps', () => {
       ).toBe(false);
       for (const w of warpsOf(id)) {
         expect(compiled[w.targetMap], `${id} warp → ${w.targetMap}`).toBeDefined();
+        // A placeholder exit that bounces back onto its own map (TODO until the next
+        // chapter's map exists) may land on a conditionally hidden blocker.
+        if (w.targetMap === id) continue;
         expect(
           gridWith(w.targetMap, blockersOf(w.targetMap)).isBlocked(w.targetX, w.targetY),
           `${id} warp → ${w.targetMap} (${w.targetX}, ${w.targetY}) is blocked at runtime`,
@@ -422,8 +429,13 @@ describe('authored maps', () => {
         facing: 'right',
       });
       expect(grid.isBlocked(entrance.x, entrance.y)).toBe(false);
-      // The forest does not exist yet, so nothing warps east (§3.1: map_whisper_forest is pending).
-      expect(warpsOf(COAST).some((w) => w.tx === src.width - 1)).toBe(false);
+      // The east end leads on to ささやきの森 (§3.1).
+      const forestWarp = warpsOf(COAST).find((w) => w.tx === src.width - 1);
+      expect(forestWarp).toMatchObject({
+        ty: 12,
+        targetMap: 'map_whisper_forest',
+        facing: 'right',
+      });
     });
 
     it('places enemy symbols on walkable tiles, away from the entrance, in the coast groups', () => {
@@ -453,12 +465,9 @@ describe('authored maps', () => {
       expect(enemies.filter((e) => e.groupIds.includes('grp_coast_b'))).toHaveLength(1);
     });
 
-    it('has a tutorial sign, an east-end sign and a save point with existing dialogs', () => {
+    it('has a tutorial sign and a save point with existing dialogs', () => {
       const signs = objectsOf(COAST).filter((o) => o.kind === 'sign');
-      expect(signs.map((s) => s.textId).sort()).toEqual([
-        'dlg_sign_coast_east',
-        'dlg_sign_coast_tutorial',
-      ]);
+      expect(signs.map((s) => s.textId).sort()).toEqual(['dlg_sign_coast_tutorial']);
       for (const s of signs) expect(DIALOGS[s.textId], s.textId).toBeDefined();
       expect(objectsOf(COAST).filter((o) => o.kind === 'save_point')).toHaveLength(1);
       expect(objectsOf(COAST).filter((o) => o.kind === 'chest')).toMatchObject([

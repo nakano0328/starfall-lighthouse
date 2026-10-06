@@ -1,8 +1,10 @@
 import type { EventCommand } from '@data/types';
 
+import forest from './forest.json';
 import minato from './minato.json';
 
 const FILES: Readonly<Record<string, Readonly<Record<string, EventCommand[]>>>> = {
+  forest: forest as Record<string, EventCommand[]>,
   minato: minato as Record<string, EventCommand[]>,
 };
 

@@ -1,0 +1,53 @@
+{
+  "dlg_sign_lighthouse_path": {
+    "pages": ["北：ほしふる灯台\n南：ミナト村"]
+  },
+  "dlg_lighthouse_door_locked": {
+    "pages": ["灯台の扉には かぎが かかっている。\n星の形の かぎ穴が ある。"]
+  },
+  "dlg_sign_forest_entrance": {
+    "pages": ["ささやきの森\n北：森の祠　北東：山道"]
+  },
+  "dlg_sign_forest_hint": {
+    "pages": ["古びた 立て札。\n「ウロは 火を 恐れる」\nと 刻まれている。"]
+  },
+  "dlg_forest_vine": {
+    "pages": ["トゲツタが 道を ふさいでいる。\n森の 奥から のびている ようだ。"]
+  },
+  "dlg_shrine_door_locked": {
+    "pages": ["祠の扉は 固く 閉ざされている。\n祠のかぎが 要りそうだ。"]
+  },
+  "dlg_sign_shrine_entrance": {
+    "pages": ["森の祠\n迷い星を まつる 古い 祠。"]
+  },
+  "dlg_forest_boss_intro": {
+    "pages": ["祠の 奥で、古木が 身じろぎした。\nウロの 底で、何かが 淡く 光っている。"],
+    "next": "dlg_forest_boss_intro_mio"
+  },
+  "dlg_forest_boss_intro_mio": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_neutral",
+    "pages": ["ルカ、あれ…… 星の欠片！\n木に 取り込まれてる！"],
+    "next": "dlg_forest_boss_intro_luka"
+  },
+  "dlg_forest_boss_intro_luka": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_neutral",
+    "pages": ["欠片を 返してもらう。\nミオ、行くよ！"]
+  },
+  "dlg_forest_boss_win": {
+    "pages": ["古木は 静かに 眠りについた。\nウロの 奥で、欠片が 光を 放つ。"],
+    "next": "dlg_forest_boss_win_luka"
+  },
+  "dlg_forest_boss_win_luka": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_smile",
+    "pages": ["星の欠片……。\nまず ひとつ。"],
+    "next": "dlg_forest_boss_win_mio"
+  },
+  "dlg_forest_boss_win_mio": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_smile",
+    "pages": ["あと ふたつ。\n山と、海だね。"]
+  }
+}

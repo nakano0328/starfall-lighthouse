@@ -36,6 +36,11 @@ export interface NpcSource extends ObjectBase {
   inn_price?: number;
   condition?: string;
   hidden_if?: string;
+  /**
+   * Head markers for quests (§14): the first entry whose `if` holds (or that has
+   * no `if`) shows `text` ('！' / '？'); an empty text shows nothing.
+   */
+  markers?: { if?: string; text: string }[];
 }
 
 export interface WarpSource extends ObjectBase {
@@ -79,6 +84,8 @@ export interface EnemySource extends ObjectBase {
   radius?: number;
   tide?: 'high' | 'low' | 'any';
   defeated_flag?: string;
+  /** Spawn only while this §9.3 condition holds (e.g. enemies appear after the core shatters). */
+  condition?: string;
 }
 
 export interface TriggerSource extends ObjectBase {

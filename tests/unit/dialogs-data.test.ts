@@ -5,6 +5,7 @@ import { DIALOG_EFFECT_COMMANDS } from '@core/dialog/runner';
 import { compileMap } from '@core/map/compile';
 import { parseMapObjects } from '@core/map/objects';
 import { DIALOGS } from '@data/dialogs';
+import { findEquip } from '@data/equipment';
 import { findItem } from '@data/items';
 import type { DialogNode, EventCommand } from '@data/types';
 import { MAP_IDS, getMapSource } from '@data/maps';
@@ -95,10 +96,11 @@ describe('authored dialogs', () => {
       ];
       for (const e of effects) {
         expect(DIALOG_EFFECT_COMMANDS.has(e.cmd), `${id} effect ${e.cmd}`).toBe(true);
-        // Same checks as events-data.test.ts: an unknown item id or a non-positive qty is
-        // silently a no-op at runtime (Inventory.add rejects it, MenuScene hides the entry).
+        // Same checks as events-data.test.ts: an unknown id or a non-positive qty is silently
+        // a no-op at runtime (Inventory.add rejects it, MenuScene hides the entry). Equipment
+        // ids are valid too: quest rewards such as eq_acc_sea_ring (§14) land in the same bag.
         if (e.cmd === 'give_item' || e.cmd === 'take_item') {
-          expect(findItem(e.item), `${id} ${e.cmd} ${e.item}`).toBeDefined();
+          expect(findItem(e.item) ?? findEquip(e.item), `${id} ${e.cmd} ${e.item}`).toBeDefined();
           expect(Number.isInteger(e.qty) && e.qty > 0, `${id} ${e.cmd} qty ${e.qty}`).toBe(true);
         }
         if (e.cmd === 'set_flag')

@@ -7,6 +7,7 @@ import type { NpcObject } from '@core/map/objects';
 import { CHARACTER_IDS } from '@data/characters';
 import { DIALOGS } from '@data/dialogs';
 import { EVENTS } from '@data/events';
+import { findEquip } from '@data/equipment';
 import { findItem } from '@data/items';
 import { MAP_IDS, MAP_SOURCES, getMapSource } from '@data/maps';
 import type { EventCommand } from '@data/types';
@@ -75,7 +76,8 @@ describe('authored events', () => {
         if (c.cmd === 'say') expect(DIALOGS[c.dialog], `${id} say ${c.dialog}`).toBeDefined();
         if (c.cmd === 'warp') expect(MAP_SOURCES[c.map], `${id} warp ${c.map}`).toBeDefined();
         if (c.cmd === 'give_item' || c.cmd === 'take_item') {
-          expect(findItem(c.item), `${id} item ${c.item}`).toBeDefined();
+          // Equipment ids are valid too (quest rewards land in the same bag).
+          expect(findItem(c.item) ?? findEquip(c.item), `${id} item ${c.item}`).toBeDefined();
           // qty 0 gives nothing and prints 「…は これ以上 持てない。」 (pickupMessage).
           expect(Number.isInteger(c.qty) && c.qty >= 1, `${id} ${c.cmd} qty ${c.qty}`).toBe(true);
         }

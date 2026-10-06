@@ -219,6 +219,7 @@ export type EventCommand =
   | { cmd: 'say'; dialog: string }
   | { cmd: 'choice'; text: string[]; set: string }
   | { cmd: 'give_item'; item: string; qty: number }
+  | { cmd: 'give_gold'; amount: number }
   | { cmd: 'take_item'; item: string; qty: number }
   | { cmd: 'set_flag'; key: string; value?: boolean | number | string; increment?: number }
   | { cmd: 'battle'; group: string; win_event?: string; lose?: 'gameover' | 'continue' }
