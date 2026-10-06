@@ -60,18 +60,16 @@ export const map_lighthouse_path: MapSource = {
       target_y: 1,
       facing: 'down',
     },
-    // Lighthouse door (§13 #15: opened with it_key_lighthouse in chapter 4).
-    // TODO(Phase 4d): target map_lighthouse_1f once it exists. Until then the door
-    // sends the player back to the tile in front of it, so the generic round-trip
-    // map tests hold without inventing a warp on another map.
+    // Lighthouse door (§13 #15: opened with it_key_lighthouse in chapter 4) → 灯台の塔 1F:
+    // lands on the tile above 1F's south door (12, 23), which leads back to (15, 2) here.
     {
       type: 'warp',
       x: 15,
       y: 1,
-      target_map: 'map_lighthouse_path',
-      target_x: 15,
-      target_y: 2,
-      facing: 'down',
+      target_map: 'map_lighthouse_1f',
+      target_x: 12,
+      target_y: 22,
+      facing: 'up',
       required_item: 'it_key_lighthouse',
       locked_text_id: 'dlg_lighthouse_door_locked',
       door_flag: 'door.lighthouse_01',

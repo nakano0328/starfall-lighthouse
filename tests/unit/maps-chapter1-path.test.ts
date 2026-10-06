@@ -183,15 +183,20 @@ describe('灯台への道 (map_lighthouse_path)', () => {
   it('puts the locked lighthouse door at the top centre with ev_core_shatter in front of it', () => {
     expect(path.tileAt({ x: 15, y: 1 })).toBe('D');
     const door = path.warps.find((w) => w.tx === 15 && w.ty === 1);
+    // Leads into the tower: 1F's south door at (12, 23) returns to (15, 2) here, facing down.
     expect(door).toMatchObject({
       tw: 1,
       th: 1,
+      targetMap: 'map_lighthouse_1f',
+      targetX: 12,
+      targetY: 22,
+      facing: 'up',
       requiredItem: 'it_key_lighthouse',
       lockedTextId: 'dlg_lighthouse_door_locked',
       doorFlag: 'door.lighthouse_01',
     });
     expect(path.grid.isBlocked(15, 1)).toBe(false);
-    // Only these two warps exist until map_lighthouse_1f is authored (TODO in the map file).
+    // The village exit and the tower door are the only two warps.
     expect(path.warps).toHaveLength(2);
 
     const triggers = path.objects.filter((o) => o.kind === 'trigger');
