@@ -104,7 +104,11 @@ export type Outcome = 'ongoing' | 'victory' | 'defeat' | 'escaped' | 'phase_chan
 
 export interface BattleData {
   skill: (id: string) => SkillDef;
-  item: (id: string) => ItemDef;
+  /**
+   * Looks up a consumable item. Returns undefined for inventory entries that are
+   * not items (equipment shares the bag), which the engine then ignores.
+   */
+  item: (id: string) => ItemDef | undefined;
 }
 
 export interface BattleOptions {

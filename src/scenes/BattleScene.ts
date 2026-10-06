@@ -17,7 +17,7 @@ import { CHARACTERS, getCharacter } from '@data/characters';
 import { getEncounter } from '@data/encounters';
 import { getEnemy } from '@data/enemies';
 import { findEquip } from '@data/equipment';
-import { getItem } from '@data/items';
+import { findItem, getItem } from '@data/items';
 import { getSkill } from '@data/skills';
 import type { ItemDef, SkillDef, TargetScope } from '@data/types';
 import { InputBindings } from '@ui/InputBindings';
@@ -167,7 +167,7 @@ export class BattleScene extends Phaser.Scene {
       enemies,
       group,
       rng: this.rng,
-      data: { skill: getSkill, item: getItem },
+      data: { skill: getSkill, item: findItem },
       inventory: this.state.inventory,
       ...(this.data2.preemptive ? { preemptive: true } : {}),
     });

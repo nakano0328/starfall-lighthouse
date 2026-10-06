@@ -112,10 +112,12 @@ export class BattleEngine {
 
   /** Battle-usable items currently held. */
   battleItems(): { item: ItemDef; qty: number }[] {
-    return this.inventory
-      .entries()
-      .map((e) => ({ item: this.data.item(e.itemId), qty: e.qty }))
-      .filter((e) => e.item.usableInBattle);
+    const usable: { item: ItemDef; qty: number }[] = [];
+    for (const e of this.inventory.entries()) {
+      const item = this.data.item(e.itemId);
+      if (item?.usableInBattle) usable.push({ item, qty: e.qty });
+    }
+    return usable;
   }
 
   // ---------------------------------------------------------------------
@@ -396,7 +398,7 @@ export class BattleEngine {
 
   private performItem(actor: Battler, itemId: string, targetKey: string | undefined): void {
     const item = this.data.item(itemId);
-    if (!this.inventory.has(itemId)) return;
+    if (!item || !this.inventory.has(itemId)) return;
     const effect = item.effect;
     const targets = this.itemTargets(actor, item, targetKey);
     if (targets.length === 0) return;
