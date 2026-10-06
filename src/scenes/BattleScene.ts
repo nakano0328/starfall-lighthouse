@@ -234,6 +234,15 @@ export class BattleScene extends Phaser.Scene {
     return this.phase === 'command' ? this.commandMenu : this.subMenu;
   }
 
+  /**
+   * e2e probe: drops every live enemy to 1 HP so a walkthrough can end a scripted
+   * boss fight (and each of its forms) with one attack instead of playing it out.
+   */
+  weakenEnemies(): void {
+    for (const e of this.engine.enemies) if (!e.ko) e.hp = 1;
+    this.refreshStatus();
+  }
+
   // ---- setup ----------------------------------------------------------------
 
   private spawnEnemySprites(): void {
