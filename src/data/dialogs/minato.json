@@ -218,12 +218,17 @@
   "dlg_minato_boy": {
     "pages": [],
     "branches": [
+      { "if": "minato.lighthouse_unlocked", "next": "dlg_minato_boy_final" },
       { "if": "ruins.boss_defeated", "next": "dlg_minato_boy_ch4" },
       { "if": "forest.boss_defeated", "next": "dlg_minato_boy_ch2" },
       { "if": "main.core_shattered", "next": "dlg_minato_boy_shattered" },
       { "if": "minato.intro_done", "next": "dlg_minato_boy_lighthouse" },
       { "next": "dlg_minato_boy_01" }
     ]
+  },
+  "dlg_minato_boy_final": {
+    "speaker": "男の子",
+    "pages": ["ルカ、灯台に 行くんでしょ？\nぼく、灯台に 光が 戻るのを\nここで 待ってるからね！"]
   },
   "dlg_minato_boy_ch4": {
     "speaker": "男の子",
