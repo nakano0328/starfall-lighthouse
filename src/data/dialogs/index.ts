@@ -3,6 +3,7 @@ import type { DialogNode } from '@data/types';
 import coast from './coast.json';
 import forest from './forest.json';
 import hagane from './hagane.json';
+import lighthouse from './lighthouse.json';
 import minato from './minato.json';
 import mine from './mine.json';
 import ruins from './ruins.json';
@@ -14,6 +15,7 @@ const FILES: Readonly<Record<string, Readonly<Record<string, DialogNodeJson>>>> 
   coast: coast as Record<string, DialogNodeJson>,
   forest: forest as Record<string, DialogNodeJson>,
   hagane: hagane as Record<string, DialogNodeJson>,
+  lighthouse: lighthouse as Record<string, DialogNodeJson>,
   minato: minato as Record<string, DialogNodeJson>,
   mine: mine as Record<string, DialogNodeJson>,
   ruins: ruins as Record<string, DialogNodeJson>,

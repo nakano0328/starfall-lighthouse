@@ -25,6 +25,8 @@ export function generatePlaceholder(scene: Phaser.Scene, asset: ImageAsset): voi
       return makeSign(scene, asset.key);
     case 'save_point':
       return makeSavePoint(scene, asset.key);
+    case 'gate':
+      return makeGate(scene, asset.key);
     case 'window':
       return makeWindow(scene, asset.key);
     case 'cursor':
@@ -272,6 +274,20 @@ function makeSign(scene: Phaser.Scene, key: string): void {
   g.fillStyle(0x6b4423, 1);
   g.fillRect(8, 9, 16, 1);
   g.fillRect(8, 13, 12, 1);
+  g.generateTexture(key, T, T);
+  g.destroy();
+}
+
+/** Iron bars between two posts: the lever-operated gates of the lighthouse (§3.1 2F). */
+function makeGate(scene: Phaser.Scene, key: string): void {
+  const g = graphics(scene);
+  g.fillStyle(0x3a3a40, 1);
+  g.fillRect(2, 4, 4, 26);
+  g.fillRect(26, 4, 4, 26);
+  g.fillStyle(0x8a8a95, 1);
+  for (const x of [9, 14, 19]) g.fillRect(x, 6, 3, 24);
+  g.fillRect(6, 8, 20, 2);
+  g.fillRect(6, 24, 20, 2);
   g.generateTexture(key, T, T);
   g.destroy();
 }

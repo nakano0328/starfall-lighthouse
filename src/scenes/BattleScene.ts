@@ -52,6 +52,9 @@ const LAYOUT = {
 
 /** Message hold per line; halved by the バトル速度 setting (§5.13), quartered while Z is held. */
 const LINE_MS = 650;
+/** Screen shake while a boss changes form (§8.4 形態移行). */
+const PHASE_SHAKE_MS = 400;
+const PHASE_SHAKE_INTENSITY = 0.01;
 const POP_MS = 600;
 const SUB_PAGE_SIZE = 4;
 const DEPTH = { bg: 0, enemies: 10, windows: 20, text: 30, popup: 40 } as const;
@@ -229,6 +232,15 @@ export class BattleScene extends Phaser.Scene {
 
   get activeMenu(): ListMenu | undefined {
     return this.phase === 'command' ? this.commandMenu : this.subMenu;
+  }
+
+  /**
+   * e2e probe: drops every live enemy to 1 HP so a walkthrough can end a scripted
+   * boss fight (and each of its forms) with one attack instead of playing it out.
+   */
+  weakenEnemies(): void {
+    for (const e of this.engine.enemies) if (!e.ko) e.hp = 1;
+    this.refreshStatus();
   }
 
   // ---- setup ----------------------------------------------------------------
@@ -808,7 +820,9 @@ export class BattleScene extends Phaser.Scene {
       es.marker.destroy();
     }
     this.enemySprites = [];
-    await this.say('……闇が ふくれあがる！');
+    this.cameras.main.shake(PHASE_SHAKE_MS, PHASE_SHAKE_INTENSITY);
+    const lines = (boss && getEnemy(boss.id).phaseText) ?? ['……闇が ふくれあがる！'];
+    for (const line of lines) await this.say(line);
     this.engine.nextPhase([createEnemyBattler(0, getEnemy(nextId))]);
     this.spawnEnemySprites();
     this.refreshStatus();

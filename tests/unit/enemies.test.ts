@@ -232,6 +232,9 @@ describe('enemies data', () => {
       phaseNext: 'bo_nox_phase2',
     });
     expect(nox1.onDefeatEvent).toBeUndefined();
+    // §8.4 形態移行: the mask breaks, three pages while the screen shakes.
+    expect(nox1.phaseText).toHaveLength(3);
+    expect(nox1.phaseText?.[0]).toBe('仮面が 割れた！');
     expect(nox1.ai).toContainEqual({
       priority: 1,
       cond: { type: 'hp_below', ratio: 0.5 },
@@ -251,7 +254,7 @@ describe('enemies data', () => {
       gold: 0,
       drops: [],
       scale: 2.67,
-      onDefeatEvent: 'ev_nox_defeated',
+      onDefeatEvent: 'ev_nox_win',
     });
     expect(nox2.phaseNext).toBeUndefined();
     expect([...nox2.resist].sort()).toEqual(['earth', 'fire', 'water']);

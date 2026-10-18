@@ -60,6 +60,7 @@ interface EnemySpec {
 interface BossSpec extends EnemySpec {
   scale?: number;
   phaseNext?: string;
+  phaseText?: string[];
   onDefeatEvent?: string;
 }
 
@@ -93,6 +94,7 @@ const boss = (s: BossSpec): EnemyDef => ({
   ai: s.ai,
   scale: s.scale ?? 2,
   ...(s.phaseNext ? { phaseNext: s.phaseNext } : {}),
+  ...(s.phaseText ? { phaseText: s.phaseText } : {}),
   ...(s.onDefeatEvent ? { onDefeatEvent: s.onDefeatEvent } : {}),
 });
 
@@ -529,6 +531,12 @@ const BOSSES: readonly EnemyDef[] = [
     gold: 0,
     drops: [],
     phaseNext: 'bo_nox_phase2',
+    // §8.4 形態移行: 「仮面が割れた！」, three pages while the screen shakes.
+    phaseText: [
+      '仮面が 割れた！',
+      'ノクス「……まだだ。 まだ 足りない」',
+      '星の光が 影に 呑まれていく……',
+    ],
     ai: [
       {
         priority: 2,
@@ -568,7 +576,7 @@ const BOSSES: readonly EnemyDef[] = [
     gold: 0,
     drops: [],
     scale: 2.67,
-    onDefeatEvent: 'ev_nox_defeated',
+    onDefeatEvent: 'ev_nox_win',
     ai: [
       // Fires the turn after the second charge turn.
       {

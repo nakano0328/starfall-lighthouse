@@ -1,0 +1,180 @@
+{
+  "dlg_sign_tower_1f": {
+    "pages": ["灯台の塔 1F\n「灯りを 守る者、ここより 登れ」\n北の 階段が 上へ 続いている。"]
+  },
+  "dlg_sign_tower_2f": {
+    "pages": ["灯台の塔 2F\n「二本の レバーが 柵を 動かす。\n両方 引けば 道は 開く」"]
+  },
+  "dlg_sign_tower_3f": {
+    "pages": ["灯台の塔 3F\n「疲れたら ここで 休み、\n旅の しるしを 残せ」"]
+  },
+  "dlg_sign_tower_4f": {
+    "pages": ["灯台の塔 4F\n「偽りの灯に 惑わされるな。\n水は 偽りの 炎を 消す」"]
+  },
+  "dlg_sign_tower_5f": {
+    "pages": ["灯台の塔 5F 灯室前\n「泉は 手紙に 応える。\n灯台守の 言葉を 捧げよ」"]
+  },
+  "dlg_tower_gate": {
+    "pages": ["鉄の柵が 道を 塞いでいる。\n押しても 引いても\nびくとも しない。"]
+  },
+  "dlg_nox_top_idle": {
+    "speaker": "ノクス",
+    "portrait": "portrait_nox_neutral",
+    "pages": ["……。"]
+  },
+  "dlg_tower_voice_1": {
+    "speaker": "影の声",
+    "pages": [
+      "……来たか、灯台守。\n欠片の 匂いが する。",
+      "登って来い。\nこの塔は もう、わたしの 物だ。"
+    ]
+  },
+  "dlg_tower_voice_2": {
+    "speaker": "影の声",
+    "pages": [
+      "欠片を 置いていけ。\n三つ そろえば、わたしは\nもう 迷わずに 済む。",
+      "置いていけば\nお前たちは 帰してやる。"
+    ]
+  },
+  "dlg_tower_voice_3": {
+    "speaker": "影の声",
+    "pages": [
+      "……帰る場所が あるか、\n灯台守。",
+      "わたしには ない。\nだから ここを\n帰る場所に する。"
+    ]
+  },
+  "dlg_tower_voice_4": {
+    "speaker": "影の声",
+    "pages": [
+      "光は 要らない。\n光は わたしを 置いていった。",
+      "影で いい。\n影なら、誰にも\n置いていかれない。"
+    ]
+  },
+  "dlg_tower_voice_5": {
+    "speaker": "影の声",
+    "pages": [
+      "……ここまで 来たか。\n上で 待つ。",
+      "欠片を 持って 来い、灯台守。\nすべてを 終わらせよう。"
+    ]
+  },
+  "dlg_tower_lever": {
+    "pages": ["レバーを 引いた。\n遠くで 柵が 上がる 音がした。"]
+  },
+  "dlg_tower_fountain_sealed": {
+    "pages": ["泉は 眠っている。\n台座に、手紙の 形の\nくぼみが ある。"]
+  },
+  "dlg_tower_fountain_wake": {
+    "pages": [
+      "台座の くぼみに\nじいちゃんの手紙を 置いた。",
+      "手紙が ほどけ、\n文字が 淡く 光りはじめる。"
+    ],
+    "next": "dlg_tower_fountain_wake_luka"
+  },
+  "dlg_tower_fountain_wake_luka": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_neutral",
+    "pages": [
+      "「ルカへ。灯りとは\n帰り道を なくした 者を\n照らすもの じゃ」",
+      "「どんなに 遠くへ 迷った 星も\n灯りは 必ず 迎えに 行ける。\nそれを 忘れるな」"
+    ],
+    "next": "dlg_tower_fountain_wake_end"
+  },
+  "dlg_tower_fountain_wake_end": {
+    "pages": ["泉が 目を 覚まし、\n澄んだ 光が 湧きあがった。"],
+    "next": "dlg_tower_fountain_wake_mio"
+  },
+  "dlg_tower_fountain_wake_mio": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_smile",
+    "pages": ["じいちゃんの 言葉だね。\n行こう、ルカ。\n灯りを 取り戻しに。"]
+  },
+  "dlg_lighthouse_top": {
+    "pages": ["灯台頂。消えた 灯室の 前に\n仮面の 影が 立っていた。"],
+    "next": "dlg_lighthouse_top_nox"
+  },
+  "dlg_lighthouse_top_nox": {
+    "speaker": "ノクス",
+    "portrait": "portrait_nox_neutral",
+    "pages": [
+      "……来たな、灯台守。\n遠い 昔、わたしも 空から\n落ちて、灯台の 光を 待った。",
+      "だが 光は 来なかった。\n灯台が 帰しそこねた 迷い星、\nそれが わたしだ。"
+    ],
+    "next": "dlg_lighthouse_top_mio"
+  },
+  "dlg_lighthouse_top_mio": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_neutral",
+    "pages": ["帰れなかった 星……。\nずっと ひとりで\n待っていたの……？"],
+    "next": "dlg_lighthouse_top_goro"
+  },
+  "dlg_lighthouse_top_goro": {
+    "speaker": "ゴロー",
+    "portrait": "portrait_goro_stern",
+    "pages": ["同情は 後だ、ミオ。\nあいつは 灯台ごと 奪う気だ。\n構えろ！"],
+    "next": "dlg_lighthouse_top_luka"
+  },
+  "dlg_lighthouse_top_luka": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_neutral",
+    "pages": ["……ぼくは 灯台守だ。\n迷った 星を 帰すのが 仕事。\nだから、君も 帰す！"]
+  },
+  "dlg_nox_win": {
+    "pages": [
+      "影が ほどけ、仮面が 砕け散った。\n残ったのは、小さな 光。\nひどく 疲れた 星だった。"
+    ],
+    "next": "dlg_nox_win_nox"
+  },
+  "dlg_nox_win_nox": {
+    "speaker": "ノクス",
+    "portrait": "portrait_nox_neutral",
+    "pages": [
+      "……もう、いい。\n集めても、集めても\n帰れは しなかった。",
+      "消してくれ、灯台守。\n迷い星は、空には 戻れない。"
+    ],
+    "next": "dlg_nox_win_luka"
+  },
+  "dlg_nox_win_luka": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_neutral",
+    "pages": [
+      "戦うのは もう 終わり。\n君に 渡すのは 剣じゃない。\n——灯台の 光だ。",
+      "じいちゃんの 手紙に あった。\n灯りは 帰り道を なくした 者を\n照らすもの だって。"
+    ],
+    "next": "dlg_nox_win_mio"
+  },
+  "dlg_nox_win_mio": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_smile",
+    "pages": ["ルカ、欠片を！\n灯室に 三つ そろえれば\n灯りが 戻る！"]
+  },
+  "dlg_nox_win_relight": {
+    "pages": [
+      "三つの 欠片を 灯室に 置くと、\n星心が ひとつに 戻り、\n灯台に 光が 灯った。",
+      "光に 包まれた 小さな 星が、\nゆっくりと 浮かび上がる。"
+    ],
+    "next": "dlg_nox_win_relight_nox"
+  },
+  "dlg_nox_win_relight_nox": {
+    "speaker": "ノクス",
+    "portrait": "portrait_nox_neutral",
+    "pages": ["……あたたかい。\nこれが、帰り道の 光か。", "灯台守。\n……ありがとう。"],
+    "next": "dlg_nox_win_relight_goro"
+  },
+  "dlg_nox_win_relight_goro": {
+    "speaker": "ゴロー",
+    "portrait": "portrait_goro_smile",
+    "pages": ["……ふん。\n灯台守の 仕事、見届けたぞ。"],
+    "next": "dlg_nox_win_relight_mio"
+  },
+  "dlg_nox_win_relight_mio": {
+    "speaker": "ミオ",
+    "portrait": "portrait_mio_smile",
+    "pages": ["見て、ルカ。\n星が、空へ 帰っていく……。"],
+    "next": "dlg_nox_win_relight_luka"
+  },
+  "dlg_nox_win_relight_luka": {
+    "speaker": "ルカ",
+    "portrait": "portrait_luka_smile",
+    "pages": ["……おやすみ、ノクス。\nまた 迷ったら、\nこの 灯りを 目印に。"]
+  }
+}
