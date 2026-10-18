@@ -1543,3 +1543,239 @@ test('chapter 3: the scholar, the tide steles, the sunken chart and 遺跡の番
   expect(s.flags['ruins.nox_on_stage']).toBe(false);
   expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
 });
+
+// ---- §11.4: the touch overlay and the gamepad ---------------------------------------------
+
+type TouchProbe = {
+  overlayEnabled: boolean;
+  heldZones: string[];
+  fullscreenButtonShown: boolean;
+  device: string;
+};
+type TitleHintProbe = { controlsHintText: string | undefined };
+type FakePad = { buttons: number[]; axes: number[] };
+
+const GAME_W = 640;
+const GAME_H = 360;
+/** Overlay hot spots in game pixels (src/config.ts TOUCH_UI) plus a spot on no control. */
+const TOUCH = {
+  a: { x: 592, y: 290 },
+  b: { x: 532, y: 322 },
+  menu: { x: 566, y: 22 },
+  dpadLeft: { x: 46, y: 276 },
+  free: { x: 320, y: 160 },
+} as const;
+const KEYBOARD_HINT = 'Z：決定　X：戻る　F：全画面';
+const PAD_HINT = 'A：決定　B：戻る';
+
+const touchProbe = (page: Page) =>
+  page.evaluate(() => {
+    const t = (window.__starfall?.game as Game).scene.getScene<TouchProbe>('Touch');
+    return {
+      enabled: t.overlayEnabled,
+      held: t.heldZones,
+      device: t.device,
+      published: window.__starfall?.inputDevice,
+    };
+  });
+
+const titleHint = (page: Page) =>
+  page.evaluate(
+    () =>
+      (window.__starfall?.game as Game).scene.getScene<TitleHintProbe>('Title').controlsHintText,
+  );
+
+const noMenu = (page: Page) =>
+  page.waitForFunction(() => !(window.__starfall?.game as Game).scene.isActive('Menu'), undefined, {
+    timeout: 5_000,
+  });
+
+/** Game pixels → CSS pixels on the scaled canvas. */
+async function canvasPoint(page: Page, gx: number, gy: number): Promise<{ x: number; y: number }> {
+  const box = await page.locator('#game canvas').boundingBox();
+  if (!box) throw new Error('canvas not visible');
+  return { x: box.x + (gx * box.width) / GAME_W, y: box.y + (gy * box.height) / GAME_H };
+}
+
+async function tapAt(page: Page, gx: number, gy: number): Promise<void> {
+  const p = await canvasPoint(page, gx, gy);
+  await page.touchscreen.tap(p.x, p.y);
+  await page.waitForTimeout(100);
+}
+
+/** A finger held on the screen (page.touchscreen only taps; CDP can hold). Returns the lift. */
+async function touchDown(page: Page, gx: number, gy: number): Promise<() => Promise<void>> {
+  const p = await canvasPoint(page, gx, gy);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: [{ x: p.x, y: p.y }],
+  });
+  return async () => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await cdp.detach();
+  };
+}
+
+test.describe('touch controls', () => {
+  test.use({ hasTouch: true });
+
+  test('touch: the first touch shows the overlay; A, the D-pad, MENU and B drive the game', async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (err) => errors.push(err.message));
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') errors.push(msg.text());
+    });
+    await page.goto('/');
+    await page.waitForFunction(() => window.__starfall?.ready === true, undefined, {
+      timeout: 20_000,
+    });
+    expect((await touchProbe(page)).enabled).toBe(false);
+    expect(await titleHint(page)).toBe(KEYBOARD_HINT);
+
+    // The first touch only reveals the overlay and switches the hint to the pad labels.
+    await tapAt(page, TOUCH.free.x, TOUCH.free.y);
+    const revealed = await touchProbe(page);
+    expect(revealed.enabled).toBe(true);
+    expect(revealed.device).toBe('touch');
+    expect(revealed.published).toBe('touch');
+    expect(await page.evaluate(() => window.__starfall?.scene)).toBe('Title');
+    expect(await titleHint(page)).toBe(PAD_HINT);
+
+    // A confirms はじめから; A taps carry the opening (its choice needs a button, not a free tap).
+    await tapAt(page, TOUCH.a.x, TOUCH.a.y);
+    await page.waitForFunction(() => window.__starfall?.scene === 'World', undefined, {
+      timeout: 10_000,
+    });
+    await page.waitForTimeout(300);
+    for (let i = 0; i < 60 && (await fieldWorld(page)).event; i += 1) {
+      await tapAt(page, TOUCH.a.x, TOUCH.a.y);
+      await page.waitForTimeout(300);
+    }
+    let s = await fieldWorld(page);
+    expect(s.event).toBe(false);
+    expect(s.location).toMatchObject({ map: 'map_minato_luka_house', x: 7, y: 7 });
+
+    // A finger held on the D-pad's left arm walks left until it lifts.
+    const lift = await touchDown(page, TOUCH.dpadLeft.x, TOUCH.dpadLeft.y);
+    await page.waitForFunction(
+      () => (window.__starfall?.game as Game).scene.getScene<FieldProbe>('World').playerTile.x < 7,
+      undefined,
+      { timeout: 5_000 },
+    );
+    expect((await touchProbe(page)).held).toEqual(['left']);
+    await lift();
+    await waitForField(page, 'isMoving', false);
+    s = await fieldWorld(page);
+    expect(s.tile.facing).toBe('left');
+    expect(s.tile.x).toBeLessThan(7);
+    expect((await touchProbe(page)).held).toEqual([]);
+
+    // MENU opens the pause menu, B closes it.
+    await tapAt(page, TOUCH.menu.x, TOUCH.menu.y);
+    await waitForMenu(page);
+    expect(await menuMode(page)).toBe('root');
+    await tapAt(page, TOUCH.b.x, TOUCH.b.y);
+    await noMenu(page);
+    expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
+  });
+});
+
+test('gamepad: A confirms, the D-pad and the stick walk, Start opens the menu and B closes it', async ({
+  page,
+}) => {
+  // A fake standard-mapping pad behind navigator.getGamepads; Phaser polls it every frame.
+  await page.addInitScript(() => {
+    const w = window as unknown as { __fakePad?: FakePad };
+    navigator.getGamepads = () => {
+      const pad = w.__fakePad;
+      if (!pad) return [];
+      const live = {
+        id: 'e2e pad (STANDARD GAMEPAD)',
+        index: 0,
+        connected: true,
+        mapping: 'standard',
+        timestamp: performance.now(),
+        buttons: pad.buttons.map((value) => ({ value, pressed: value >= 0.5, touched: value > 0 })),
+        axes: pad.axes,
+      };
+      return [live as unknown as Gamepad];
+    };
+  });
+  const setPad = (buttons: number[] = [], axes: number[] = [0, 0]) =>
+    page.evaluate(
+      ([held, stick]) => {
+        const values = new Array<number>(17).fill(0);
+        for (const index of held) values[index] = 1;
+        (window as unknown as { __fakePad?: FakePad }).__fakePad = { buttons: values, axes: stick };
+      },
+      [buttons, axes] as const,
+    );
+  const pressPad = async (button: number) => {
+    await setPad([button]);
+    await page.waitForTimeout(80);
+    await setPad();
+    await page.waitForTimeout(120);
+  };
+  const errors: string[] = [];
+  page.on('pageerror', (err) => errors.push(err.message));
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') errors.push(msg.text());
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => window.__starfall?.ready === true, undefined, {
+    timeout: 20_000,
+  });
+  await setPad();
+  await page.waitForTimeout(200);
+  expect(await titleHint(page)).toBe(KEYBOARD_HINT);
+
+  // A (button 0) picks はじめから; the hint follows the pad from its first press.
+  await pressPad(0);
+  await page.waitForFunction(() => window.__starfall?.scene === 'World', undefined, {
+    timeout: 10_000,
+  });
+  expect(await page.evaluate(() => window.__starfall?.inputDevice)).toBe('gamepad');
+  await page.waitForTimeout(300);
+  for (let i = 0; i < 60 && (await fieldWorld(page)).event; i += 1) {
+    await pressPad(0);
+    await page.waitForTimeout(300);
+  }
+  let s = await fieldWorld(page);
+  expect(s.event).toBe(false);
+  expect(s.location).toMatchObject({ map: 'map_minato_luka_house', x: 7, y: 7 });
+
+  // D-pad left (button 14) walks while held.
+  await setPad([14]);
+  await page.waitForFunction(
+    () => (window.__starfall?.game as Game).scene.getScene<FieldProbe>('World').playerTile.x < 7,
+    undefined,
+    { timeout: 5_000 },
+  );
+  await setPad();
+  await waitForField(page, 'isMoving', false);
+  s = await fieldWorld(page);
+  expect(s.tile.facing).toBe('left');
+  const leftmost = s.tile.x;
+
+  // The left stick past the dead zone walks too: push right until a tile is gained back.
+  await setPad([], [1, 0]);
+  await page.waitForFunction(
+    (x) => (window.__starfall?.game as Game).scene.getScene<FieldProbe>('World').playerTile.x > x,
+    leftmost,
+    { timeout: 5_000 },
+  );
+  await setPad();
+  await waitForField(page, 'isMoving', false);
+  expect((await fieldWorld(page)).tile.facing).toBe('right');
+
+  // Start (button 9) opens the menu, B (button 1) closes it.
+  await pressPad(9);
+  await waitForMenu(page);
+  expect(await menuMode(page)).toBe('root');
+  await pressPad(1);
+  await noMenu(page);
+  expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
+});

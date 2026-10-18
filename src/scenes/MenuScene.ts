@@ -638,18 +638,24 @@ export class MenuScene extends Phaser.Scene {
     } else if (this.input2.justPressed('up')) {
       this.settingIndex = (this.settingIndex - 1 + rowCount) % rowCount;
       this.renderSettings();
-    } else if (this.input2.justPressed('left') || this.input2.justPressed('right')) {
-      const key = SETTING_KEYS[this.settingIndex];
-      if (key) {
-        this.settings = adjustSetting(this.settings, key, this.input2.isDown('left') ? -1 : 1);
-        this.renderSettings();
-      }
+    } else if (this.input2.justPressed('left')) {
+      // The press decides the direction: LB/RB and touch taps are presses without a hold.
+      this.adjustSelectedSetting(-1);
+    } else if (this.input2.justPressed('right')) {
+      this.adjustSelectedSetting(1);
     } else if (this.input2.justPressed('confirm')) {
       if (this.settingIndex === SETTING_KEYS.length) this.showTitleConfirm();
     } else if (this.input2.justPressed('cancel')) {
       writeStorage(SETTINGS_KEY, serializeSettings(this.settings));
       this.showRoot();
     }
+  }
+
+  private adjustSelectedSetting(delta: 1 | -1): void {
+    const key = SETTING_KEYS[this.settingIndex];
+    if (!key) return;
+    this.settings = adjustSetting(this.settings, key, delta);
+    this.renderSettings();
   }
 
   private showTitleConfirm(): void {

@@ -22,3 +22,21 @@ export const COLORS = {
   textAccent: '#ffe9a3',
   textDanger: '#ff7a6b',
 } as const;
+
+/**
+ * Touch overlay layout (docs/GAME_DESIGN.md §11.4, UI-06) in game pixels:
+ * D-pad bottom-left, A / B bottom-right, MENU and the ⛶ fullscreen frame
+ * top-right. `alpha` is the resting opacity, `alphaHeld` while a zone is held.
+ */
+export const TOUCH_UI = {
+  dpad: { cx: 84, cy: 276, arm: 40, thickness: 36, deadRadius: 10 },
+  a: { cx: 592, cy: 290, r: 28 },
+  b: { cx: 532, cy: 322, r: 24 },
+  menu: { x: 540, y: 10, w: 52, h: 24 },
+  fullscreen: { x: 600, y: 6, w: 32, h: 32 },
+  /** Extra hit margin for a pointer that is already holding a zone. */
+  slop: 16,
+  alpha: 0.35,
+  alphaHeld: 0.75,
+  color: 0xf4f1ea,
+} as const;

@@ -13,5 +13,7 @@ interface Window {
     game?: unknown;
     /** Set to false (debug/e2e) to freeze enemy symbols so they never start a battle. */
     encounters?: boolean;
+    /** Last used input device (`keyboard` / `gamepad` / `touch`), kept current by the Touch scene. */
+    inputDevice?: string;
   };
 }

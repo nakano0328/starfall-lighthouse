@@ -5,6 +5,7 @@ import type { DialogPage } from '@core/dialog/runner';
 import { Typewriter } from '@core/text/typewriter';
 
 import type { InputBindings } from './InputBindings';
+import { virtualPad } from './inputShared';
 import { ListMenu } from './ListMenu';
 import { Window } from './Window';
 
@@ -150,6 +151,8 @@ export class DialogBox extends Phaser.GameObjects.Container {
     this.text.setText(this.typewriter.visibleText);
     this.holdMs = 0;
     this.setMarker(false);
+    // A tap anywhere on the touch overlay reveals / advances this page (§11.4).
+    virtualPad.setTapAdvance(true);
     if (this.typewriter.done) this.onTextComplete();
   }
 
@@ -159,6 +162,7 @@ export class DialogBox extends Phaser.GameObjects.Container {
     this.closeChoices();
     this.setMarker(false);
     this.setVisible(false);
+    virtualPad.setTapAdvance(false);
   }
 
   /** Poll once per frame while open. */
@@ -202,6 +206,8 @@ export class DialogBox extends Phaser.GameObjects.Container {
   }
 
   private openChoices(choices: string[]): void {
+    // A free tap must not pick the highlighted choice; only the A button confirms.
+    virtualPad.setTapAdvance(false);
     const lineHeight = 24;
     const height = choices.length * lineHeight + 16;
     const width = 200;
@@ -242,6 +248,7 @@ export class DialogBox extends Phaser.GameObjects.Container {
 
   override destroy(fromScene?: boolean): void {
     this.markerTween?.stop();
+    if (this.page) virtualPad.setTapAdvance(false);
     super.destroy(fromScene);
   }
 }

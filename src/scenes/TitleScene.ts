@@ -1,12 +1,15 @@
 import Phaser from 'phaser';
 
 import { COLORS, GAME_HEIGHT, GAME_TITLE, GAME_TITLE_EN, GAME_VERSION, GAME_WIDTH } from '@/config';
+import { controlsHint } from '@core/input/device';
 import type { SaveData } from '@core/save';
 import { SAVE_SLOT_COUNT, deserialize, findSlotsWithSaves, slotKey, slotSummary } from '@core/save';
 import { levelFromExp } from '@core/party/exp';
+import { SETTINGS_KEY, parseSettings } from '@core/settings';
 import { CHARACTERS } from '@data/characters';
 import { MIGRATION_CONTEXT, loadGameState, newGameState, placeName } from '@data/saveContext';
 import { InputBindings } from '@ui/InputBindings';
+import { deviceTracker } from '@ui/inputShared';
 import type { ListMenuItem } from '@ui/ListMenu';
 import { ListMenu } from '@ui/ListMenu';
 import { Window } from '@ui/Window';
@@ -25,6 +28,7 @@ export class TitleScene extends Phaser.Scene {
   private slotWindow: Window | undefined;
   private mode: 'main' | 'slots' = 'main';
   private starting = false;
+  private hint: Phaser.GameObjects.Text | undefined;
 
   constructor() {
     super(SceneKey.Title);
@@ -66,6 +70,8 @@ export class TitleScene extends Phaser.Scene {
         color: COLORS.textDim,
       })
       .setOrigin(1, 1);
+    this.hint = undefined;
+    if (parseSettings(readStorage(SETTINGS_KEY)).showControls) this.addControlsHint();
 
     const hasSave = findSlotsWithSaves(readStorage, MIGRATION_CONTEXT).length > 0;
     this.input2 = new InputBindings(this);
@@ -97,6 +103,25 @@ export class TitleScene extends Phaser.Scene {
   /** e2e/debug: which list is active. */
   get currentMode(): 'main' | 'slots' {
     return this.mode;
+  }
+
+  /** e2e/debug: the 操作ガイド line, undefined while the setting is off. */
+  get controlsHintText(): string | undefined {
+    return this.hint?.text;
+  }
+
+  /** 操作ガイド (§11.1): the confirm / cancel labels of the device used last, bottom-left. */
+  private addControlsHint(): void {
+    const hint = this.add
+      .text(8, GAME_HEIGHT - 8, controlsHint(deviceTracker.current), {
+        fontFamily: 'sans-serif',
+        fontSize: '12px',
+        color: COLORS.textDim,
+      })
+      .setOrigin(0, 1);
+    this.hint = hint;
+    const unsubscribe = deviceTracker.onChange((device) => hint.setText(controlsHint(device)));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, unsubscribe);
   }
 
   private onConfirm(index: number): void {

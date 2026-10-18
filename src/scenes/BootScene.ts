@@ -25,6 +25,8 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     for (const asset of IMAGES) generatePlaceholder(this, asset);
+    // The touch / fullscreen overlay runs above every scene for the whole session.
+    this.scene.launch(SceneKey.Touch);
     this.scene.start(SceneKey.Title);
   }
 

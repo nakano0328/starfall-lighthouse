@@ -21,6 +21,7 @@ import { findItem, getItem } from '@data/items';
 import { getSkill } from '@data/skills';
 import type { ItemDef, SkillDef, TargetScope } from '@data/types';
 import { InputBindings } from '@ui/InputBindings';
+import { virtualPad } from '@ui/inputShared';
 import type { ListMenuItem } from '@ui/ListMenu';
 import { ListMenu } from '@ui/ListMenu';
 import { Window } from '@ui/Window';
@@ -150,6 +151,8 @@ export class BattleScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.input2.destroy();
       this.targetBlink?.stop();
+      // A message hold cut short by the scene ending must not leave tap-advance on.
+      virtualPad.setTapAdvance(false);
     });
 
     const group = getEncounter(this.data2.groupId);
@@ -841,9 +844,12 @@ export class BattleScene extends Phaser.Scene {
         if (done) return;
         done = true;
         this.waitResolve = undefined;
+        virtualPad.setTapAdvance(false);
         resolve();
       };
       this.waitResolve = finish;
+      // A tap on the touch overlay shortens the hold like Z does (§11.4 画面タップ).
+      virtualPad.setTapAdvance(true);
       this.time.delayedCall(this.skipHeld ? ms / 4 : ms, finish);
       this.skipHeld = false;
     });

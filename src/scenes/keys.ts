@@ -7,6 +7,8 @@ export const SceneKey = {
   Battle: 'Battle',
   GameOver: 'GameOver',
   Shop: 'Shop',
+  /** Touch controls / fullscreen overlay; launched by Boot and never stopped. */
+  Touch: 'Touch',
 } as const;
 
 export type SceneKey = (typeof SceneKey)[keyof typeof SceneKey];

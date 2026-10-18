@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 
 import type { Facing } from '@data/types';
+import type { Action } from '@core/input/actions';
+import { DIRECTIONS } from '@core/input/actions';
 
-/** Logical actions, mapped from keyboard per docs/GAME_DESIGN.md §11.4. */
-export type Action =
-  'up' | 'down' | 'left' | 'right' | 'confirm' | 'cancel' | 'dash' | 'fullscreen';
+import { deviceTracker, sharedGamepad, virtualPad } from './inputShared';
+
+export type { Action } from '@core/input/actions';
 
 const KEY_CODES = Phaser.Input.Keyboard.KeyCodes;
 
@@ -19,52 +21,68 @@ const BINDINGS: Record<Action, number[]> = {
   fullscreen: [KEY_CODES.F],
 };
 
+/**
+ * Keys that only press an action, never hold it: Q / E switch tabs, pages and
+ * slots like LB / RB on a pad (§11.4) without walking the party on the field.
+ */
+const PRESS_ONLY_BINDINGS: readonly (readonly [Action, number])[] = [
+  ['left', KEY_CODES.Q],
+  ['right', KEY_CODES.E],
+];
+
 /** Confirm presses closer together than this are ignored (連打防止, §11.4). */
 export const CONFIRM_DEBOUNCE_MS = 120;
 
-const DIRECTIONS: readonly Facing[] = ['up', 'down', 'left', 'right'];
-
 /**
- * Thin wrapper over Phaser keys so scenes ask for actions, not key codes.
+ * Action layer over the keyboard, the gamepad plugin and the shared touch pad,
+ * so scenes ask for actions, not key codes or button indices (§11.4).
  *
- * Presses are collected from the Key `down` events and consumed by `justPressed`,
- * then cleared after the scene's update. Phaser's own `JustDown` misses a key that
- * goes down and up within a single frame (fast taps, automated input), which is
- * why the events are tracked here instead.
+ * Presses are collected into `pending`, consumed by `justPressed` and cleared
+ * after the scene's update. Keyboard presses come from the Key `down` events,
+ * touch and gamepad presses from the shared pads' listeners (the gamepad is
+ * sampled once per frame by the Touch scene), so a key or a tap that goes down
+ * and up within a single frame (fast taps, automated input) still counts.
  *
  * Keyboard auto-repeat is not a press: Phaser keys are per scene and only skip
  * repeats while their own `isDown` is set, so a key held across a scene change
  * (X opening the Menu, Enter from the title) would otherwise fire again in the
- * new scene. `isDown` still reflects a held key, which is what dash, hold-to-fast-
- * forward and `heldDirection` read.
+ * new scene. A pad button held across a scene change fired its press in the
+ * old scene only, since the shared mapper never restarts. `isDown` still
+ * reflects a held input, which is what dash, hold-to-fast-forward and
+ * `heldDirection` read.
  *
  * Create one per scene and call `destroy()` on shutdown.
  */
 export class InputBindings {
   private readonly keys: Record<Action, Phaser.Input.Keyboard.Key[]>;
+  /** Q / E: pressed into `pending` like any key, but never counted as held. */
+  private readonly pressOnlyKeys: Phaser.Input.Keyboard.Key[] = [];
   private readonly pending = new Set<Action>();
   private lastConfirmAt = -Infinity;
-  /** Press order of direction keys so "last pressed wins" for diagonals (§9.1). */
+  /** Press order of directions so "last pressed wins" for diagonals (§9.1). */
   private readonly pressOrder: Facing[] = [];
+  private readonly unsubscribePad: () => void;
+  private readonly unsubscribeGamepad: () => void;
   private readonly clearPending = (): void => {
     this.pending.clear();
   };
 
   constructor(private readonly scene: Phaser.Scene) {
     const keyboard = scene.input.keyboard;
-    const make = (action: Action): Phaser.Input.Keyboard.Key[] => {
-      if (!keyboard) return [];
-      return BINDINGS[action].map((code) => {
-        const key = keyboard.addKey(code, false);
-        key.on(
-          Phaser.Input.Keyboard.Events.DOWN,
-          (_key: Phaser.Input.Keyboard.Key, ev: KeyboardEvent) => {
-            if (!ev.repeat) this.pending.add(action);
-          },
-        );
-        return key;
-      });
+    const bind = (code: number, action: Action): Phaser.Input.Keyboard.Key => {
+      const key = keyboard!.addKey(code, false);
+      key.on(
+        Phaser.Input.Keyboard.Events.DOWN,
+        (_key: Phaser.Input.Keyboard.Key, ev: KeyboardEvent) => {
+          if (ev.repeat) return;
+          this.pending.add(action);
+          deviceTracker.use('keyboard');
+        },
+      );
+      return key;
     };
+    const make = (action: Action): Phaser.Input.Keyboard.Key[] =>
+      keyboard ? BINDINGS[action].map((code) => bind(code, action)) : [];
     this.keys = {
       up: make('up'),
       down: make('down'),
@@ -75,14 +93,27 @@ export class InputBindings {
       dash: make('dash'),
       fullscreen: make('fullscreen'),
     };
+    if (keyboard) {
+      for (const [action, code] of PRESS_ONLY_BINDINGS) this.pressOnlyKeys.push(bind(code, action));
+    }
+    // Touch and pad presses reach only running scenes, like the per-scene keyboard keys.
+    const onPress = (action: Action): void => {
+      if (scene.sys.isActive()) this.pending.add(action);
+    };
+    this.unsubscribePad = virtualPad.onPress(onPress);
+    this.unsubscribeGamepad = sharedGamepad.onPress(onPress);
     scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.clearPending);
   }
 
   isDown(action: Action): boolean {
-    return this.keys[action].some((k) => k.isDown);
+    return (
+      this.keys[action].some((k) => k.isDown) ||
+      sharedGamepad.isDown(action) ||
+      virtualPad.isDown(action)
+    );
   }
 
-  /** True once per frame in which any key of the action was pressed. */
+  /** True once per frame in which the action was pressed on any device. */
   justPressed(action: Action): boolean {
     if (!this.pending.has(action)) return false;
     if (action === 'confirm') {
@@ -98,8 +129,8 @@ export class InputBindings {
   }
 
   /**
-   * Direction currently requested, preferring the most recently pressed key when
-   * several are held. Call once per frame before reading.
+   * Direction currently requested, preferring the most recently pressed one when
+   * several are held, across devices. Call once per frame before reading.
    */
   heldDirection(): Facing | null {
     for (const dir of DIRECTIONS) {
@@ -116,14 +147,17 @@ export class InputBindings {
     this.pending.clear();
   }
 
-  /** Removes every key so other scenes (e.g. an overlay) can take over. */
+  /** Removes every key and listener so other scenes (e.g. an overlay) can take over. */
   destroy(): void {
     this.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.clearPending);
+    this.unsubscribePad();
+    this.unsubscribeGamepad();
     this.pending.clear();
     const keyboard = this.scene.input.keyboard;
     if (!keyboard) return;
     for (const list of Object.values(this.keys)) {
       for (const k of list) keyboard.removeKey(k, true);
     }
+    for (const k of this.pressOnlyKeys) keyboard.removeKey(k, true);
   }
 }
