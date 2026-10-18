@@ -142,7 +142,7 @@ describe('学者のキャンプ (map_ruins_camp)', () => {
       bgmKey: 'bgm_ruins',
       battleBgKey: 'bg_ruins',
       encounterGroups: [],
-      tilesets: ['ts_placeholder'],
+      tilesets: ['ts_village'],
       entrance: { x: 10, y: 1, facing: 'down' },
       canSaveAnywhere: false,
     });
@@ -269,21 +269,21 @@ describe('学者のキャンプ: camp folk (§3.1, §7.5, §13 #11-12, §14)', (
         dialog: 'dlg_camp_assistant',
         move: 'static',
         facing: 'down',
-        sprite: 'sprite_npc',
+        sprite: 'sprite_assistant',
       },
       {
         id: 'npc_merchant_camp',
         dialog: 'dlg_camp_merchant',
         move: 'static',
         facing: 'down',
-        sprite: 'sprite_npc',
+        sprite: 'sprite_merchant',
       },
       {
         id: 'npc_ruins_scholar',
         dialog: 'dlg_ruins_scholar',
         move: 'static',
         facing: 'down',
-        sprite: 'sprite_npc',
+        sprite: 'sprite_scholar',
       },
     ]);
     // Nobody is gated: the camp is open from the first visit (§13 #11 happens in dialog).

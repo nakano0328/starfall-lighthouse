@@ -41,7 +41,7 @@ export const map_forest_shrine: MapSource = {
     bgmKey: 'bgm_forest',
     battleBgKey: 'bg_forest',
     encounterGroups: ['grp_forest_c', 'grp_forest_d'],
-    tilesets: ['ts_placeholder'],
+    tilesets: ['ts_forest'],
     entrance: { x: 15, y: 28, facing: 'up' },
     canSaveAnywhere: false,
   },

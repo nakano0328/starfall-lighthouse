@@ -112,7 +112,7 @@ describe('ミナト村 north exit (map_minato_village)', () => {
       ty: 1,
       dialog: 'dlg_mio_idle',
       facing: 'left',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_mio',
       hiddenIf: 'minato.mio_joined',
     });
     expect(mio).not.toHaveProperty('condition');
@@ -147,7 +147,7 @@ describe('灯台への道 (map_lighthouse_path)', () => {
       bgmKey: 'bgm_field',
       battleBgKey: 'bg_coast',
       encounterGroups: ['grp_coast_a'],
-      tilesets: ['ts_placeholder'],
+      tilesets: ['ts_village'],
       entrance: { x: 15, y: 18, facing: 'up' },
       canSaveAnywhere: false,
     });

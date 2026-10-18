@@ -28,6 +28,7 @@ export class GameOverScene extends Phaser.Scene {
   create(): void {
     this.leaving = false;
     this.cameras.main.setBackgroundColor(0x05061a);
+    this.add.image(0, 0, 'kv_gameover').setOrigin(0);
     this.add
       .text(GAME_WIDTH / 2, 110, 'ゲームオーバー', {
         fontFamily: 'sans-serif',

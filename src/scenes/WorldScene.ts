@@ -21,6 +21,8 @@ import {
   updateSymbol,
 } from '@core/field/symbols';
 import { FACING_DELTA, GridMover } from '@core/grid/mover';
+import type { Stride } from '@core/grid/walk';
+import { actorFrame, stepProgress, strideAt } from '@core/grid/walk';
 import { controlsHint } from '@core/input/actions';
 import { cameraScroll } from '@core/map/camera';
 import { PLACEHOLDER_TILESET_NAME, compileMap } from '@core/map/compile';
@@ -92,9 +94,16 @@ const SCRIPT_STEP_MS = 150;
 const CHAPTER_FADE_MS = 300;
 const CHAPTER_HOLD_MS = 1900;
 
+/** Walk-cycle bookkeeping for symbol-driven actors: the tile last seen and the leading foot. */
+interface WalkCycle {
+  lastTile?: { x: number; y: number };
+  parity?: boolean;
+}
+
 interface SymbolRuntime {
   state: SymbolState;
   image: Phaser.GameObjects.Image;
+  walk: WalkCycle;
 }
 
 export interface BattleStartOptions {
@@ -115,6 +124,8 @@ export interface BattleStartOptions {
 const defeatedAt = new Map<string, number>();
 
 interface NpcRuntime {
+  /** Walk-cycle bookkeeping for wandering and scripted steps (§9.1). */
+  walk: WalkCycle;
   obj: NpcObject;
   image: Phaser.GameObjects.Image;
   /** Quest marker above the head (§14 ！／？); empty text hides it. */
@@ -179,6 +190,10 @@ export class WorldScene extends Phaser.Scene {
   private menuRequested = false;
   /** True while a scripted player step tweens the sprite itself (see syncPlayerSprite). */
   private scriptedPlayerStep = false;
+  /** Which foot leads the player's next step (alternates per step, §9.1). */
+  private stepParity = false;
+  /** Stride shown while a scripted step tweens the player sprite. */
+  private scriptedStride: Stride = '';
 
   constructor() {
     super(SceneKey.World);
@@ -317,6 +332,7 @@ export class WorldScene extends Phaser.Scene {
     for (const event of this.mover.update(delta, dir, dash)) {
       if (event.type === 'turn')
         this.save.location = { ...this.save.location, facing: event.facing };
+      if (event.type === 'step_start') this.stepParity = !this.stepParity;
       if (event.type === 'step_end') this.onEnterTile(event.x, event.y);
       if (this.transitioning || this.interpreter.running) break;
     }
@@ -436,7 +452,11 @@ export class WorldScene extends Phaser.Scene {
     this.objects = parseMapObjects(this.tiled);
 
     const map = this.make.tilemap({ key: cacheKey });
-    const tileset = map.addTilesetImage(PLACEHOLDER_TILESET_NAME, 'ts_placeholder');
+    // The embedded tileset keeps the placeholder name and layout; only the image differs per area.
+    const tileset = map.addTilesetImage(
+      PLACEHOLDER_TILESET_NAME,
+      this.tilesetTextureKey(source.meta.tilesets),
+    );
     if (!tileset) throw new Error(`tileset ${PLACEHOLDER_TILESET_NAME} missing`);
     map.createLayer('ground', tileset, 0, 0)?.setDepth(DEPTH.ground);
     map.createLayer('deco', tileset, 0, 0)?.setDepth(DEPTH.deco);
@@ -509,6 +529,7 @@ export class WorldScene extends Phaser.Scene {
             ty: o.ty,
             facing: o.facing,
             hidden: false,
+            walk: {},
             wander:
               o.move === 'random'
                 ? createSymbol(
@@ -563,7 +584,7 @@ export class WorldScene extends Phaser.Scene {
       const image = this.add
         .image(tileCenter(state.tx), tileCenter(state.ty), 'sprite_enemy', 'down')
         .setDepth(DEPTH.actors + state.ty / 1000);
-      this.symbols.push({ state, image });
+      this.symbols.push({ state, image, walk: {} });
     });
   }
 
@@ -592,7 +613,13 @@ export class WorldScene extends Phaser.Scene {
       sym.image
         .setPosition(pos.x * TILE_SIZE + TILE_SIZE / 2, pos.y * TILE_SIZE + TILE_SIZE / 2)
         .setDepth(DEPTH.actors + pos.y / 1000)
-        .setFrame(facingOf(sym.state));
+        .setFrame(
+          this.walkFrame(
+            sym.image,
+            facingOf(sym.state),
+            this.symbolStride(sym.state, sym.walk, pos),
+          ),
+        );
       if (result.contact) {
         void this.startBattle(pickGroup(sym.state.spec, mathRng), {
           preemptive: result.contact.preemptive,
@@ -601,6 +628,22 @@ export class WorldScene extends Phaser.Scene {
         return;
       }
     }
+  }
+
+  /** Stride of a symbol-driven actor from its render position; toggles the foot per tile. */
+  private symbolStride(state: SymbolState, walk: WalkCycle, pos: { x: number; y: number }): Stride {
+    const { tx, ty } = state;
+    if (!walk.lastTile || walk.lastTile.x !== tx || walk.lastTile.y !== ty) {
+      walk.lastTile = { x: tx, y: ty };
+      walk.parity = !walk.parity;
+    }
+    return strideAt(stepProgress(pos.x, pos.y, tx, ty), walk.parity ?? false);
+  }
+
+  /** `actorFrame` when the sheet has stride frames (generated art), else the standing frame. */
+  private walkFrame(image: Phaser.GameObjects.Image, facing: Facing, stride: Stride): string {
+    const name = actorFrame(facing, stride);
+    return image.texture.has(name) ? name : facing;
   }
 
   private wanderingNpcAt(x: number, y: number): NpcRuntime | undefined {
@@ -640,6 +683,12 @@ export class WorldScene extends Phaser.Scene {
       npc.marker.setPosition(px, py - NPC_MARKER_OFFSET_Y);
       if (now < state.stepEnd) {
         npc.facing = facingOf(state);
+        npc.image.setFrame(
+          this.walkFrame(npc.image, npc.facing, this.symbolStride(state, npc.walk, pos)),
+        );
+      } else if (npc.walk.lastTile) {
+        // Step finished: back to the standing frame once.
+        delete npc.walk.lastTile;
         this.faceNpc(npc, npc.facing);
       }
     }
@@ -1249,7 +1298,11 @@ export class WorldScene extends Phaser.Scene {
         this.mover.face(dir);
         // The tween owns the sprite for this step; syncPlayerSprite leaves it alone.
         this.scriptedPlayerStep = true;
-        const arrived = await this.tweenTo(this.player, to.x, to.y);
+        this.stepParity = !this.stepParity;
+        const arrived = await this.tweenTo(this.player, to.x, to.y, (t) => {
+          this.scriptedStride = strideAt(t, this.stepParity);
+        });
+        this.scriptedStride = '';
         this.scriptedPlayerStep = false;
         if (!arrived) return;
         this.mover.teleport(to);
@@ -1261,7 +1314,13 @@ export class WorldScene extends Phaser.Scene {
         this.faceNpc(npc, dir);
         const nx = npc.tx + dx;
         const ny = npc.ty + dy;
-        if (!(await this.tweenTo(npc.image, nx, ny))) return;
+        npc.walk.parity = !npc.walk.parity;
+        const stepped = await this.tweenTo(npc.image, nx, ny, (t) => {
+          if (isObjectSprite(npc.obj.sprite)) return;
+          npc.image.setFrame(this.walkFrame(npc.image, dir, strideAt(t, npc.walk.parity ?? false)));
+        });
+        if (!stepped) return;
+        this.faceNpc(npc, dir);
         npc.tx = nx;
         npc.ty = ny;
         npc.image.setDepth(DEPTH.actors + ny / 1000);
@@ -1269,8 +1328,16 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  /** Tweens an image to a tile centre. Resolves false if the scene shut down first. */
-  private tweenTo(target: Phaser.GameObjects.Image, tx: number, ty: number): Promise<boolean> {
+  /**
+   * Tweens an image to a tile centre, reporting progress 0〜1 for the walk cycle.
+   * Resolves false if the scene shut down first.
+   */
+  private tweenTo(
+    target: Phaser.GameObjects.Image,
+    tx: number,
+    ty: number,
+    onProgress?: (t: number) => void,
+  ): Promise<boolean> {
     return new Promise<boolean>((resolve) => {
       const cut = (): void => resolve(false);
       this.events.once(Phaser.Scenes.Events.SHUTDOWN, cut);
@@ -1279,6 +1346,7 @@ export class WorldScene extends Phaser.Scene {
         x: tileCenter(tx),
         y: tileCenter(ty),
         duration: SCRIPT_STEP_MS,
+        onUpdate: (tween: Phaser.Tweens.Tween) => onProgress?.(tween.progress),
         onComplete: () => {
           this.events.off(Phaser.Scenes.Events.SHUTDOWN, cut);
           resolve(true);
@@ -1320,6 +1388,12 @@ export class WorldScene extends Phaser.Scene {
     });
   }
 
+  /** The area sheet the map names (§9.3); the placeholder when the texture is missing. */
+  private tilesetTextureKey(tilesets: readonly string[]): string {
+    const key = tilesets[0];
+    return key !== undefined && this.textures.exists(key) ? key : 'ts_placeholder';
+  }
+
   // ---- rendering --------------------------------------------------------------
 
   private syncPlayerSprite(): void {
@@ -1339,7 +1413,15 @@ export class WorldScene extends Phaser.Scene {
       );
       rowY = rp.y;
     }
-    this.player.setFrame(this.mover.position.facing).setDepth(DEPTH.actors + rowY / 1000);
+    const facing = this.mover.position.facing;
+    const stride = this.scriptedPlayerStep
+      ? this.scriptedStride
+      : this.mover.isMoving
+        ? strideAt(this.mover.progress, this.stepParity)
+        : '';
+    this.player
+      .setFrame(this.walkFrame(this.player, facing, stride))
+      .setDepth(DEPTH.actors + rowY / 1000);
     const { x, y } = this.mover.position;
     this.hud.setText(`${this.save.location.map}  (${x}, ${y})  ${this.state.gold}G`);
   }

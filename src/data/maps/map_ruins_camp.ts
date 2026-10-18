@@ -39,7 +39,7 @@ export const map_ruins_camp: MapSource = {
     bgmKey: 'bgm_ruins',
     battleBgKey: 'bg_ruins',
     encounterGroups: [],
-    tilesets: ['ts_placeholder'],
+    tilesets: ['ts_village'],
     entrance: { x: 10, y: 1, facing: 'down' },
     canSaveAnywhere: false,
   },
@@ -97,7 +97,7 @@ export const map_ruins_camp: MapSource = {
       id: 'npc_ruins_scholar',
       dialog: 'dlg_ruins_scholar',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_scholar',
       markers: [
         { if: 'sq.chart==2', text: '' },
         { if: 'item.it_old_chart>=1', text: '？' },
@@ -113,7 +113,7 @@ export const map_ruins_camp: MapSource = {
       id: 'npc_merchant_camp',
       dialog: 'dlg_camp_merchant',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_merchant',
       shop: 'shop_camp',
     },
     // The assistant in front of the tent: a night's rest for 60G (§3.1).
@@ -124,7 +124,7 @@ export const map_ruins_camp: MapSource = {
       id: 'npc_camp_assistant',
       dialog: 'dlg_camp_assistant',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_assistant',
       inn_price: 60,
     },
     // ---- sign, save point -------------------------------------------------------

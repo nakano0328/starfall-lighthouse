@@ -19,7 +19,7 @@ export const map_lighthouse_path: MapSource = {
     bgmKey: 'bgm_field',
     battleBgKey: 'bg_coast',
     encounterGroups: ['grp_coast_a'],
-    tilesets: ['ts_placeholder'],
+    tilesets: ['ts_village'],
     entrance: { x: 15, y: 18, facing: 'up' },
     canSaveAnywhere: false,
   },

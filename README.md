@@ -15,6 +15,10 @@
 
 ![タイトル画面](docs/images/title.png)
 
+| 会話                                | 戦闘                                |
+| ----------------------------------- | ----------------------------------- |
+| ![会話画面](docs/images/dialog.png) | ![戦闘画面](docs/images/battle.png) |
+
 ### 操作方法
 
 | 操作           | キーボード        | ゲームパッド（標準マッピング） | タッチ（画面上のパッド） |
@@ -50,21 +54,22 @@ npm run dev
 
 ### スクリプト一覧
 
-| コマンド                | 内容                                                                     |
-| ----------------------- | ------------------------------------------------------------------------ |
-| `npm run dev`           | Vite 開発サーバーを起動（<http://localhost:5173>、HMR 有効）             |
-| `npm run build`         | 本番ビルドを `dist/` に出力                                              |
-| `npm run preview`       | `dist/` をローカル配信して確認（<http://localhost:4173>）                |
-| `npm run typecheck`     | `tsc --noEmit` で型チェック                                              |
-| `npm run lint`          | ESLint でソースを検査                                                    |
-| `npm run lint:fix`      | ESLint の自動修正を適用                                                  |
-| `npm run format`        | Prettier でリポジトリ全体を整形                                          |
-| `npm run format:check`  | Prettier の整形差分を検査（CI で実行）                                   |
-| `npm run test`          | Vitest で単体テストを一度実行                                            |
-| `npm run test:watch`    | Vitest をウォッチモードで起動                                            |
-| `npm run test:coverage` | 単体テストをカバレッジ付きで実行（`coverage/` に出力、閾値あり）         |
-| `npm run e2e`           | Playwright でビルド → preview → 起動スモークテスト                       |
-| `npm run check`         | lint → format:check → typecheck → test → build をまとめて実行（PR 前に） |
+| コマンド                | 内容                                                                      |
+| ----------------------- | ------------------------------------------------------------------------- |
+| `npm run dev`           | Vite 開発サーバーを起動（<http://localhost:5173>、HMR 有効）              |
+| `npm run build`         | 本番ビルドを `dist/` に出力                                               |
+| `npm run preview`       | `dist/` をローカル配信して確認（<http://localhost:4173>）                 |
+| `npm run typecheck`     | `tsc --noEmit` で型チェック                                               |
+| `npm run lint`          | ESLint でソースを検査                                                     |
+| `npm run lint:fix`      | ESLint の自動修正を適用                                                   |
+| `npm run format`        | Prettier でリポジトリ全体を整形                                           |
+| `npm run format:check`  | Prettier の整形差分を検査（CI で実行）                                    |
+| `npm run test`          | Vitest で単体テストを一度実行                                             |
+| `npm run test:watch`    | Vitest をウォッチモードで起動                                             |
+| `npm run test:coverage` | 単体テストをカバレッジ付きで実行（`coverage/` に出力、閾値あり）          |
+| `npm run e2e`           | Playwright でビルド → preview → 起動スモークテスト                        |
+| `npm run art`           | `scripts/art/` の描画コードから素材 PNG を `public/assets/images/` に生成 |
+| `npm run check`         | lint → format:check → typecheck → test → build をまとめて実行（PR 前に）  |
 
 E2E はローカルに Chromium が必要です。初回は `npx playwright install --with-deps chromium` を実行してください。
 ブラウザのダウンロードが制限されたサンドボックスでは、既存バイナリを指定して実行します。
@@ -126,7 +131,7 @@ Phase 2 以降で `scripts/`（バランス表エクスポート）などが追�
 | M2 `v0.2`      | 歩ける・話せる・セーブできる       | 完了                                                           |
 | M3 `v0.3`      | 戦える                             | 完了                                                           |
 | M4 `v0.5`      | 通しプレイ可能（ホワイトボックス） | 完了（序章〜終章・エンディング、ゲームパッド・タッチ対応まで） |
-| M5 `v0.8`      | 本番アート・音入り                 | **次**                                                         |
+| M5 `v0.8`      | 本番アート・音入り                 | **進行中**（画像はコード生成で一通り差し替え済み。音は未着手） |
 | M6 `v1.0`      | リリース                           | 未着手                                                         |
 
 各 Phase の詳細は [docs/PLAN.md](docs/PLAN.md) §3 を参照してください。

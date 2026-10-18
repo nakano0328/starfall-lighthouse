@@ -45,7 +45,7 @@ export const map_mine_b1: MapSource = {
     bgmKey: 'bgm_mine',
     battleBgKey: 'bg_mine',
     encounterGroups: ['grp_mine_a', 'grp_mine_b'],
-    tilesets: ['ts_placeholder'],
+    tilesets: ['ts_mine'],
     entrance: { x: 20, y: 33, facing: 'up' },
     canSaveAnywhere: false,
   },

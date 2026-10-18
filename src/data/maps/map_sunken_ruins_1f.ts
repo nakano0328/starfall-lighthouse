@@ -60,7 +60,7 @@ export const map_sunken_ruins_1f: MapSource = {
     bgmKey: 'bgm_ruins',
     battleBgKey: 'bg_ruins',
     encounterGroups: ['grp_ruins_a', 'grp_ruins_b', 'grp_ruins_c'],
-    tilesets: ['ts_placeholder'],
+    tilesets: ['ts_ruins'],
     entrance: { x: 22, y: 1, facing: 'down' },
     canSaveAnywhere: false,
     tideAware: true,

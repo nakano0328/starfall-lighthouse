@@ -1,8 +1,16 @@
 import Phaser from 'phaser';
 
 import { COLORS, GAME_HEIGHT, GAME_WIDTH } from '@/config';
-import { IMAGES, assetUrl } from '@/assets/manifest';
+import {
+  ACTOR_FRAMES,
+  ACTOR_FRAME_SIZE,
+  ACTOR_STRIDES,
+  CHEST_FRAMES,
+  IMAGES,
+  assetUrl,
+} from '@/assets/manifest';
 import { generatePlaceholder } from '@/assets/placeholders';
+import { actorFrame } from '@core/grid/walk';
 
 import { SceneKey } from './keys';
 
@@ -24,8 +32,29 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    for (const asset of IMAGES) generatePlaceholder(this, asset);
+    for (const asset of IMAGES) {
+      generatePlaceholder(this, asset);
+      this.registerFrames(asset.key, asset.placeholder);
+    }
     this.scene.start(SceneKey.Title);
+  }
+
+  /**
+   * Loaded sheets arrive as one image; name their frames the way the placeholders do
+   * (actor sheets: rows = facings, columns = strides; chests: closed / open).
+   */
+  private registerFrames(key: string, kind: (typeof IMAGES)[number]['placeholder']): void {
+    const texture = this.textures.get(key);
+    const size = ACTOR_FRAME_SIZE;
+    if (kind === 'actor' && !texture.has('down')) {
+      ACTOR_FRAMES.forEach((facing, row) => {
+        ACTOR_STRIDES.forEach((stride, col) => {
+          texture.add(actorFrame(facing, stride), 0, col * size, row * size, size, size);
+        });
+      });
+    } else if (kind === 'chest' && !texture.has('closed')) {
+      CHEST_FRAMES.forEach((frame, i) => texture.add(frame, 0, i * size, 0, size, size));
+    }
   }
 
   private drawLoadingBar(): void {

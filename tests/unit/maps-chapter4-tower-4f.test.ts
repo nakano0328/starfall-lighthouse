@@ -157,7 +157,7 @@ describe('灯台の塔 4F (map_lighthouse_4f)', () => {
       bgmKey: 'bgm_lighthouse',
       battleBgKey: 'bg_lighthouse',
       encounterGroups: GROUPS,
-      tilesets: ['ts_placeholder'],
+      tilesets: ['ts_lighthouse'],
       entrance: { x: 2, y: 22, facing: 'down' },
       canSaveAnywhere: false,
     });

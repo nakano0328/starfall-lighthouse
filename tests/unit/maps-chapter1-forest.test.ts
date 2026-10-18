@@ -214,7 +214,7 @@ describe('ささやきの森 (map_whisper_forest)', () => {
       id: 'npc_forest_vine',
       dialog: 'dlg_forest_vine',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'obj_vine',
       hiddenIf: 'fragments.count>=1',
     });
     expect(northEastWarp).toMatchObject({

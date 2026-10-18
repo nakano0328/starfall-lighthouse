@@ -46,12 +46,9 @@ export class TitleScene extends Phaser.Scene {
     this.slotMenu = undefined;
     this.slotWindow = undefined;
     this.cameras.main.setBackgroundColor(COLORS.night);
+    // KV-01 (generated, docs/ADR/0003-generated-art.md); the twinkling stars sit on top.
+    this.add.image(0, 0, 'kv_title').setOrigin(0);
     this.spawnStars(60);
-
-    this.add
-      .image(GAME_WIDTH / 2 + 180, GAME_HEIGHT / 2 + 60, 'px_lighthouse')
-      .setScale(2)
-      .setOrigin(0.5, 1);
 
     this.add
       .text(GAME_WIDTH / 2, 86, GAME_TITLE, {

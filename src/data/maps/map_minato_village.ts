@@ -19,7 +19,7 @@ export const map_minato_village: MapSource = {
     bgmKey: 'bgm_village',
     battleBgKey: 'bg_coast',
     encounterGroups: [],
-    tilesets: ['ts_placeholder'],
+    tilesets: ['ts_village'],
     entrance: { x: 10, y: 12, facing: 'down' },
     canSaveAnywhere: true,
   },
@@ -126,7 +126,7 @@ export const map_minato_village: MapSource = {
       id: 'npc_minato_guard',
       dialog: 'dlg_minato_guard',
       facing: 'left',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_guard',
       hidden_if: 'minato.talked_to_grandpa',
     },
     // Mio starts 4 tiles right of the trigger so her left x3 walk ends next to the player.
@@ -137,7 +137,7 @@ export const map_minato_village: MapSource = {
       id: 'npc_mio',
       dialog: 'dlg_mio_idle',
       facing: 'left',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_mio',
       hidden_if: 'minato.mio_joined',
     },
     {
@@ -147,7 +147,7 @@ export const map_minato_village: MapSource = {
       id: 'npc_minato_boy',
       dialog: 'dlg_minato_boy',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_boy',
     },
     {
       type: 'npc',
@@ -156,7 +156,7 @@ export const map_minato_village: MapSource = {
       id: 'npc_minato_fisher',
       dialog: 'dlg_minato_fisher',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_fisherman',
     },
     {
       type: 'npc',
@@ -165,7 +165,7 @@ export const map_minato_village: MapSource = {
       id: 'npc_minato_granny',
       dialog: 'dlg_minato_granny',
       facing: 'left',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_granny',
     },
     // Signs and chests
     { type: 'sign', x: 21, y: 13, text_id: 'dlg_sign_minato' },
