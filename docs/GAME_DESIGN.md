@@ -1169,6 +1169,8 @@ interface Settings {
 
 ## 15. オーディオ一覧
 
+実装: BGM と SE は音声ファイルを持たない。`src/data/audio/` の譜面・レシピを `src/core/audio/` のソフトシンセが初回再生時に合成し、`src/audio/AudioPlayer.ts` が Web Audio API で鳴らす（Phaser のサウンドは `noAudio`。`docs/ADR/0004-synthesized-audio.md`）。`AudioContext` は最初のキー入力／タッチで解除し、設定の音量 0〜10 は `(v/10)^2` のゲインに写す。
+
 ### 15.1 BGM
 
 | キー             | 用途                           | ループ | 備考                                             |

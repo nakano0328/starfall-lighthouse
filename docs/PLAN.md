@@ -225,6 +225,7 @@ starfall-lighthouse/
 5. フォント: Noto Sans JP または PixelMplus（ドット絵フォント・ライセンス確認）
 
 - 完了条件: プレースホルダーが全て置き換わり、ライセンス一覧（`docs/CREDITS.md`）が揃う
+- 実装メモ（2026-10-18）: 配布サイトへ到達できなかったため、画像はリポジトリ内スクリプトでのコード生成（`docs/ADR/0003-generated-art.md`）、BGM/SE は実行時合成（`docs/ADR/0004-synthesized-audio.md`）で差し替えた。上の 1〜4 は本物の素材へ置き換えるときの手順として残す
 
 ### Phase 7: QA・バランス調整・磨き — 目安 1〜2S
 

@@ -102,14 +102,15 @@ starfall-lighthouse/
 │  └─ images/title.png           # README 用スクリーンショット
 ├─ public/
 │  ├─ favicon.svg
-│  └─ assets/{images,maps,audio}/  # 本番素材（現在は空）
+│  └─ assets/{images,maps,audio}/  # images は npm run art の生成物。audio は空（音は実行時合成）
 ├─ src/
 │  ├─ main.ts                    # Phaser 起動
 │  ├─ config.ts                  # 解像度・タイルサイズ・パレット
 │  ├─ vite-env.d.ts
 │  ├─ assets/                    # 画像マニフェストとプレースホルダー生成
-│  ├─ core/                      # 純 TypeScript ロジック（flags, save, settings, state, inventory, condition, battle/, map/, grid/, input/, menu/, dialog/, events/, party/, text/）
-│  ├─ data/                      # 型定義・タイル定義・アイテム・キャラ・マップ（maps/*.ts）・会話/イベント JSON（dialogs/, events/）
+│  ├─ audio/                     # Web Audio 再生（AudioPlayer: 解除・キャッシュ・クロスフェード）
+│  ├─ core/                      # 純 TypeScript ロジック（flags, save, settings, state, inventory, condition, battle/, map/, grid/, input/, audio/（譜面パーサ・ソフトシンセ）, menu/, dialog/, events/, party/, text/）
+│  ├─ data/                      # 型定義・タイル定義・アイテム・キャラ・マップ（maps/*.ts）・会話/イベント JSON（dialogs/, events/）・譜面と SE レシピ（audio/）
 │  ├─ scenes/                    # Phaser シーン（Boot / Title / World / Menu / Battle / Shop / GameOver / Ending）
 │  └─ ui/                        # 入力（キーボード・ゲームパッド・タッチパッド）、ウィンドウ/ダイアログ/メニュー部品
 ├─ tests/
@@ -125,14 +126,14 @@ Phase 2 以降で `scripts/`（バランス表エクスポート）などが追�
 
 ## ロードマップ
 
-| マイルストーン | 内容                               | 状態                                                           |
-| -------------- | ---------------------------------- | -------------------------------------------------------------- |
-| M1 `v0.1`      | 基盤完成・Pages 公開               | 完了                                                           |
-| M2 `v0.2`      | 歩ける・話せる・セーブできる       | 完了                                                           |
-| M3 `v0.3`      | 戦える                             | 完了                                                           |
-| M4 `v0.5`      | 通しプレイ可能（ホワイトボックス） | 完了（序章〜終章・エンディング、ゲームパッド・タッチ対応まで） |
-| M5 `v0.8`      | 本番アート・音入り                 | **進行中**（画像はコード生成で一通り差し替え済み。音は未着手） |
-| M6 `v1.0`      | リリース                           | 未着手                                                         |
+| マイルストーン | 内容                               | 状態                                                                             |
+| -------------- | ---------------------------------- | -------------------------------------------------------------------------------- |
+| M1 `v0.1`      | 基盤完成・Pages 公開               | 完了                                                                             |
+| M2 `v0.2`      | 歩ける・話せる・セーブできる       | 完了                                                                             |
+| M3 `v0.3`      | 戦える                             | 完了                                                                             |
+| M4 `v0.5`      | 通しプレイ可能（ホワイトボックス） | 完了（序章〜終章・エンディング、ゲームパッド・タッチ対応まで）                   |
+| M5 `v0.8`      | 本番アート・音入り                 | **進行中**（画像と BGM/SE はコード生成で一通り差し替え済み。フォント選定が残り） |
+| M6 `v1.0`      | リリース                           | 未着手                                                                           |
 
 各 Phase の詳細は [docs/PLAN.md](docs/PLAN.md) §3 を参照してください。
 
