@@ -17,5 +17,9 @@ interface Window {
     inputDevice?: string;
     /** True once a touch has been seen and the on-screen pad is enabled. */
     touchUi?: boolean;
+    /** The BGM key playing (debug/e2e), null when silent; set by src/audio/AudioPlayer.ts. */
+    bgm?: string | null;
+    /** The AudioPlayer instance, for debugging and e2e inspection only. */
+    audio?: unknown;
   };
 }

@@ -147,7 +147,10 @@ describe('EventInterpreter', () => {
     });
     await it.run('ev_i');
     expect(host.inventory.count('it_herb')).toBe(0);
-    expect(host.log[0]).toBe('message やくそうを 手に入れた！（持ちきれない分は あきらめた）');
+    expect(host.log.slice(0, 2)).toEqual([
+      'se se_item',
+      'message やくそうを 手に入れた！（持ちきれない分は あきらめた）',
+    ]);
     expect(host.flags.get('q.answer', -1)).toBe(1);
   });
 

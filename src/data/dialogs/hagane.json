@@ -263,7 +263,6 @@
     "effects": [
       { "cmd": "take_item", "item": "it_shining_ore", "qty": 3 },
       { "cmd": "give_item", "item": "eq_wp_goro_4", "qty": 1 },
-      { "cmd": "play_se", "key": "se_item" },
       { "cmd": "set_flag", "key": "sq.ore", "value": 2 }
     ]
   },

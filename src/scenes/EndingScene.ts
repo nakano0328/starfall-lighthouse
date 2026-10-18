@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH } from '@/config';
 import { STAFF_ROLL_LINES } from '@data/credits';
 import { ENDING_TEXT } from '@data/ending';
+import { AUDIO } from '@/audio/AudioPlayer';
 import { InputBindings } from '@ui/InputBindings';
 
 import { SceneKey } from './keys';
@@ -44,6 +45,7 @@ export class EndingScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(COLORS.night);
     // KV-02 (generated, docs/ADR/0003-generated-art.md): the relit lamp sits at (560, 86).
     this.add.image(0, 0, 'kv_ending').setOrigin(0);
+    AUDIO.playBgm('bgm_ending', 1200);
     this.spawnStars();
     const glow = this.add
       .image(560, 86, 'px_star')

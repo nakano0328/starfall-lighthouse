@@ -65,7 +65,6 @@
     ],
     "effects": [
       { "cmd": "give_item", "item": "it_herb", "qty": 3 },
-      { "cmd": "play_se", "key": "se_item" },
       { "cmd": "set_flag", "key": "minato.talked_to_grandpa", "value": true }
     ],
     "next": "dlg_grandpa_after_shatter_mio"
@@ -103,7 +102,6 @@
       { "cmd": "give_item", "item": "it_key_lighthouse", "qty": 1 },
       { "cmd": "give_item", "item": "it_grandpa_letter", "qty": 1 },
       { "cmd": "give_item", "item": "it_star_feather", "qty": 2 },
-      { "cmd": "play_se", "key": "se_item" },
       { "cmd": "set_flag", "key": "minato.lighthouse_unlocked", "value": true }
     ]
   },
@@ -388,7 +386,6 @@
       { "cmd": "take_item", "item": "it_shell_necklace", "qty": 1 },
       { "cmd": "give_item", "item": "eq_acc_sea_ring", "qty": 1 },
       { "cmd": "give_gold", "amount": 300 },
-      { "cmd": "play_se", "key": "se_item" },
       { "cmd": "set_flag", "key": "sq.necklace", "value": 2 },
       { "cmd": "set_flag", "key": "minato.inn_free", "value": true }
     ]

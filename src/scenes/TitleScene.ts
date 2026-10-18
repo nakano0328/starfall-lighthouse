@@ -15,6 +15,8 @@ import {
 import { levelFromExp } from '@core/party/exp';
 import { CHARACTERS } from '@data/characters';
 import { MIGRATION_CONTEXT, loadGameState, newGameState, placeName } from '@data/saveContext';
+import { AUDIO } from '@/audio/AudioPlayer';
+import { SETTINGS_KEY, parseSettings } from '@core/settings';
 import { InputBindings } from '@ui/InputBindings';
 import type { ListMenuItem } from '@ui/ListMenu';
 import { ListMenu } from '@ui/ListMenu';
@@ -46,6 +48,8 @@ export class TitleScene extends Phaser.Scene {
     this.slotMenu = undefined;
     this.slotWindow = undefined;
     this.cameras.main.setBackgroundColor(COLORS.night);
+    AUDIO.applySettings(parseSettings(readStorage(SETTINGS_KEY)));
+    AUDIO.playBgm('bgm_title', 800);
     // KV-01 (generated, docs/ADR/0003-generated-art.md); the twinkling stars sit on top.
     this.add.image(0, 0, 'kv_title').setOrigin(0);
     this.spawnStars(60);

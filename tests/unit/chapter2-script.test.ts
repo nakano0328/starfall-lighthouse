@@ -278,7 +278,7 @@ describe('chapter 2 script: sq_shining_ore (§14)', () => {
     expect(talkText(host, 'dlg_hagane_smith')).toContain('まだ 3 つ そろっていないな');
   });
 
-  it('hands over at three ore: ore −3, hammer +1, se_item, sq.ore 2, then thanks only', () => {
+  it('hands over at three ore: ore −3, hammer +1, sq.ore 2, then thanks only', () => {
     const host = talkHost({ ...GORO_JOINED, 'sq.ore': 1 });
     holdOre(host, 3);
     expect(talk(host, 'dlg_hagane_smith')).toEqual(['dlg_hagane_smith_handover']);
@@ -288,7 +288,6 @@ describe('chapter 2 script: sq_shining_ore (§14)', () => {
     expect(host.applied).toEqual([
       { cmd: 'take_item', item: 'it_shining_ore', qty: 3 },
       { cmd: 'give_item', item: 'eq_wp_goro_4', qty: 1 },
-      { cmd: 'play_se', key: 'se_item' },
     ]);
 
     // Done: thanks, the hammer suits Goro, nothing paid twice even with more ore.
@@ -297,7 +296,7 @@ describe('chapter 2 script: sq_shining_ore (§14)', () => {
     expect(talkText(host, 'dlg_hagane_smith')).toContain('ゴロー');
     expect(host.inventory.count('eq_wp_goro_4')).toBe(1);
     expect(host.inventory.count('it_shining_ore')).toBe(3);
-    expect(host.applied).toHaveLength(3);
+    expect(host.applied).toHaveLength(2);
   });
 
   it('routes the hand-over on the item.it_shining_ore>=3 bag condition', () => {
@@ -358,7 +357,6 @@ describe('chapter 2 script: Goro joins (§13 row 9)', () => {
     expect(EVENTS['ev_goro_join']).toEqual([
       { cmd: 'say', dialog: 'dlg_goro_join_01' },
       { cmd: 'give_item', item: 'it_key_mine', qty: 1 },
-      { cmd: 'play_se', key: 'se_item' },
       { cmd: 'remove_npc', id: 'npc_goro' },
       { cmd: 'add_member', id: 'ch_goro' },
       { cmd: 'set_flag', key: 'hagane.goro_joined', value: true },
@@ -367,8 +365,8 @@ describe('chapter 2 script: Goro joins (§13 row 9)', () => {
     await new EventInterpreter(host, EVENTS).run('ev_goro_join');
     expect(host.log).toEqual([
       'say dlg_goro_join_01',
-      'message it_key_mineを 手に入れた！',
       'se se_item',
+      'message it_key_mineを 手に入れた！',
       'remove npc_goro',
       'add ch_goro',
     ]);
@@ -392,7 +390,11 @@ describe('chapter 2 script: the mine', () => {
   it('ev_mine_vein has Goro dig one ore for the party', async () => {
     const host = scriptHost(GORO_JOINED);
     await new EventInterpreter(host, EVENTS).run('ev_mine_vein');
-    expect(host.log).toEqual(['say dlg_mine_vein', 'message it_shining_oreを 手に入れた！']);
+    expect(host.log).toEqual([
+      'say dlg_mine_vein',
+      'se se_item',
+      'message it_shining_oreを 手に入れた！',
+    ]);
     expect(host.inventory.count('it_shining_ore')).toBe(1);
 
     const talker = talkHost(GORO_JOINED);
@@ -421,6 +423,7 @@ describe('chapter 2 script: the mine', () => {
     await it.run('ev_mine_boss_win');
     expect(host.log).toEqual([
       'say dlg_mine_boss_win',
+      'se se_item',
       'message it_fragment_2を 手に入れた！',
       'chapter 第三章　沈んだ遺跡',
     ]);

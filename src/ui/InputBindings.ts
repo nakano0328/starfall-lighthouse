@@ -6,6 +6,7 @@ import type { GamepadSnapshot } from '@core/input/gamepad';
 import { GamepadMapper } from '@core/input/gamepad';
 import { TouchMapper } from '@core/input/touch';
 import type { Facing } from '@data/types';
+import { AUDIO } from '@/audio/AudioPlayer';
 
 import { TouchPad } from './TouchPad';
 
@@ -80,6 +81,7 @@ export class InputBindings {
           Phaser.Input.Keyboard.Events.DOWN,
           (_key: Phaser.Input.Keyboard.Key, ev: KeyboardEvent) => {
             if (ev.repeat) return;
+            AUDIO.unlock();
             INPUT_TRACKER.noteDevice('keyboard');
             this.press(action);
           },
@@ -211,6 +213,7 @@ export class InputBindings {
     if (!pointer.wasTouch) return;
     // The very first touch only brings the pad up; it cannot have aimed at a button.
     const firstTouch = !INPUT_TRACKER.touchDetected;
+    AUDIO.unlock();
     INPUT_TRACKER.noteDevice('touch');
     if (firstTouch) return;
     for (const action of this.touch.down(pointer.id, pointer.x, pointer.y)) this.press(action);
