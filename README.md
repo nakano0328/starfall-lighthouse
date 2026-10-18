@@ -17,13 +17,17 @@
 
 ### 操作方法
 
-| 操作           | キーボード        | 備考                                      |
-| -------------- | ----------------- | ----------------------------------------- |
-| 移動・カーソル | 矢印 / WASD       | 4 方向グリッド移動。Shift でダッシュ      |
-| 決定・調べる   | Z / Enter / Space | タイトル画面ではクリック／タップでも可    |
-| 戻る・メニュー | X / Esc           | フィールドではメニューの開閉              |
-| ゲームパッド   | —                 | 標準マッピングで対応予定（Phase 5）       |
-| タッチ操作     | —                 | スマホ向け仮想パッドを表示予定（Phase 5） |
+| 操作           | キーボード        | ゲームパッド（標準マッピング） | タッチ（画面上のパッド） |
+| -------------- | ----------------- | ------------------------------ | ------------------------ |
+| 移動・カーソル | 矢印 / WASD       | 十字キー / 左スティック        | 左下の D-pad             |
+| 決定・調べる   | Z / Enter / Space | A                              | 右下の A                 |
+| 戻る・メニュー | X / Esc           | B                              | 右下の B、右上の MENU    |
+| ダッシュ       | Shift 長押し      | 移動中に B 長押し              | D-pad を押しながら A＋B  |
+| 会話の早送り   | Z 長押し          | A 長押し                       | A 長押し                 |
+| 全画面         | F                 | —                              | 右上の ⛶                 |
+
+- ゲームパッドは接続して何かボタンを押すと使えます。ボタン表記（Z／A）は最後に使った機器に合わせて切り替わります。
+- タッチのパッドは、画面に一度触れると表示されます（スマホ・タブレット向け）。
 
 詳細な操作一覧は `docs/GAME_DESIGN.md` §11.4 を参照してください。
 
@@ -97,13 +101,13 @@ starfall-lighthouse/
 │  ├─ config.ts                  # 解像度・タイルサイズ・パレット
 │  ├─ vite-env.d.ts
 │  ├─ assets/                    # 画像マニフェストとプレースホルダー生成
-│  ├─ core/                      # 純 TypeScript ロジック（flags, save, settings, state, inventory, condition, map/, grid/, menu/, dialog/, events/, party/, text/）
+│  ├─ core/                      # 純 TypeScript ロジック（flags, save, settings, state, inventory, condition, battle/, map/, grid/, input/, menu/, dialog/, events/, party/, text/）
 │  ├─ data/                      # 型定義・タイル定義・アイテム・キャラ・マップ（maps/*.ts）・会話/イベント JSON（dialogs/, events/）
-│  ├─ scenes/                    # Phaser シーン（Boot / Title / World / Menu）
-│  └─ ui/                        # 入力バインディング・ウィンドウ/ダイアログ/メニュー部品
+│  ├─ scenes/                    # Phaser シーン（Boot / Title / World / Menu / Battle / Shop / GameOver / Ending）
+│  └─ ui/                        # 入力（キーボード・ゲームパッド・タッチパッド）、ウィンドウ/ダイアログ/メニュー部品
 ├─ tests/
 │  ├─ unit/                      # Vitest（core / data / assets のユニットテスト）
-│  └─ e2e/                       # Playwright（smoke.spec.ts）
+│  └─ e2e/                       # Playwright（smoke.spec.ts: 通しプレイ, input.spec.ts: ゲームパッド・タッチ）
 ├─ index.html
 ├─ package.json / tsconfig.json / vite.config.ts / vitest.config.ts
 ├─ playwright.config.ts / eslint.config.js / .prettierrc / .editorconfig
@@ -114,14 +118,14 @@ Phase 2 以降で `scripts/`（バランス表エクスポート）などが追�
 
 ## ロードマップ
 
-| マイルストーン | 内容                               | 状態       |
-| -------------- | ---------------------------------- | ---------- |
-| M1 `v0.1`      | 基盤完成・Pages 公開               | 完了       |
-| M2 `v0.2`      | 歩ける・話せる・セーブできる       | **進行中** |
-| M3 `v0.3`      | 戦える                             | 未着手     |
-| M4 `v0.5`      | 通しプレイ可能（ホワイトボックス） | 未着手     |
-| M5 `v0.8`      | 本番アート・音入り                 | 未着手     |
-| M6 `v1.0`      | リリース                           | 未着手     |
+| マイルストーン | 内容                               | 状態                                                           |
+| -------------- | ---------------------------------- | -------------------------------------------------------------- |
+| M1 `v0.1`      | 基盤完成・Pages 公開               | 完了                                                           |
+| M2 `v0.2`      | 歩ける・話せる・セーブできる       | 完了                                                           |
+| M3 `v0.3`      | 戦える                             | 完了                                                           |
+| M4 `v0.5`      | 通しプレイ可能（ホワイトボックス） | 完了（序章〜終章・エンディング、ゲームパッド・タッチ対応まで） |
+| M5 `v0.8`      | 本番アート・音入り                 | **次**                                                         |
+| M6 `v1.0`      | リリース                           | 未着手                                                         |
 
 各 Phase の詳細は [docs/PLAN.md](docs/PLAN.md) §3 を参照してください。
 
