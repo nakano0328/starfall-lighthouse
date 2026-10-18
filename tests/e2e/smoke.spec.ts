@@ -45,28 +45,12 @@ test('new game: opening, village sign, chest, menu, save, continue from the titl
         tile: w.playerTile,
       };
     });
-  /** Holds a direction key until the step destination is the target tile. */
-  const walkTo = async (key: string, x: number, y: number) => {
-    await page.keyboard.down(key);
-    await page.waitForFunction(
-      ([tx, ty]) => {
-        const game = window.__starfall?.game as { scene: { getScene: (k: string) => WorldProbe } };
-        const tile = game.scene.getScene('World').playerTile;
-        return tile.x === tx && tile.y === ty;
-      },
-      [x, y] as [number, number],
-      { timeout: 10_000 },
-    );
-    await page.keyboard.up(key);
-    await page.waitForFunction(
-      () => {
-        const game = window.__starfall?.game as { scene: { getScene: (k: string) => WorldProbe } };
-        return !game.scene.getScene('World').isMoving;
-      },
-      undefined,
-      { timeout: 5_000 },
-    );
-  };
+  /**
+   * Holds a direction key until the step destination is the target tile. Shares
+   * walkField's overshoot guard: on a cold run the key-up can reach the page after
+   * the 40 ms input lead (§9.1) has opened, which starts one more step.
+   */
+  const walkTo = (key: string, x: number, y: number) => walkField(page, key, x, y);
   const tap = async (key: string) => {
     await page.keyboard.down(key);
     await page.waitForTimeout(50);
