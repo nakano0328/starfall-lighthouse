@@ -136,6 +136,7 @@ export class EventInterpreter {
       }
       case 'give_item': {
         const added = host.inventory.add(cmd.item, cmd.qty);
+        host.playSe('se_item');
         await host.message(pickupMessage(host.itemName(cmd.item), added, cmd.qty));
         break;
       }

@@ -217,10 +217,7 @@ describe('chapter 3 script: the scholar (§13 rows 11–12)', () => {
     expect(host.inventory.count('it_tide_rune')).toBe(1);
     expect(host.flags.has('ruins.tide_learned')).toBe(true);
     expect(host.flags.get('sq.chart', 0)).toBe(0);
-    expect(host.applied).toEqual([
-      { cmd: 'give_item', item: 'it_tide_rune', qty: 1 },
-      { cmd: 'play_se', key: 'se_item' },
-    ]);
+    expect(host.applied).toEqual([{ cmd: 'give_item', item: 'it_tide_rune', qty: 1 }]);
     const text = talkText(talkHost(SCHOLAR_MET), 'dlg_ruins_scholar');
     for (const word of ['潮の石碑', '潮のしるべ', '満潮', '干潮']) expect(text).toContain(word);
 
@@ -258,7 +255,7 @@ describe('chapter 3 script: sq_old_chart (§14)', () => {
     expect(host.inventory.count('eq_acc_lantern_pendant')).toBe(0);
   });
 
-  it('hands over the chart: chart −1, pendant +1, se_item, sq.chart 2, then the Nox lore', () => {
+  it('hands over the chart: chart −1, pendant +1, sq.chart 2, then the Nox lore', () => {
     const host = talkHost(CHART_ACCEPTED);
     host.inventory.add('it_old_chart', 1);
     expect(talk(host, 'dlg_ruins_scholar')).toEqual([
@@ -272,7 +269,6 @@ describe('chapter 3 script: sq_old_chart (§14)', () => {
     expect(host.applied).toEqual([
       { cmd: 'take_item', item: 'it_old_chart', qty: 1 },
       { cmd: 'give_item', item: 'eq_acc_lantern_pendant', qty: 1 },
-      { cmd: 'play_se', key: 'se_item' },
     ]);
     // §14: the reward talk touches Nox's identity.
     const lore = DIALOGS['dlg_scholar_handover_lore']?.pages.join('\n') ?? '';
@@ -284,7 +280,7 @@ describe('chapter 3 script: sq_old_chart (§14)', () => {
     expect(talk(host, 'dlg_ruins_scholar')).toEqual(['dlg_scholar_thanks']);
     expect(host.inventory.count('it_old_chart')).toBe(1);
     expect(host.inventory.count('eq_acc_lantern_pendant')).toBe(1);
-    expect(host.applied).toHaveLength(3);
+    expect(host.applied).toHaveLength(2);
     expect(talkText(host, 'dlg_ruins_scholar')).toContain('帰れなかった 星');
   });
 
@@ -435,7 +431,11 @@ describe('chapter 3 script: the guardian and Nox (§13 row 14)', () => {
     const host = scriptHost(TIDE_LEARNED);
     const it = new EventInterpreter(host, EVENTS);
     await it.run('ev_ruins_boss_win');
-    expect(host.log).toEqual(['say dlg_ruins_boss_win', 'message it_fragment_3を 手に入れた！']);
+    expect(host.log).toEqual([
+      'say dlg_ruins_boss_win',
+      'se se_item',
+      'message it_fragment_3を 手に入れた！',
+    ]);
     expect(host.inventory.count('it_fragment_3')).toBe(1);
     expect(host.flags.get('fragments.count', -1)).toBe(3);
     expect(host.flags.has('ruins.boss_defeated')).toBe(true);

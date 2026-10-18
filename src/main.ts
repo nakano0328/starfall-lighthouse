@@ -9,6 +9,7 @@ import { TitleScene } from '@scenes/TitleScene';
 import { MenuScene } from '@scenes/MenuScene';
 import { ShopScene } from '@scenes/ShopScene';
 import { WorldScene } from '@scenes/WorldScene';
+import { AUDIO } from '@/audio/AudioPlayer';
 import { INPUT_TRACKER } from '@ui/InputBindings';
 
 window.__starfall = {
@@ -17,6 +18,8 @@ window.__starfall = {
   version: GAME_VERSION,
   inputDevice: INPUT_TRACKER.device,
   touchUi: INPUT_TRACKER.touchDetected,
+  bgm: null,
+  audio: AUDIO,
 };
 INPUT_TRACKER.onChange((state) => {
   if (!window.__starfall) return;
@@ -39,6 +42,8 @@ const config: Phaser.Types.Core.GameConfig = {
   roundPixels: true,
   // D-pad + A + B at once on touch (§11.4).
   input: { activePointers: 3 },
+  // Music and effects are synthesized through src/audio/AudioPlayer.ts (ADR-0004).
+  audio: { noAudio: true },
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,

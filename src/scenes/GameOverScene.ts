@@ -4,6 +4,7 @@ import { COLORS, GAME_HEIGHT, GAME_WIDTH } from '@/config';
 import type { SaveData } from '@core/save';
 import { allSaveKeys, readSave } from '@core/save';
 import { MIGRATION_CONTEXT, loadGameState } from '@data/saveContext';
+import { AUDIO } from '@/audio/AudioPlayer';
 import { InputBindings } from '@ui/InputBindings';
 import type { ListMenuItem } from '@ui/ListMenu';
 import { ListMenu } from '@ui/ListMenu';
@@ -29,6 +30,7 @@ export class GameOverScene extends Phaser.Scene {
     this.leaving = false;
     this.cameras.main.setBackgroundColor(0x05061a);
     this.add.image(0, 0, 'kv_gameover').setOrigin(0);
+    AUDIO.playBgm('bgm_gameover', 0);
     this.add
       .text(GAME_WIDTH / 2, 110, 'ゲームオーバー', {
         fontFamily: 'sans-serif',

@@ -18,7 +18,8 @@ import { getEncounter } from '@data/encounters';
 import { getEnemy } from '@data/enemies';
 import { findEquip } from '@data/equipment';
 import { findItem, getItem } from '@data/items';
-import { getSkill } from '@data/skills';
+import { findSkill, getSkill } from '@data/skills';
+import { AUDIO } from '@/audio/AudioPlayer';
 import type { ItemDef, SkillDef, TargetScope } from '@data/types';
 import { InputBindings } from '@ui/InputBindings';
 import type { ListMenuItem } from '@ui/ListMenu';
@@ -121,6 +122,8 @@ export class BattleScene extends Phaser.Scene {
   private waitResolve: (() => void) | undefined;
   private readonly logLines: string[] = [];
   private finished = false;
+  /** The action being resolved, so damage sounds can follow its skill / weapon. */
+  private lastAction: { actor: string; skillId?: string } | null = null;
 
   constructor() {
     super(SceneKey.Battle);
@@ -180,6 +183,8 @@ export class BattleScene extends Phaser.Scene {
     this.buildWindows();
     this.refreshStatus();
     if (window.__starfall) window.__starfall.scene = SceneKey.Battle;
+    const boss = this.engine.enemies.some((e) => getEnemy(e.id).isBoss);
+    AUDIO.playBgm(boss ? 'bgm_boss' : 'bgm_battle', 200);
 
     void this.intro();
   }
@@ -684,7 +689,14 @@ export class BattleScene extends Phaser.Scene {
   /** Damage numbers and flashes (§11.1 ダメージ数字). */
   private animate(event: BattleEvent): void {
     switch (event.type) {
+      case 'action':
+        this.lastAction = {
+          actor: event.actor,
+          ...(event.skillId === undefined ? {} : { skillId: event.skillId }),
+        };
+        return;
       case 'damage': {
+        AUDIO.playSe(this.damageSe(event));
         const pos = this.popupPosition(event.target);
         if (!pos) return;
         const text = event.immune ? 'カキン' : String(event.amount);
@@ -697,20 +709,54 @@ export class BattleScene extends Phaser.Scene {
       }
       case 'heal':
       case 'mp_heal': {
+        AUDIO.playSe('se_heal');
         const pos = this.popupPosition(event.target);
         if (pos) this.popup(pos.x, pos.y, String(event.amount), '#7ae08a', 1);
         return;
       }
+      case 'status_applied':
+        AUDIO.playSe('se_buff');
+        return;
+      case 'escape':
+        AUDIO.playSe(event.success ? 'se_escape' : 'se_error');
+        return;
+      case 'victory':
+        AUDIO.playSe('se_victory');
+        return;
       case 'miss': {
         const pos = this.popupPosition(event.target);
         if (pos) this.popup(pos.x, pos.y, 'ミス', COLORS.textDim, 1);
         return;
       }
       case 'phase_change':
+        AUDIO.playSe('se_shatter');
         this.cameras.main.shake(500, 0.01);
         return;
       default:
         return;
+    }
+  }
+
+  /** Which effect a hit makes (§15.2): by target side, weakness, skill element, then weapon. */
+  private damageSe(event: Extract<BattleEvent, { type: 'damage' }>): string {
+    if (!event.target.startsWith('e')) return 'se_damage';
+    if (event.immune) return 'se_hit';
+    if (event.weak) return 'se_weak';
+    const skillId = this.lastAction?.skillId;
+    const element = skillId === undefined ? undefined : findSkill(skillId)?.element;
+    switch (element) {
+      case 'light':
+        return 'se_magic_light';
+      case 'fire':
+        return 'se_magic_fire';
+      case 'water':
+        return 'se_magic_water';
+      case 'earth':
+        return 'se_magic_earth';
+      default: {
+        const actor = this.engine.party.find((p) => p.key === this.lastAction?.actor);
+        return actor && actor.id !== 'ch_goro' ? 'se_slash' : 'se_hit';
+      }
     }
   }
 
@@ -799,6 +845,7 @@ export class BattleScene extends Phaser.Scene {
       wallet,
     );
     this.state.gold = wallet.gold;
+    if (outcome.levelUps.length > 0) AUDIO.playSe('se_levelup');
     const lines = resultLines(outcome, {
       member: (i) => (this.state.party[i]?.id ? CHARACTERS[this.state.party[i]!.id].name : ''),
       item: (id) => getItem(id).name,

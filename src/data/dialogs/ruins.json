@@ -61,7 +61,6 @@
     ],
     "effects": [
       { "cmd": "give_item", "item": "it_tide_rune", "qty": 1 },
-      { "cmd": "play_se", "key": "se_item" },
       { "cmd": "set_flag", "key": "ruins.tide_learned", "value": true }
     ],
     "next": "dlg_scholar_03_mio"
@@ -107,7 +106,6 @@
     "effects": [
       { "cmd": "take_item", "item": "it_old_chart", "qty": 1 },
       { "cmd": "give_item", "item": "eq_acc_lantern_pendant", "qty": 1 },
-      { "cmd": "play_se", "key": "se_item" },
       { "cmd": "set_flag", "key": "sq.chart", "value": 2 }
     ],
     "next": "dlg_scholar_handover_lore"

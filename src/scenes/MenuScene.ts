@@ -41,6 +41,7 @@ import { getMapMeta } from '@data/maps';
 import { MIGRATION_CONTEXT, placeName } from '@data/saveContext';
 import { levelFromExp } from '@core/party/exp';
 import type { EquipSlot, ItemDef, Stats } from '@data/types';
+import { AUDIO } from '@/audio/AudioPlayer';
 import { INPUT_TRACKER, InputBindings } from '@ui/InputBindings';
 import type { ListMenuItem } from '@ui/ListMenu';
 import { ListMenu } from '@ui/ListMenu';
@@ -600,6 +601,7 @@ export class MenuScene extends Phaser.Scene {
   private writeSave(slot: number): void {
     const data = toSaveData(this.state, Date.now());
     const ok = writeStorage(slotKey(slot), serialize(data));
+    if (ok) AUDIO.playSe('se_save');
     this.setMessage(ok ? `スロット ${slot + 1} に 記録した。` : '記録に 失敗した。');
     this.showSave();
   }
@@ -643,6 +645,8 @@ export class MenuScene extends Phaser.Scene {
       const key = SETTING_KEYS[this.settingIndex];
       if (key) {
         this.settings = adjustSetting(this.settings, key, this.input2.isDown('left') ? -1 : 1);
+        AUDIO.applySettings(this.settings);
+        AUDIO.playSe('se_cursor');
         this.renderSettings();
       }
     } else if (this.input2.justPressed('confirm')) {

@@ -320,6 +320,7 @@ describe('chapter 1 script: events', () => {
     expect(host.log).toEqual([
       'move npc_mio left,left,left',
       'say dlg_mio_join_01',
+      'se se_item',
       'message it_mio_lunchを 手に入れた！',
       'remove npc_mio',
       'add ch_mio',
@@ -347,6 +348,7 @@ describe('chapter 1 script: events', () => {
     await it.run('ev_forest_boss_win');
     expect(host.log).toEqual([
       'say dlg_forest_boss_win',
+      'se se_item',
       'message it_fragment_1を 手に入れた！',
       'chapter 第二章　鉱山町と廃坑',
     ]);

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { AUDIO } from '@/audio/AudioPlayer';
 import { COLORS } from '@/config';
 import { firstEnabled, isSelectable, moveSelection } from '@core/menu/selection';
 
@@ -85,13 +86,20 @@ export class ListMenu extends Phaser.GameObjects.Container {
     if (input.justPressed('down')) this.move(1);
     else if (input.justPressed('up')) this.move(-1);
     else if (input.justPressed('confirm')) {
-      if (isSelectable(this.items, this.index)) this.onConfirm(this.index);
-    } else if (input.justPressed('cancel')) this.onCancel?.();
+      if (isSelectable(this.items, this.index)) {
+        AUDIO.playSe('se_confirm');
+        this.onConfirm(this.index);
+      } else AUDIO.playSe('se_error');
+    } else if (input.justPressed('cancel')) {
+      if (this.onCancel) AUDIO.playSe('se_cancel');
+      this.onCancel?.();
+    }
   }
 
   private move(delta: 1 | -1): void {
     const next = moveSelection(this.items, this.index, delta);
     if (next !== this.index) {
+      AUDIO.playSe('se_cursor');
       this.index = next;
       this.refresh();
     }

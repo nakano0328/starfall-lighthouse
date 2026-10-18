@@ -9,7 +9,6 @@
     { "cmd": "move", "actor": "npc_grandpa", "path": ["down", "down"], "wait": true },
     { "cmd": "face", "actor": "player", "dir": "up" },
     { "cmd": "say", "dialog": "dlg_grandpa_01" },
-    { "cmd": "play_se", "key": "se_item" },
     { "cmd": "set_flag", "key": "minato.intro_done", "value": true },
     { "cmd": "set_flag", "key": "main.chapter", "value": 0 },
     { "cmd": "face", "actor": "npc_grandpa", "dir": "left" },

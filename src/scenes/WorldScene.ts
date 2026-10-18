@@ -59,6 +59,7 @@ import { findItem } from '@data/items';
 import { getMapSource } from '@data/maps';
 import { PARTY_NAMES } from '@data/names';
 import type { CharacterId, Facing } from '@data/types';
+import { AUDIO } from '@/audio/AudioPlayer';
 import { DialogBox } from '@ui/DialogBox';
 import { INPUT_TRACKER, InputBindings } from '@ui/InputBindings';
 
@@ -227,11 +228,13 @@ export class WorldScene extends Phaser.Scene {
     this.runner = new DialogRunner(DIALOGS, {
       flags: this.flags,
       applyEffect: (cmd) => {
-        if (cmd.cmd === 'give_item') this.state.inventory.add(cmd.item, cmd.qty);
-        else if (cmd.cmd === 'take_item') this.state.inventory.remove(cmd.item, cmd.qty);
+        if (cmd.cmd === 'give_item') {
+          this.state.inventory.add(cmd.item, cmd.qty);
+          AUDIO.playSe('se_item');
+        } else if (cmd.cmd === 'take_item') this.state.inventory.remove(cmd.item, cmd.qty);
         else if (cmd.cmd === 'heal_party') this.healParty();
         else if (cmd.cmd === 'give_gold') this.state.gold += cmd.amount;
-        // play_se arrives with audio (Phase 6).
+        else if (cmd.cmd === 'play_se') AUDIO.playSe(cmd.key);
       },
       format: (text) =>
         formatDialogText(text, {
@@ -332,7 +335,10 @@ export class WorldScene extends Phaser.Scene {
     for (const event of this.mover.update(delta, dir, dash)) {
       if (event.type === 'turn')
         this.save.location = { ...this.save.location, facing: event.facing };
-      if (event.type === 'step_start') this.stepParity = !this.stepParity;
+      if (event.type === 'step_start') {
+        this.stepParity = !this.stepParity;
+        if (this.stepParity) AUDIO.playSe('se_step'); // every other tile (§15.2)
+      }
       if (event.type === 'step_end') this.onEnterTile(event.x, event.y);
       if (this.transitioning || this.interpreter.running) break;
     }
@@ -364,6 +370,7 @@ export class WorldScene extends Phaser.Scene {
       this.settings = parseSettings(readStorage(SETTINGS_KEY));
       this.dialogBox.setTextSpeed(TEXT_SPEED_MS[this.settings.textSpeed]);
       this.refreshHint();
+      AUDIO.applySettings(this.settings);
       this.input2.flush();
     });
     this.scene.launch(SceneKey.Menu, data);
@@ -437,6 +444,7 @@ export class WorldScene extends Phaser.Scene {
   private buildMap(mapId: string): void {
     this.mapId = mapId;
     const source = getMapSource(mapId);
+    AUDIO.playBgm(source.meta.bgmKey, 600); // the same key keeps playing across maps (§15.1)
     const cacheKey = `map:${mapId}`;
     if (!this.cache.tilemap.exists(cacheKey)) {
       this.cache.tilemap.add(cacheKey, {
@@ -490,6 +498,7 @@ export class WorldScene extends Phaser.Scene {
    */
   private async switchTide(tide: TideLevel): Promise<void> {
     this.input2.flush();
+    AUDIO.playSe('se_tide');
     await this.fade('out', TIDE_FADE_MS / 2, TIDE_FADE_COLOR);
     this.applyTide(tide);
     await this.fade('in', TIDE_FADE_MS / 2, TIDE_FADE_COLOR);
@@ -724,6 +733,8 @@ export class WorldScene extends Phaser.Scene {
           this.scene.resume(SceneKey.World);
           this.battleActive = false;
           this.input2.flush();
+          // The field tune restarts from the top after a battle (§15.1).
+          AUDIO.playBgm(getMapSource(this.mapId).meta.bgmKey, 0, { restart: true });
           this.afterBattle(result, options.source);
           if (result === 'lose' && !options.fromEvent) this.gameOver();
           resolve(result);
@@ -733,6 +744,7 @@ export class WorldScene extends Phaser.Scene {
           }
         },
       };
+      AUDIO.playSe('se_battle_start');
       void this.flashEncounter().then(() => {
         this.scene.launch(SceneKey.Battle, data);
         this.scene.pause(SceneKey.World);
@@ -932,6 +944,7 @@ export class WorldScene extends Phaser.Scene {
       this.showMessage(['からっぽだ。']);
       return;
     }
+    AUDIO.playSe('se_chest');
     if (chest.itemId === 'gold') {
       this.state.gold += chest.qty;
       this.flags.set(chest.flag, true);
@@ -1135,6 +1148,7 @@ export class WorldScene extends Phaser.Scene {
     this.transitioning = true;
     this.menuRequested = false;
     this.input2.flush();
+    AUDIO.playSe('se_door');
     return new Promise<void>((resolve) => {
       void this.fade('out', WARP_FADE_MS, 'black').then(() => {
         this.save.location = { map, x, y, facing };
@@ -1211,8 +1225,8 @@ export class WorldScene extends Phaser.Scene {
             },
           );
         }),
-      playBgm: () => undefined, // audio lands in Phase 6
-      playSe: () => undefined,
+      playBgm: (key, fadeMs) => AUDIO.playBgm(key, fadeMs),
+      playSe: (key) => AUDIO.playSe(key),
       healParty: () => this.healParty(),
       addMember: (id) => this.addMember(id),
       giveGold: (amount) => {
@@ -1357,6 +1371,7 @@ export class WorldScene extends Phaser.Scene {
 
   /** Black band with the chapter title, 2.5 s in total (§11.5). */
   private showChapter(title: string): Promise<void> {
+    AUDIO.playSe('se_fade');
     const band = this.add
       .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, 88, 0x000000, 0.85)
       .setScrollFactor(0)
