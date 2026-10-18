@@ -31,6 +31,8 @@ export function generatePlaceholder(scene: Phaser.Scene, asset: ImageAsset): voi
       return makeVine(scene, asset.key);
     case 'portrait':
       return makePortrait(scene, asset.key);
+    case 'kv':
+      return makeKeyVisual(scene, asset.key);
     case 'window':
       return makeWindow(scene, asset.key);
     case 'cursor':
@@ -293,6 +295,22 @@ function makeGate(scene: Phaser.Scene, key: string): void {
   g.fillRect(6, 8, 20, 2);
   g.fillRect(6, 24, 20, 2);
   g.generateTexture(key, T, T);
+  g.destroy();
+}
+
+/** A plain night-sky gradient standing in for a key visual that did not load. */
+function makeKeyVisual(scene: Phaser.Scene, key: string): void {
+  const g = graphics(scene);
+  const bands = 12;
+  const bandH = Math.ceil(GAME_HEIGHT / bands);
+  const a = Phaser.Display.Color.IntegerToColor(0x05061a);
+  const b = Phaser.Display.Color.IntegerToColor(COLORS.deepSea);
+  for (let i = 0; i < bands; i += 1) {
+    const c = Phaser.Display.Color.Interpolate.ColorWithColor(a, b, bands - 1, i);
+    g.fillStyle(Phaser.Display.Color.GetColor(c.r, c.g, c.b), 1);
+    g.fillRect(0, i * bandH, GAME_WIDTH, bandH);
+  }
+  g.generateTexture(key, GAME_WIDTH, GAME_HEIGHT);
   g.destroy();
 }
 

@@ -6,6 +6,7 @@ import { ENEMIES } from '@data/enemies';
 import { ACTOR_STYLES, renderActorSheet } from './actors';
 import { BATTLE_BG_IDS, renderBattleBackground } from './backgrounds';
 import { renderEnemy } from './enemies';
+import { KV_IDS, renderKeyVisual } from './kv';
 import {
   renderChest,
   renderCursor,
@@ -46,6 +47,9 @@ export function artFiles(): ArtFile[] {
       path: `enemies/${enemy.imageKey}.png`,
       render: () => renderEnemy(enemy.id, size),
     });
+  }
+  for (const id of KV_IDS) {
+    files.push({ path: `kv/${id}.png`, render: () => renderKeyVisual(id) });
   }
   for (const portrait of PORTRAITS) {
     files.push({ path: `portraits/${portrait.key}.png`, render: () => renderPortrait(portrait) });

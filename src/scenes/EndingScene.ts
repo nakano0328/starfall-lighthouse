@@ -42,9 +42,11 @@ export class EndingScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.input2.destroy());
 
     this.cameras.main.setBackgroundColor(COLORS.night);
+    // KV-02 (generated, docs/ADR/0003-generated-art.md): the relit lamp sits at (560, 86).
+    this.add.image(0, 0, 'kv_ending').setOrigin(0);
     this.spawnStars();
     const glow = this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT - 40, 'px_star')
+      .image(560, 86, 'px_star')
       .setScale(14)
       .setAlpha(0.25)
       .setTint(COLORS.star);
@@ -55,10 +57,6 @@ export class EndingScene extends Phaser.Scene {
       yoyo: true,
       repeat: -1,
     });
-    this.add
-      .image(GAME_WIDTH / 2, GAME_HEIGHT - 40, 'px_lighthouse')
-      .setScale(3)
-      .setOrigin(0.5, 1);
     this.add
       .text(GAME_WIDTH / 2, 60, ENDING_TEXT.caption, {
         fontFamily: 'sans-serif',

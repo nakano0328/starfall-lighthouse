@@ -17,6 +17,7 @@ export type PlaceholderKind =
   | 'gate'
   | 'vine'
   | 'portrait'
+  | 'kv'
   | 'window'
   | 'cursor'
   | 'star'
@@ -97,11 +98,17 @@ export const PORTRAIT_KEYS = [
 
 export type PortraitKey = (typeof PORTRAIT_KEYS)[number];
 
+/** Full-screen key visuals: title (KV-01), ending (KV-02), game over (KV-03). */
+export const KV_KEYS = ['kv_title', 'kv_ending', 'kv_gameover'] as const;
+
+export type KvKey = (typeof KV_KEYS)[number];
+
 export const IMAGE_KEYS = [
   'ts_placeholder',
   ...TILESET_KEYS,
   ...ACTOR_KEYS,
   ...PORTRAIT_KEYS,
+  ...KV_KEYS,
   'obj_chest',
   'obj_sign',
   'obj_save_point',
@@ -158,6 +165,7 @@ export const IMAGES: readonly ImageAsset[] = [
     src: `portraits/${key}.png`,
     placeholder: 'portrait',
   })),
+  ...KV_KEYS.map((key): ImageAsset => ({ key, src: `kv/${key}.png`, placeholder: 'kv' })),
   { key: 'obj_chest', src: 'objects/obj_chest.png', placeholder: 'chest' },
   { key: 'obj_sign', src: 'objects/obj_sign.png', placeholder: 'sign' },
   { key: 'obj_save_point', src: 'objects/obj_save_point.png', placeholder: 'save_point' },
