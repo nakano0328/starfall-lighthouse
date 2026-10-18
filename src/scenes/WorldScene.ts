@@ -21,6 +21,7 @@ import {
   updateSymbol,
 } from '@core/field/symbols';
 import { FACING_DELTA, GridMover } from '@core/grid/mover';
+import { controlsHint } from '@core/input/actions';
 import { cameraScroll } from '@core/map/camera';
 import { PLACEHOLDER_TILESET_NAME, compileMap } from '@core/map/compile';
 import type {
@@ -57,7 +58,7 @@ import { getMapSource } from '@data/maps';
 import { PARTY_NAMES } from '@data/names';
 import type { CharacterId, Facing } from '@data/types';
 import { DialogBox } from '@ui/DialogBox';
-import { InputBindings } from '@ui/InputBindings';
+import { INPUT_TRACKER, InputBindings } from '@ui/InputBindings';
 
 import type { BattleResult, BattleSceneData } from './BattleScene';
 import { SceneKey } from './keys';
@@ -156,6 +157,8 @@ export class WorldScene extends Phaser.Scene {
   private battleActive = false;
   private talkingTo: NpcRuntime | null = null;
   private settings!: Settings;
+  /** 操作ガイド (§11.1): bottom-right key hint, follows the last device used. */
+  private hint!: Phaser.GameObjects.Text;
   private runner!: DialogRunner;
   private dialogBox!: DialogBox;
   private interpreter!: EventInterpreter;
@@ -246,6 +249,18 @@ export class WorldScene extends Phaser.Scene {
       .text(8, 8, '', { fontFamily: 'sans-serif', fontSize: '12px', color: COLORS.textDim })
       .setScrollFactor(0)
       .setDepth(DEPTH.hud);
+    this.hint = this.add
+      .text(GAME_WIDTH - 8, GAME_HEIGHT - 2, '', {
+        fontFamily: 'sans-serif',
+        fontSize: '12px',
+        color: COLORS.textDim,
+      })
+      .setOrigin(1, 1)
+      .setScrollFactor(0)
+      .setDepth(DEPTH.hud);
+    this.refreshHint();
+    const offTracker = INPUT_TRACKER.onChange(() => this.refreshHint());
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, offTracker);
     this.syncPlayerSprite();
     this.updateCamera();
 
@@ -272,6 +287,7 @@ export class WorldScene extends Phaser.Scene {
   override update(_time: number, delta: number): void {
     if (this.transitioning) return;
     this.save.playTimeSec += delta / 1000;
+    this.input2.setTouchPadDimmed(this.dialogBox.isOpen);
     if (this.dialogBox.isOpen) {
       this.menuRequested = false;
       this.dialogBox.update(this.input2, delta);
@@ -331,13 +347,25 @@ export class WorldScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.RESUME, () => {
       this.settings = parseSettings(readStorage(SETTINGS_KEY));
       this.dialogBox.setTextSpeed(TEXT_SPEED_MS[this.settings.textSpeed]);
+      this.refreshHint();
       this.input2.flush();
     });
     this.scene.launch(SceneKey.Menu, data);
     this.scene.pause();
   }
 
+  /** The 操作ガイド line: off by the setting, and empty for touch (the pad is the guide). */
+  private refreshHint(): void {
+    const text = this.settings.showControls ? controlsHint(INPUT_TRACKER.device) : '';
+    this.hint.setText(text).setVisible(text.length > 0);
+  }
+
   // ---- probes for e2e / debugging ------------------------------------------
+
+  /** e2e/debug: the 操作ガイド text currently shown ('' when hidden). */
+  get controlsHintText(): string {
+    return this.hint.visible ? this.hint.text : '';
+  }
 
   get isDialogOpen(): boolean {
     return this.dialogBox.isOpen;

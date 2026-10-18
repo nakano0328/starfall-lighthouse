@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { COLORS, GAME_HEIGHT, GAME_WIDTH } from '@/config';
 import { equippedStats } from '@core/battle/battlers';
+import { buttonLabels } from '@core/input/actions';
 import {
   EQUIP_SLOTS,
   EQUIP_SLOT_NAMES,
@@ -40,7 +41,7 @@ import { getMapMeta } from '@data/maps';
 import { MIGRATION_CONTEXT, placeName } from '@data/saveContext';
 import { levelFromExp } from '@core/party/exp';
 import type { EquipSlot, ItemDef, Stats } from '@data/types';
-import { InputBindings } from '@ui/InputBindings';
+import { INPUT_TRACKER, InputBindings } from '@ui/InputBindings';
 import type { ListMenuItem } from '@ui/ListMenu';
 import { ListMenu } from '@ui/ListMenu';
 import { Window } from '@ui/Window';
@@ -623,7 +624,7 @@ export class MenuScene extends Phaser.Scene {
     labels.push(
       `${this.settingIndex === back ? '▶' : '　'} タイトルへ戻る`,
       '',
-      '← → で変更   X で もどる',
+      `← → で変更   ${buttonLabels(INPUT_TRACKER.device).cancel} で もどる`,
     );
     values.push('', '', '');
     this.panelText.setText(labels.join('\n'));
