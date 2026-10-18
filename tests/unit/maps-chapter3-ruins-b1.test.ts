@@ -138,7 +138,7 @@ describe('沈んだ遺跡 下層 (map_sunken_ruins_b1)', () => {
       bgmKey: 'bgm_ruins',
       battleBgKey: 'bg_ruins',
       encounterGroups: RUINS_B1_GROUPS,
-      tilesets: ['ts_placeholder'],
+      tilesets: ['ts_ruins'],
       canSaveAnywhere: false,
       tideAware: true,
     });
@@ -434,7 +434,7 @@ describe('沈んだ遺跡 下層 (map_sunken_ruins_b1)', () => {
       ty: 26,
       dialog: 'dlg_nox_idle',
       facing: 'up',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_nox',
       move: 'static',
       hiddenIf: '!ruins.nox_on_stage',
     });

@@ -27,6 +27,8 @@ export function generatePlaceholder(scene: Phaser.Scene, asset: ImageAsset): voi
       return makeSavePoint(scene, asset.key);
     case 'gate':
       return makeGate(scene, asset.key);
+    case 'vine':
+      return makeVine(scene, asset.key);
     case 'window':
       return makeWindow(scene, asset.key);
     case 'cursor':
@@ -288,6 +290,19 @@ function makeGate(scene: Phaser.Scene, key: string): void {
   for (const x of [9, 14, 19]) g.fillRect(x, 6, 3, 24);
   g.fillRect(6, 8, 20, 2);
   g.fillRect(6, 24, 20, 2);
+  g.generateTexture(key, T, T);
+  g.destroy();
+}
+
+/** A thorny tangle: the vine that blocks the forest path (§13 #7). */
+function makeVine(scene: Phaser.Scene, key: string): void {
+  const g = graphics(scene);
+  g.lineStyle(3, 0x3a7a2a, 1);
+  g.lineBetween(4, 26, 28, 8);
+  g.lineBetween(4, 12, 28, 22);
+  g.lineBetween(10, 30, 22, 4);
+  g.fillStyle(0xa84a8a, 1);
+  g.fillCircle(18, 8, 3);
   g.generateTexture(key, T, T);
   g.destroy();
 }

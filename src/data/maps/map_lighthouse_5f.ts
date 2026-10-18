@@ -59,7 +59,7 @@ export const map_lighthouse_5f: MapSource = {
     bgmKey: 'bgm_lighthouse',
     battleBgKey: 'bg_lighthouse',
     encounterGroups: ['grp_tower_d'],
-    tilesets: ['ts_placeholder'],
+    tilesets: ['ts_lighthouse'],
     entrance: { x: 2, y: 22, facing: 'down' },
     canSaveAnywhere: false,
   },

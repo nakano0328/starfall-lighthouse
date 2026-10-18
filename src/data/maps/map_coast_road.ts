@@ -18,7 +18,7 @@ export const map_coast_road: MapSource = {
     bgmKey: 'bgm_field',
     battleBgKey: 'bg_coast',
     encounterGroups: ['grp_coast_a', 'grp_coast_b'],
-    tilesets: ['ts_placeholder'],
+    tilesets: ['ts_village'],
     entrance: { x: 1, y: 12, facing: 'right' },
     canSaveAnywhere: false,
   },

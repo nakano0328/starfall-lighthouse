@@ -55,7 +55,7 @@ export const map_sunken_ruins_b1: MapSource = {
     bgmKey: 'bgm_ruins',
     battleBgKey: 'bg_ruins',
     encounterGroups: ['grp_ruins_b', 'grp_ruins_c', 'grp_ruins_d'],
-    tilesets: ['ts_placeholder'],
+    tilesets: ['ts_ruins'],
     entrance: { x: 3, y: 3, facing: 'down' },
     canSaveAnywhere: false,
     tideAware: true,
@@ -289,7 +289,7 @@ export const map_sunken_ruins_b1: MapSource = {
       y: 26,
       dialog: 'dlg_nox_idle',
       facing: 'up',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_nox',
       hidden_if: '!ruins.nox_on_stage',
     },
     // Normal symbols (§5.12): wander radius 3, respawn 60 s, 6+ tiles from the entrance

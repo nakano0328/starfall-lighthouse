@@ -11,7 +11,7 @@ export const map_minato_luka_house: MapSource = {
     bgmKey: 'bgm_village',
     battleBgKey: 'bg_coast',
     encounterGroups: [],
-    tilesets: ['ts_placeholder'],
+    tilesets: ['ts_interior'],
     entrance: { x: 5, y: 8, facing: 'up' },
     canSaveAnywhere: true,
   },
@@ -47,7 +47,7 @@ export const map_minato_luka_house: MapSource = {
       id: 'npc_grandpa',
       dialog: 'dlg_grandpa_entry',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_grandpa',
     },
     // New games start on this tile; the opening plays once (docs/GAME_DESIGN.md §10.3).
     { type: 'trigger', x: 7, y: 7, event_id: 'ev_opening', once: true },

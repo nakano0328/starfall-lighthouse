@@ -109,7 +109,7 @@ describe('灯台頂 (map_lighthouse_top)', () => {
       bgmKey: 'bgm_boss',
       battleBgKey: 'bg_lighthouse_top',
       encounterGroups: [],
-      tilesets: ['ts_placeholder'],
+      tilesets: ['ts_lighthouse'],
       entrance: { x: 10, y: 12, facing: 'up' },
       canSaveAnywhere: false,
     });
@@ -155,7 +155,7 @@ describe('灯台頂 (map_lighthouse_top)', () => {
       id: 'npc_nox_top',
       dialog: 'dlg_nox_top_idle',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_nox',
       move: 'static',
       hiddenIf: 'main.nox_defeated',
     });

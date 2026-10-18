@@ -34,7 +34,7 @@ export const map_hagane_town: MapSource = {
     bgmKey: 'bgm_village',
     battleBgKey: 'bg_mine',
     encounterGroups: [],
-    tilesets: ['ts_placeholder'],
+    tilesets: ['ts_village'],
     entrance: { x: 1, y: 14, facing: 'right' },
     canSaveAnywhere: true,
   },
@@ -150,7 +150,7 @@ export const map_hagane_town: MapSource = {
       id: 'npc_hagane_south_guard',
       dialog: 'dlg_hagane_south_guard',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_guard',
       hidden_if: 'fragments.count>=2',
     },
     // The elder looks down over the town from the terrace, in front of his house.
@@ -161,7 +161,7 @@ export const map_hagane_town: MapSource = {
       id: 'npc_hagane_elder',
       dialog: 'dlg_hagane_elder',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_elder',
     },
     // Wanders the open square east of the crossroads.
     {
@@ -171,7 +171,7 @@ export const map_hagane_town: MapSource = {
       id: 'npc_hagane_miner_a',
       dialog: 'dlg_hagane_miner_a',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_miner',
       move: 'random',
     },
     // Stares at the rail that leads up to the sealed mine.
@@ -182,7 +182,7 @@ export const map_hagane_town: MapSource = {
       id: 'npc_hagane_miner_b',
       dialog: 'dlg_hagane_miner_b',
       facing: 'left',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_miner',
     },
     // Wanders the open square between the inn and the south-west house.
     {
@@ -192,7 +192,7 @@ export const map_hagane_town: MapSource = {
       id: 'npc_hagane_child',
       dialog: 'dlg_hagane_child',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_boy',
       move: 'random',
     },
     {
@@ -202,7 +202,7 @@ export const map_hagane_town: MapSource = {
       id: 'npc_hagane_woman',
       dialog: 'dlg_hagane_woman',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_woman',
     },
     // ---- signs, save point, chest -------------------------------------------
     { type: 'sign', x: 16, y: 13, text_id: 'dlg_sign_hagane' },

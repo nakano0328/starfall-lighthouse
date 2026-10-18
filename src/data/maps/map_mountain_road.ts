@@ -28,7 +28,7 @@ export const map_mountain_road: MapSource = {
     bgmKey: 'bgm_field',
     battleBgKey: 'bg_mine',
     encounterGroups: ['grp_forest_b', 'grp_mine_a'],
-    tilesets: ['ts_placeholder'],
+    tilesets: ['ts_village'],
     entrance: { x: 1, y: 17, facing: 'right' },
     canSaveAnywhere: false,
   },

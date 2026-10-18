@@ -197,7 +197,7 @@ describe('灯台の塔 5F（灯室前） (map_lighthouse_5f)', () => {
       bgmKey: 'bgm_lighthouse',
       battleBgKey: 'bg_lighthouse',
       encounterGroups: GROUPS,
-      tilesets: ['ts_placeholder'],
+      tilesets: ['ts_lighthouse'],
       entrance: { x: 2, y: 22, facing: 'down' },
       canSaveAnywhere: false,
     });

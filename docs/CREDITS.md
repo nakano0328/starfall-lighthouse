@@ -41,3 +41,5 @@
 ## 画像（生成素材）
 
 キービジュアル・立ち絵・顔アイコン・敵の一枚絵・戦闘背景・UI・アイコンは本プロジェクト用に生成したものです。各素材の採用プロンプトと生成記録は `docs/ART_PROMPTS.md` §5.2 のチェックリストに残します。
+
+タイルセット（`public/assets/images/tiles/ts_*.png`）はリポジトリ内のスクリプト `scripts/art/`（`npm run art`）がコードから描いたもので、ソースコードと同じ MIT ライセンスです（`docs/ADR/0003-generated-art.md`）。

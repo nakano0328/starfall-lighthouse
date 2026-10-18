@@ -222,7 +222,7 @@ describe('chapter 2 ハガネ maps: dimensions and meta (§3.1)', () => {
         bgmKey: 'bgm_village',
         battleBgKey: 'bg_mine',
         encounterGroups: [],
-        tilesets: ['ts_placeholder'],
+        tilesets: [want.kind === 'town' ? 'ts_village' : 'ts_interior'],
         entrance: want.entrance,
         canSaveAnywhere: true,
       });
@@ -429,7 +429,7 @@ describe('鉱山町ハガネ gates', () => {
       ty: 25,
       dialog: 'dlg_hagane_south_guard',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_guard',
       move: 'static',
       hiddenIf: 'fragments.count>=2',
     });
@@ -519,8 +519,16 @@ describe('鉱山町ハガネ townsfolk and furniture', () => {
       },
       { id: 'npc_hagane_woman', dialog: 'dlg_hagane_woman', move: 'static', facing: 'down' },
     ]);
+    const TOWN_SPRITES: Record<string, string> = {
+      npc_hagane_south_guard: 'sprite_guard',
+      npc_hagane_child: 'sprite_boy',
+      npc_hagane_elder: 'sprite_elder',
+      npc_hagane_miner_a: 'sprite_miner',
+      npc_hagane_miner_b: 'sprite_miner',
+      npc_hagane_woman: 'sprite_woman',
+    };
     for (const o of npcsOf(TOWN)) {
-      expect(o.sprite, o.id).toBe('sprite_npc');
+      expect(o.sprite, o.id).toBe(TOWN_SPRITES[o.id]);
       expect(o.shop, o.id).toBeUndefined();
       expect(o.innPrice, o.id).toBeUndefined();
       expect(o.markers, o.id).toBeUndefined();
@@ -587,7 +595,7 @@ describe('宿屋「つるはし」 (map_hagane_inn)', () => {
       id: 'npc_hagane_innkeeper',
       dialog: 'dlg_hagane_innkeeper',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_innkeeper',
       move: 'static',
       innPrice: 40,
     });
@@ -607,7 +615,7 @@ describe('ハガネのかじや (map_hagane_shop)', () => {
     expect(smith).toMatchObject({
       dialog: 'dlg_hagane_smith',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_smith',
       move: 'static',
       shop: 'shop_hagane_arms',
       markers: [
@@ -625,7 +633,7 @@ describe('ハガネのかじや (map_hagane_shop)', () => {
     expect(clerk).toMatchObject({
       dialog: 'dlg_hagane_clerk',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_merchant',
       move: 'static',
       shop: 'shop_hagane_items',
     });
@@ -657,7 +665,7 @@ describe('ゴローの家 (map_hagane_goro_house)', () => {
       ty: 5,
       dialog: 'dlg_goro_home',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_goro',
       move: 'static',
       hiddenIf: 'hagane.goro_joined',
     });

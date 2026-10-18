@@ -292,7 +292,7 @@ describe('磯の道 (map_shore_path)', () => {
       bgmKey: 'bgm_field',
       battleBgKey: 'bg_coast',
       encounterGroups: ['grp_ruins_a', 'grp_mine_a'],
-      tilesets: ['ts_placeholder'],
+      tilesets: ['ts_village'],
       entrance: { x: 19, y: 1, facing: 'down' },
       canSaveAnywhere: false,
     });

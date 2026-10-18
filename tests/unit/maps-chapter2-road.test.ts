@@ -197,7 +197,7 @@ describe('山道 (map_mountain_road)', () => {
       bgmKey: 'bgm_field',
       battleBgKey: 'bg_mine',
       encounterGroups: ['grp_forest_b', 'grp_mine_a'],
-      tilesets: ['ts_placeholder'],
+      tilesets: ['ts_village'],
       canSaveAnywhere: false,
     });
     expect(map_mountain_road.overlay).toBeUndefined();

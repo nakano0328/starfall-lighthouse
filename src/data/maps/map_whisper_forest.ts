@@ -29,7 +29,7 @@ export const map_whisper_forest: MapSource = {
     bgmKey: 'bgm_forest',
     battleBgKey: 'bg_forest',
     encounterGroups: ['grp_forest_a', 'grp_forest_b', 'grp_forest_c'],
-    tilesets: ['ts_placeholder'],
+    tilesets: ['ts_forest'],
     entrance: { x: 1, y: 20, facing: 'right' },
     canSaveAnywhere: false,
   },
@@ -122,7 +122,7 @@ export const map_whisper_forest: MapSource = {
       id: 'npc_forest_vine',
       dialog: 'dlg_forest_vine',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'obj_vine',
       hidden_if: 'fragments.count>=1',
     },
     // Signs: one by the entrance, one beside the shrine door (「ウロは火を恐れる」, §13 #6).

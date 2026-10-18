@@ -14,7 +14,7 @@ export const map_hagane_goro_house: MapSource = {
     bgmKey: 'bgm_village',
     battleBgKey: 'bg_mine',
     encounterGroups: [],
-    tilesets: ['ts_placeholder'],
+    tilesets: ['ts_interior'],
     entrance: { x: 5, y: 8, facing: 'up' },
     canSaveAnywhere: true,
   },
@@ -52,7 +52,7 @@ export const map_hagane_goro_house: MapSource = {
       id: 'npc_goro',
       dialog: 'dlg_goro_home',
       facing: 'down',
-      sprite: 'sprite_npc',
+      sprite: 'sprite_goro',
       hidden_if: 'hagane.goro_joined',
     },
     // The tile in front of Goro, two steps in from the door.
