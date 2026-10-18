@@ -150,3 +150,49 @@ export function renderCursor(): Pixmap {
   pm.outline(0x3a2a10);
   return pm;
 }
+
+/**
+ * 96×96 window frame for 9-slice use (UI-01, 32 px slices): a navy body at 85 %
+ * alpha, a brass double border and a small star ornament in each corner.
+ */
+export function renderWindowFrame(): Pixmap {
+  const pm = new Pixmap(96, 96);
+  const navy = 0x12264a;
+  const brass = 0xc9a66b;
+  const brassDark = shade(brass, -0.35);
+  const brassLight = shade(brass, 0.3);
+  pm.fillRect(0, 0, 96, 96, navy, 217);
+  // Outer dark edge, brass band, inner thin line.
+  pm.strokeRect(0, 0, 96, 96, 0x0b1026);
+  pm.strokeRect(1, 1, 94, 94, brassDark);
+  pm.strokeRect(2, 2, 92, 92, brass);
+  pm.strokeRect(3, 3, 90, 90, brassLight);
+  pm.strokeRect(6, 6, 84, 84, 0xf4f1ea, 90);
+  // Rounded corners: knock out the very corner pixels.
+  for (const [x, y] of [
+    [0, 0],
+    [95, 0],
+    [0, 95],
+    [95, 95],
+  ]) {
+    pm.set(x ?? 0, y ?? 0, 0, 0);
+  }
+  // Corner stars (inside the 32 px corner slices so they never stretch).
+  for (const [cx, cy] of [
+    [9, 9],
+    [86, 9],
+    [9, 86],
+    [86, 86],
+  ]) {
+    const x = cx ?? 0;
+    const y = cy ?? 0;
+    pm.fillRect(x - 3, y, 7, 1, brassLight);
+    pm.fillRect(x, y - 3, 1, 7, brassLight);
+    pm.set(x - 1, y - 1, brass);
+    pm.set(x + 1, y - 1, brass);
+    pm.set(x - 1, y + 1, brass);
+    pm.set(x + 1, y + 1, brass);
+    pm.set(x, y, 0xffffff);
+  }
+  return pm;
+}

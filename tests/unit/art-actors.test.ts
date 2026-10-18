@@ -94,3 +94,17 @@ describe('generated objects', () => {
     expect(imageAsset('ui_cursor').src).toBe('ui/ui_cursor.png');
   });
 });
+
+describe('generated window frame (UI-01)', () => {
+  it('is a 96×96 9-slice with a translucent body and opaque brass edges', async () => {
+    const { renderWindowFrame } = await import('../../scripts/art/objects');
+    const pm = renderWindowFrame();
+    expect([pm.width, pm.height]).toEqual([96, 96]);
+    expect(pm.get(48, 48).a).toBeLessThan(255);
+    expect(pm.get(48, 48).a).toBeGreaterThan(150);
+    expect(pm.get(2, 48).a).toBe(255);
+    expect(pm.get(0, 0).a).toBe(0);
+    const { imageAsset } = await import('@/assets/manifest');
+    expect(imageAsset('ui_window').src).toBe('ui/ui_window.png');
+  });
+});

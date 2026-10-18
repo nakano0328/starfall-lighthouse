@@ -14,6 +14,7 @@ import {
   renderSavePoint,
   renderSign,
   renderVine,
+  renderWindowFrame,
 } from './objects';
 import type { Pixmap } from './pixmap';
 import { PORTRAITS, renderPortrait } from './portraits';
@@ -61,6 +62,7 @@ export function artFiles(): ArtFile[] {
     { path: 'objects/obj_gate.png', render: renderGate },
     { path: 'objects/obj_vine.png', render: renderVine },
     { path: 'ui/ui_cursor.png', render: renderCursor },
+    { path: 'ui/ui_window.png', render: renderWindowFrame },
   );
   return files;
 }

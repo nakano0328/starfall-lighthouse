@@ -171,7 +171,7 @@ export const IMAGES: readonly ImageAsset[] = [
   { key: 'obj_save_point', src: 'objects/obj_save_point.png', placeholder: 'save_point' },
   { key: 'obj_gate', src: 'objects/obj_gate.png', placeholder: 'gate' },
   { key: 'obj_vine', src: 'objects/obj_vine.png', placeholder: 'vine' },
-  { key: 'ui_window', src: null, placeholder: 'window' },
+  { key: 'ui_window', src: 'ui/ui_window.png', placeholder: 'window' },
   { key: 'ui_cursor', src: 'ui/ui_cursor.png', placeholder: 'cursor' },
   { key: 'px_star', src: null, placeholder: 'star' },
   { key: 'px_lighthouse', src: null, placeholder: 'lighthouse' },
