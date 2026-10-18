@@ -2,6 +2,7 @@ import type { EventCommand } from '@data/types';
 
 import forest from './forest.json';
 import hagane from './hagane.json';
+import lighthouse from './lighthouse.json';
 import minato from './minato.json';
 import mine from './mine.json';
 import ruins from './ruins.json';
@@ -9,6 +10,7 @@ import ruins from './ruins.json';
 const FILES: Readonly<Record<string, Readonly<Record<string, EventCommand[]>>>> = {
   forest: forest as Record<string, EventCommand[]>,
   hagane: hagane as Record<string, EventCommand[]>,
+  lighthouse: lighthouse as Record<string, EventCommand[]>,
   minato: minato as Record<string, EventCommand[]>,
   mine: mine as Record<string, EventCommand[]>,
   ruins: ruins as Record<string, EventCommand[]>,

@@ -14,6 +14,7 @@ export type PlaceholderKind =
   | 'chest'
   | 'sign'
   | 'save_point'
+  | 'gate'
   | 'window'
   | 'cursor'
   | 'star'
@@ -40,6 +41,7 @@ export const IMAGE_KEYS = [
   'obj_chest',
   'obj_sign',
   'obj_save_point',
+  'obj_gate',
   'ui_window',
   'ui_cursor',
   'px_star',
@@ -80,6 +82,7 @@ export const IMAGES: readonly ImageAsset[] = [
   { key: 'obj_chest', src: null, placeholder: 'chest' },
   { key: 'obj_sign', src: null, placeholder: 'sign' },
   { key: 'obj_save_point', src: null, placeholder: 'save_point' },
+  { key: 'obj_gate', src: null, placeholder: 'gate' },
   { key: 'ui_window', src: null, placeholder: 'window' },
   { key: 'ui_cursor', src: null, placeholder: 'cursor' },
   { key: 'px_star', src: null, placeholder: 'star' },
