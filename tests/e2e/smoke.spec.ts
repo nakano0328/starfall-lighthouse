@@ -1626,7 +1626,9 @@ test('ending: end_game rewinds the save to 5F, rolls the credits and stars the t
   );
   const slots = (await title()).slots;
   expect(slots.some((l) => l.startsWith('オート') && !l.includes('----'))).toBe(true);
-  // The three empty slots are disabled, so the cursor already rests on オート.
+  // The three empty slots are disabled, so the cursor already rests on オート. Give the
+  // confirm debounce (120 ms) time to clear after the z that opened the list.
+  await page.waitForTimeout(200);
   await page.keyboard.press('z');
   await page.waitForFunction(() => window.__starfall?.scene === 'World', undefined, {
     timeout: 10_000,
