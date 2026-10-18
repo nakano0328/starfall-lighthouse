@@ -135,10 +135,15 @@ export class InputBindings {
   /**
    * Direction currently requested, preferring the most recently pressed key when
    * several are held. Call once per frame before reading.
+   *
+   * A direction pressed since the last frame counts as held for this frame even if
+   * it was released again already: Phaser applies key events as they arrive, so a
+   * quick tap (automation, or a short press on a slow device) could otherwise go down
+   * and up between two updates and never turn or step the player.
    */
   heldDirection(): Facing | null {
     for (const dir of DIRECTION_ACTIONS) {
-      const down = this.isDown(dir);
+      const down = this.isDown(dir) || this.pending.has(dir);
       const idx = this.pressOrder.indexOf(dir);
       if (down && idx === -1) this.pressOrder.push(dir);
       if (!down && idx !== -1) this.pressOrder.splice(idx, 1);
