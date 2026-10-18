@@ -947,10 +947,13 @@ test('shop, inn and equipment: buy a herb, sleep, then change the weapon', async
   await waitForField(page, 'isDialogOpen', true);
   await pressThrough(page, 'dialog');
   await waitForShopMode(page, 'root');
+  await page.waitForTimeout(150); // confirm debounce (§11.4)
   await page.keyboard.press('z'); // 買う
   await waitForShopMode(page, 'buy');
+  await page.waitForTimeout(150); // confirm debounce (§11.4)
   await page.keyboard.press('z'); // やくそう
   await waitForShopMode(page, 'qty');
+  await page.waitForTimeout(150); // confirm debounce (§11.4)
   await page.keyboard.press('z'); // 1 piece
   await waitForShopMode(page, 'confirm');
   await page.keyboard.press('ArrowDown'); // はい
@@ -1626,9 +1629,9 @@ test('ending: end_game rewinds the save to 5F, rolls the credits and stars the t
   );
   const slots = (await title()).slots;
   expect(slots.some((l) => l.startsWith('オート') && !l.includes('----'))).toBe(true);
-  // The three empty slots are disabled, so the cursor already rests on オート. Give the
-  // confirm debounce (120 ms) time to clear after the z that opened the list.
-  await page.waitForTimeout(200);
+  // The three empty slots are disabled, so the cursor already rests on オート. The
+  // wait keeps this confirm clear of the previous one's 120 ms debounce.
+  await page.waitForTimeout(300);
   await page.keyboard.press('z');
   await page.waitForFunction(() => window.__starfall?.scene === 'World', undefined, {
     timeout: 10_000,
@@ -1778,6 +1781,12 @@ test('final chapter: the key, the tower floors, the fountain and ノクス at th
     ]);
   });
   await waitForField(page, 'isEventRunning', false);
+  // ノクス acts first and hits hard; a level-1 party only survives his opening on a lucky
+  // roll. Max out the party so the scripted one-blow fight is about the flow, not RNG.
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+    for (const m of w.gameState.party) (m as { exp: number }).exp = 10_000_000;
+  });
 
   // With three fragments grandpa hands over the key, the letter and two feathers.
   await warpTo(page, 'map_minato_luka_house', 7, 4, 'up');
@@ -1837,10 +1846,11 @@ test('final chapter: the key, the tower floors, the fountain and ノクス at th
 
   // 5F: the letter wakes the fountain, which heals once, then the last stairs.
   await walkRoute(page, TOWER.f5ToPedestal);
-  await page.keyboard.press(
+  // A held tap turns toward the solid tile; a bare press can fall between two slow frames.
+  await tapKey(
+    page,
     `Arrow${TOWER.pedestalFacing[0]!.toUpperCase()}${TOWER.pedestalFacing.slice(1)}`,
   );
-  await page.waitForTimeout(150);
   await page.keyboard.press('z');
   await waitForField(page, 'isEventRunning', true);
   await pressThrough(page, 'event');
@@ -1850,10 +1860,11 @@ test('final chapter: the key, the tower floors, the fountain and ノクス at th
     for (const m of w.gameState.party) m.hp = 1;
   });
   await walkRoute(page, TOWER.f5ToFountain);
-  await page.keyboard.press(
+  // A held tap turns toward the solid tile; a bare press can fall between two slow frames.
+  await tapKey(
+    page,
     `Arrow${TOWER.fountainFacing[0]!.toUpperCase()}${TOWER.fountainFacing.slice(1)}`,
   );
-  await page.waitForTimeout(150);
   await page.keyboard.press('z');
   await waitForField(page, 'isDialogOpen', true);
   await pressThrough(page, 'dialog');
