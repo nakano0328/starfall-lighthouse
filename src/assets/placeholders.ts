@@ -29,6 +29,8 @@ export function generatePlaceholder(scene: Phaser.Scene, asset: ImageAsset): voi
       return makeGate(scene, asset.key);
     case 'vine':
       return makeVine(scene, asset.key);
+    case 'portrait':
+      return makePortrait(scene, asset.key);
     case 'window':
       return makeWindow(scene, asset.key);
     case 'cursor':
@@ -291,6 +293,18 @@ function makeGate(scene: Phaser.Scene, key: string): void {
   g.fillRect(6, 8, 20, 2);
   g.fillRect(6, 24, 20, 2);
   g.generateTexture(key, T, T);
+  g.destroy();
+}
+
+/** A 96×96 bust silhouette for a dialogue portrait whose image did not load. */
+function makePortrait(scene: Phaser.Scene, key: string): void {
+  const g = graphics(scene);
+  g.fillStyle(COLORS.deepSea, 1);
+  g.fillRect(0, 0, 96, 96);
+  g.fillStyle(0x9aa6c8, 1);
+  g.fillCircle(48, 40, 22);
+  g.fillEllipse(48, 92, 70, 40);
+  g.generateTexture(key, 96, 96);
   g.destroy();
 }
 

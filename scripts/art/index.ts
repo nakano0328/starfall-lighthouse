@@ -1,7 +1,11 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { ENEMIES } from '@data/enemies';
+
 import { ACTOR_STYLES, renderActorSheet } from './actors';
+import { BATTLE_BG_IDS, renderBattleBackground } from './backgrounds';
+import { renderEnemy } from './enemies';
 import {
   renderChest,
   renderCursor,
@@ -11,6 +15,7 @@ import {
   renderVine,
 } from './objects';
 import type { Pixmap } from './pixmap';
+import { PORTRAITS, renderPortrait } from './portraits';
 import { AREA_IDS, renderTileset } from './tiles';
 
 /**
@@ -31,6 +36,19 @@ export function artFiles(): ArtFile[] {
   }
   for (const [key, style] of Object.entries(ACTOR_STYLES)) {
     files.push({ path: `characters/${key}.png`, render: () => renderActorSheet(style) });
+  }
+  for (const id of BATTLE_BG_IDS) {
+    files.push({ path: `backgrounds/${id}.png`, render: () => renderBattleBackground(id) });
+  }
+  for (const enemy of ENEMIES) {
+    const size = Math.round(96 * (enemy.scale ?? 1));
+    files.push({
+      path: `enemies/${enemy.imageKey}.png`,
+      render: () => renderEnemy(enemy.id, size),
+    });
+  }
+  for (const portrait of PORTRAITS) {
+    files.push({ path: `portraits/${portrait.key}.png`, render: () => renderPortrait(portrait) });
   }
   files.push(
     { path: 'objects/obj_chest.png', render: renderChest },
