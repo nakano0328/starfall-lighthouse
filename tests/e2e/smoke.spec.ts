@@ -1781,6 +1781,12 @@ test('final chapter: the key, the tower floors, the fountain and ノクス at th
     ]);
   });
   await waitForField(page, 'isEventRunning', false);
+  // ノクス acts first and hits hard; a level-1 party only survives his opening on a lucky
+  // roll. Max out the party so the scripted one-blow fight is about the flow, not RNG.
+  await page.evaluate(() => {
+    const w = (window.__starfall?.game as Game).scene.getScene<ChapterProbe>('World');
+    for (const m of w.gameState.party) (m as { exp: number }).exp = 10_000_000;
+  });
 
   // With three fragments grandpa hands over the key, the letter and two feathers.
   await warpTo(page, 'map_minato_luka_house', 7, 4, 'up');
