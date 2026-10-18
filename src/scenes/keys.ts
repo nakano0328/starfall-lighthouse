@@ -7,6 +7,7 @@ export const SceneKey = {
   Battle: 'Battle',
   GameOver: 'GameOver',
   Shop: 'Shop',
+  Ending: 'Ending',
 } as const;
 
 export type SceneKey = (typeof SceneKey)[keyof typeof SceneKey];

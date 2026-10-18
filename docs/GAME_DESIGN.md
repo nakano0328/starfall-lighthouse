@@ -1080,7 +1080,7 @@ interface SaveData {
 
 - `deserialize` は壊れた JSON・形違い・**より新しい schemaVersion** を `null` にする。古いバージョンは `migrate()` で 1 段ずつ上げる。
 - `createNewSave` は `location.map = 'map_minato_luka_house'`（x7, y7, up）を返す（`tests/unit/save.test.ts` で検証）。ニューゲーム直後に同じタイルの `trigger` が `ev_opening` を発火する（§10.3）。
-- スロット以外に `starfall.save.auto`（ボス前自動バックアップ、§5.11）と `starfall.settings`（設定）を持つ。これらは `SAVE_SLOT_COUNT` の範囲外で `slotKey()` を通さない。
+- スロット以外に `starfall.save.auto`（ボス前自動バックアップ、§5.11。エンディング開始時の巻き戻し保存（§13 #20）もここに書く）と `starfall.settings`（設定）を持つ。これらは `SAVE_SLOT_COUNT` の範囲外で `slotKey()` を通さない。オートは「つづきから」とゲームオーバーの「最後のセーブから再開」でスロットと同じように読める（手動スロットは上書きしない）。
 
 ### 12.2 現行スキーマ v2（`src/core/save.ts` と一致）
 

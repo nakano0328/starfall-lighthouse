@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 import { COLORS, GAME_HEIGHT, GAME_WIDTH } from '@/config';
 import type { SaveData } from '@core/save';
-import { SAVE_SLOT_COUNT, deserialize, slotKey } from '@core/save';
+import { allSaveKeys, readSave } from '@core/save';
 import { MIGRATION_CONTEXT, loadGameState } from '@data/saveContext';
 import { InputBindings } from '@ui/InputBindings';
 import type { ListMenuItem } from '@ui/ListMenu';
@@ -83,12 +83,11 @@ export class GameOverScene extends Phaser.Scene {
   }
 }
 
-/** The save with the newest `savedAt` across the slots, or null when none exists. */
+/** The save with the newest `savedAt` across the slots and the auto backup, or null when none exists. */
 export function latestSave(read: (key: string) => string | null): SaveData | null {
   let best: SaveData | null = null;
-  for (let slot = 0; slot < SAVE_SLOT_COUNT; slot += 1) {
-    const raw = read(slotKey(slot));
-    const data = raw === null ? null : deserialize(raw, MIGRATION_CONTEXT);
+  for (const key of allSaveKeys()) {
+    const data = readSave(read, key, MIGRATION_CONTEXT);
     if (data && (best === null || data.savedAt > best.savedAt)) best = data;
   }
   return best;

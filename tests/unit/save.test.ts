@@ -4,13 +4,17 @@ import { Flags } from '@core/flags';
 import { Inventory } from '@core/inventory';
 import type { Facing, MigrationContext, SaveLocation, SavedMember } from '@core/save';
 import {
+  SAVE_KEY_AUTO,
   SAVE_SCHEMA_VERSION,
   SAVE_SLOT_COUNT,
+  allSaveKeys,
+  anySaveCleared,
   chapterName,
   createNewSave,
   deserialize,
   findSlotsWithSaves,
   formatPlayTime,
+  readSave,
   serialize,
   slotKey,
   slotSummary,
@@ -147,6 +151,23 @@ describe('findSlotsWithSaves', () => {
     ]);
     expect(findSlotsWithSaves((k) => store.get(k) ?? null, ctx)).toEqual([0]);
     expect(findSlotsWithSaves(() => null, ctx)).toEqual([]);
+  });
+});
+
+describe('readSave / allSaveKeys / anySaveCleared', () => {
+  it('reads slots and the auto backup through one accessor', () => {
+    const store = new Map<string, string>();
+    const read = (key: string): string | null => store.get(key) ?? null;
+    expect(allSaveKeys()).toEqual([slotKey(0), slotKey(1), slotKey(2), SAVE_KEY_AUTO]);
+    expect(readSave(read, SAVE_KEY_AUTO, ctx)).toBeNull();
+    expect(anySaveCleared(read, ctx)).toBe(false);
+    const cleared = createNewSave(5, [luka]);
+    cleared.flags['main.ending_seen'] = true;
+    store.set(SAVE_KEY_AUTO, serialize(cleared));
+    expect(readSave(read, SAVE_KEY_AUTO, ctx)?.flags['main.ending_seen']).toBe(true);
+    expect(anySaveCleared(read, ctx)).toBe(true);
+    store.set(slotKey(1), '{broken');
+    expect(readSave(read, slotKey(1), ctx)).toBeNull();
   });
 });
 

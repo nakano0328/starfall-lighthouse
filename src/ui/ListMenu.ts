@@ -68,6 +68,11 @@ export class ListMenu extends Phaser.GameObjects.Container {
     return this.index;
   }
 
+  /** e2e/debug: the labels in order. */
+  get itemLabels(): string[] {
+    return this.items.map((i) => i.label);
+  }
+
   setSelected(index: number): void {
     if (isSelectable(this.items, index)) {
       this.index = index;
