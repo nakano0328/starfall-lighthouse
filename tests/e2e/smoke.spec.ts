@@ -1004,10 +1004,13 @@ test('shop, inn and equipment: buy a herb, sleep, then change the weapon', async
   }
   await page.keyboard.press('z');
   await waitForMenuMode(page, 'equip');
+  await page.waitForTimeout(150); // confirm debounce (§11.4)
   await page.keyboard.press('z'); // ルカ
   await waitForMenuMode(page, 'equip_slots');
+  await page.waitForTimeout(150);
   await page.keyboard.press('z'); // 武器
   await waitForMenuMode(page, 'equip_pick');
+  await page.waitForTimeout(150);
   await page.keyboard.press('z'); // the tier-2 sword
   await waitForMenuMode(page, 'equip_slots');
   const equipped = await economy(page);
@@ -1727,6 +1730,7 @@ async function fightWeakened(page: Page, maxTurns = 12): Promise<void> {
       undefined,
       { timeout: 5_000 },
     );
+    await page.waitForTimeout(150); // confirm debounce (§11.4)
     await page.keyboard.press('z');
     await page.waitForTimeout(200);
   }
