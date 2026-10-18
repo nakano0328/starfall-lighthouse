@@ -1629,9 +1629,9 @@ test('ending: end_game rewinds the save to 5F, rolls the credits and stars the t
   );
   const slots = (await title()).slots;
   expect(slots.some((l) => l.startsWith('オート') && !l.includes('----'))).toBe(true);
-  // The three empty slots are disabled, so the cursor already rests on オート. Give the
-  // confirm debounce (120 ms) time to clear after the z that opened the list.
-  await page.waitForTimeout(200);
+  // The three empty slots are disabled, so the cursor already rests on オート. The
+  // wait keeps this confirm clear of the previous one's 120 ms debounce.
+  await page.waitForTimeout(300);
   await page.keyboard.press('z');
   await page.waitForFunction(() => window.__starfall?.scene === 'World', undefined, {
     timeout: 10_000,
@@ -1840,10 +1840,11 @@ test('final chapter: the key, the tower floors, the fountain and ノクス at th
 
   // 5F: the letter wakes the fountain, which heals once, then the last stairs.
   await walkRoute(page, TOWER.f5ToPedestal);
-  await page.keyboard.press(
+  // A held tap turns toward the solid tile; a bare press can fall between two slow frames.
+  await tapKey(
+    page,
     `Arrow${TOWER.pedestalFacing[0]!.toUpperCase()}${TOWER.pedestalFacing.slice(1)}`,
   );
-  await page.waitForTimeout(150);
   await page.keyboard.press('z');
   await waitForField(page, 'isEventRunning', true);
   await pressThrough(page, 'event');
@@ -1853,10 +1854,11 @@ test('final chapter: the key, the tower floors, the fountain and ノクス at th
     for (const m of w.gameState.party) m.hp = 1;
   });
   await walkRoute(page, TOWER.f5ToFountain);
-  await page.keyboard.press(
+  // A held tap turns toward the solid tile; a bare press can fall between two slow frames.
+  await tapKey(
+    page,
     `Arrow${TOWER.fountainFacing[0]!.toUpperCase()}${TOWER.fountainFacing.slice(1)}`,
   );
-  await page.waitForTimeout(150);
   await page.keyboard.press('z');
   await waitForField(page, 'isDialogOpen', true);
   await pressThrough(page, 'dialog');
